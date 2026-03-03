@@ -12,7 +12,8 @@ import {
   FileText,
   FileSpreadsheet,
   FileCode,
-  File
+  File,
+  RefreshCw
 } from 'lucide-react';
 import { 
   ComposedChart, 
@@ -27,6 +28,7 @@ import {
   Area
 } from 'recharts';
 import { useTransactions } from '../src/context/TransactionContext';
+import { BankReconciliationModal } from './BankReconciliationModal';
 
 export const CashFlow: React.FC = () => {
   const { transactions, accounts } = useTransactions();
@@ -35,6 +37,7 @@ export const CashFlow: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isReconciliationOpen, setIsReconciliationOpen] = useState(false);
   const [filters, setFilters] = useState({
     date: '',
     description: '',
@@ -747,6 +750,15 @@ export const CashFlow: React.FC = () => {
           </div>
           <div className="relative">
             <button 
+              onClick={() => setIsReconciliationOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium shadow-sm"
+            >
+              <RefreshCw size={16} />
+              <span>Conciliação</span>
+            </button>
+          </div>
+          <div className="relative">
+            <button 
               onClick={() => setIsExportOpen(!isExportOpen)}
               className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium shadow-sm"
             >
@@ -1043,6 +1055,10 @@ export const CashFlow: React.FC = () => {
           </table>
         </div>
       </div>
+      <BankReconciliationModal 
+        isOpen={isReconciliationOpen} 
+        onClose={() => setIsReconciliationOpen(false)} 
+      />
     </div>
   );
 };

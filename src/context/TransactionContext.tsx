@@ -135,7 +135,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           bankId: p.bank_id,
           destination: p.destination,
           source: p.source,
-          status: p.status
+          status: p.status,
+          reconciled: p.reconciled || false
         }))
       })));
 
@@ -200,7 +201,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
             bank_id: p.bankId,
             destination: p.destination,
             source: p.source,
-            status: p.status
+            status: p.status,
+            reconciled: p.reconciled || false
           })));
         
         if (payError) throw payError;
@@ -255,7 +257,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
             bank_id: p.bankId,
             destination: p.destination,
             source: p.source,
-            status: p.status
+            status: p.status,
+            reconciled: p.reconciled || false
           })));
         
         if (insertError) throw insertError;
