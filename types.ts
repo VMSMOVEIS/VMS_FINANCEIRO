@@ -53,6 +53,7 @@ export interface Payment {
   destination: string; // Account ID or Name
   source?: string; // Account ID or Name (for transfers)
   status: 'completed' | 'pending';
+  reconciled?: boolean;
 }
 
 export interface Transaction {
