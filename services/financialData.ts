@@ -5,7 +5,6 @@ export interface AccountPlan {
   code: string;
   name: string;
   type: 'receita' | 'despesa';
-  parent?: string;
 }
 
 export interface TransactionType {

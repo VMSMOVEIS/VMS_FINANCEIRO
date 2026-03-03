@@ -94,7 +94,7 @@ export const TransactionModal: React.FC = () => {
       setFormData(prev => ({
         ...prev,
         transactionTypeId: typeId,
-        type: newType,
+        type: typeId === 'transferencia' ? 'transfer' : newType,
         payments: initialPayments
       }));
 
@@ -214,13 +214,13 @@ export const TransactionModal: React.FC = () => {
       const transaction: Omit<Transaction, 'id'> = {
         date: formData.date || '',
         description: formData.description || '',
-        category: formData.category || '',
+        category: formData.category || (isTransfer ? 'Transferência' : ''),
         value: Number(formData.value) || 0,
-        type: formData.type as 'income' | 'expense',
+        type: formData.type as 'income' | 'expense' | 'transfer',
         transactionTypeId: formData.transactionTypeId || '',
-        documentType: formData.documentType || 'Outros',
-        orderNumber: formData.orderNumber,
-        customerName: formData.customerName,
+        documentType: isTransfer ? 'Transferência' : (formData.documentType || 'Outros'),
+        orderNumber: isTransfer ? undefined : formData.orderNumber,
+        customerName: isTransfer ? undefined : formData.customerName,
         payments: formData.payments || [],
         status: status
       };
@@ -242,7 +242,7 @@ export const TransactionModal: React.FC = () => {
 
   const totalPayments = formData.payments?.reduce((sum, p) => sum + p.value, 0) || 0;
   const remainingValue = (formData.value || 0) - totalPayments;
-  const isTransfer = formData.transactionTypeId === 'transferencia';
+  const isTransfer = formData.type === 'transfer';
   const isDuplicata = formData.transactionTypeId?.includes('duplicata');
   const isAdvance = formData.transactionTypeId?.includes('adiantamento');
 
@@ -296,13 +296,39 @@ export const TransactionModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setFormData({...formData, type: 'expense'})}
-                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-r-md border-t border-b border-r ${
+                  className={`flex-1 px-4 py-2 text-sm font-medium border-t border-b border-r ${
                     formData.type === 'expense' 
                       ? 'bg-red-600 text-white border-red-600' 
                       : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                   }`}
                 >
                   Despesa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData(prev => ({
+                      ...prev, 
+                      type: 'transfer',
+                      transactionTypeId: 'transferencia',
+                      payments: [{
+                        id: Date.now(),
+                        value: prev.value || 0,
+                        method: 'Transferência',
+                        dueDate: prev.date || new Date().toISOString().split('T')[0],
+                        status: 'completed',
+                        destination: '',
+                        source: ''
+                      }]
+                    }));
+                  }}
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-r-md border-t border-b border-r ${
+                    formData.type === 'transfer' 
+                      ? 'bg-blue-600 text-white border-blue-600' 
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Transferência
                 </button>
               </div>
             </div>
@@ -323,56 +349,62 @@ export const TransactionModal: React.FC = () => {
                 />
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo Doc.</label>
-              <div className="relative">
-                <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                <select 
-                  name="documentType"
-                  value={formData.documentType || 'Outros'}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
-                >
-                  <option value="NF-e">Nota Fiscal (NF-e)</option>
-                  <option value="NFS-e">Nota de Serviço (NFS-e)</option>
-                  <option value="Recibo">Recibo</option>
-                  <option value="Pedido">Pedido de Venda/Compra</option>
-                  <option value="Contrato">Contrato</option>
-                  <option value="Boleto">Boleto Bancário</option>
-                  <option value="Outros">Outros</option>
-                </select>
+            {!isTransfer && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo Doc.</label>
+                  <div className="relative">
+                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <select 
+                      name="documentType"
+                      value={formData.documentType || 'Outros'}
+                      onChange={handleInputChange}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
+                    >
+                      <option value="NF-e">Nota Fiscal (NF-e)</option>
+                      <option value="NFS-e">Nota de Serviço (NFS-e)</option>
+                      <option value="Recibo">Recibo</option>
+                      <option value="Pedido">Pedido de Venda/Compra</option>
+                      <option value="Contrato">Contrato</option>
+                      <option value="Boleto">Boleto Bancário</option>
+                      <option value="Outros">Outros</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nº Pedido {isAdvance ? '(Opcional)' : ''}</label>
+                  <div className="relative">
+                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input 
+                      type="text" 
+                      name="orderNumber"
+                      placeholder="Ex: 123"
+                      value={formData.orderNumber || ''}
+                      onChange={handleInputChange}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+            {!isTransfer && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {formData.type === 'income' ? 'Cliente' : 'Fornecedor'}
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                  <input 
+                    type="text" 
+                    name="customerName"
+                    placeholder={formData.type === 'income' ? 'Nome do Cliente' : 'Nome do Fornecedor'}
+                    value={formData.customerName || ''}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                  />
+                </div>
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nº Pedido {isAdvance ? '(Opcional)' : ''}</label>
-              <div className="relative">
-                <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                <input 
-                  type="text" 
-                  name="orderNumber"
-                  placeholder="Ex: 123"
-                  value={formData.orderNumber || ''}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                {formData.type === 'income' ? 'Cliente' : 'Fornecedor'}
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                <input 
-                  type="text" 
-                  name="customerName"
-                  placeholder={formData.type === 'income' ? 'Nome do Cliente' : 'Nome do Fornecedor'}
-                  value={formData.customerName || ''}
-                  onChange={handleInputChange}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-                />
-              </div>
-            </div>
+            )}
           </div>
 
           <div>
@@ -401,122 +433,138 @@ export const TransactionModal: React.FC = () => {
                   min="0"
                   placeholder="0,00"
                   value={formData.value || ''}
-                  onChange={handleInputChange}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setFormData(prev => {
+                      const updates: any = { value: val };
+                      if (isTransfer && prev.payments && prev.payments.length > 0) {
+                        const updatedPayments = [...prev.payments];
+                        updatedPayments[0] = { ...updatedPayments[0], value: val };
+                        updates.payments = updatedPayments;
+                      }
+                      return { ...prev, ...updates };
+                    });
+                  }}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Plano de Contas</label>
-              <select 
-                name="category"
-                required
-                value={formData.category || ''}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
-              >
-                <option value="">Selecione...</option>
-                {accountPlans
-                  .filter(acc => acc.type === (formData.type === 'income' ? 'receita' : 'despesa'))
-                  .map(acc => (
-                    <option key={acc.id} value={acc.name}>{acc.code} - {acc.name}</option>
-                ))}
-              </select>
-            </div>
+            {!isTransfer && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Plano de Contas</label>
+                <select 
+                  name="category"
+                  required
+                  value={formData.category || ''}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
+                >
+                  <option value="">Selecione...</option>
+                  {accountPlans
+                    .filter(acc => acc.type === (formData.type === 'income' ? 'receita' : 'despesa'))
+                    .map(acc => (
+                      <option key={acc.id} value={acc.name}>{acc.code} - {acc.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
-          <div className="border-t border-gray-200 pt-4">
-            <div className="flex justify-between items-center mb-3">
-              <h4 className="font-semibold text-gray-800 flex items-center gap-2">
-                <Wallet size={18} className="text-emerald-600" />
-                Pagamentos / Parcelas
-              </h4>
-              <div className="text-sm">
-                <span className="text-gray-500">Restante: </span>
-                <span className={`font-bold ${remainingValue !== 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                  R$ {remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </span>
+          {isTransfer && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Conta Origem</label>
+                <select
+                  required
+                  value={formData.payments?.[0]?.source || ''}
+                  onChange={(e) => updatePayment(0, 'source', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                >
+                  <option value="">Selecione...</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.name}>{acc.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Conta Destino</label>
+                <select
+                  required
+                  value={formData.payments?.[0]?.destination || ''}
+                  onChange={(e) => updatePayment(0, 'destination', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                >
+                  <option value="">Selecione...</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.name}>{acc.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
+          )}
 
-            <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
-              {formData.payments?.map((payment, index) => (
-                <div key={payment.id} className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-2">
-                    <label className="text-xs text-gray-500 block mb-1">Valor</label>
-                    <input
-                      type="number"
-                      value={payment.value}
-                      onChange={(e) => updatePayment(index, 'value', parseFloat(e.target.value))}
-                      className="w-full text-xs p-2 border rounded"
-                      readOnly={payment.method === 'Adiantamento' || isTransfer}
-                    />
-                  </div>
+          {!isTransfer ? (
+            <div className="border-t border-gray-200 pt-4">
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                  <Wallet size={18} className="text-emerald-600" />
+                  Pagamentos / Parcelas
+                </h4>
+                <div className="text-sm">
+                  <span className="text-gray-500">Restante: </span>
+                  <span className={`font-bold ${remainingValue !== 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                    R$ {remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
 
-                  <div className="col-span-3">
-                    <label className="text-xs text-gray-500 block mb-1">Forma</label>
-                    <select
-                      value={payment.method}
-                      onChange={(e) => updatePayment(index, 'method', e.target.value)}
-                      className="w-full text-xs p-2 border rounded"
-                      disabled={payment.method === 'Adiantamento' || isDuplicata || isTransfer}
-                    >
-                      <option value="A Definir">A Definir</option>
-                      {paymentMethods.map(pm => {
-                        const account = accounts.find(a => a.id === pm.defaultAccountId);
-                        return (
-                          <option key={pm.id} value={pm.name}>
-                            {pm.name} {account ? `(${account.name})` : ''}
-                          </option>
-                        );
-                      })}
-                      <option value="Adiantamento">Adiantamento</option>
-                      <option value="Transferência">Transferência</option>
-                      <option value="Outros">Outros</option>
-                    </select>
-                  </div>
+              <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                {formData.payments?.map((payment, index) => (
+                  <div key={payment.id} className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-2">
+                      <label className="text-xs text-gray-500 block mb-1">Valor</label>
+                      <input
+                        type="number"
+                        value={payment.value}
+                        onChange={(e) => updatePayment(index, 'value', parseFloat(e.target.value))}
+                        className="w-full text-xs p-2 border rounded"
+                        readOnly={payment.method === 'Adiantamento'}
+                      />
+                    </div>
 
-                  <div className="col-span-2">
-                    <label className="text-xs text-gray-500 block mb-1">Vencimento</label>
-                    <input
-                      type="date"
-                      value={payment.dueDate}
-                      onChange={(e) => updatePayment(index, 'dueDate', e.target.value)}
-                      className="w-full text-xs p-2 border rounded"
-                    />
-                  </div>
+                    <div className="col-span-3">
+                      <label className="text-xs text-gray-500 block mb-1">Forma</label>
+                      <select
+                        value={payment.method}
+                        onChange={(e) => updatePayment(index, 'method', e.target.value)}
+                        className="w-full text-xs p-2 border rounded"
+                        disabled={payment.method === 'Adiantamento' || isDuplicata}
+                      >
+                        <option value="A Definir">A Definir</option>
+                        {paymentMethods.map(pm => {
+                          const account = accounts.find(a => a.id === pm.defaultAccountId);
+                          return (
+                            <option key={pm.id} value={pm.name}>
+                              {pm.name} {account ? `(${account.name})` : ''}
+                            </option>
+                          );
+                        })}
+                        <option value="Adiantamento">Adiantamento</option>
+                        <option value="Outros">Outros</option>
+                      </select>
+                    </div>
 
-                  {isTransfer ? (
-                    <>
-                      <div className="col-span-2">
-                        <label className="text-xs text-gray-500 block mb-1">Origem</label>
-                        <select
-                          value={payment.source}
-                          onChange={(e) => updatePayment(index, 'source', e.target.value)}
-                          className="w-full text-xs p-2 border rounded"
-                        >
-                          <option value="">Selecione...</option>
-                          {accounts.map(acc => (
-                            <option key={acc.id} value={acc.name}>{acc.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="col-span-2">
-                        <label className="text-xs text-gray-500 block mb-1">Destino</label>
-                        <select
-                          value={payment.destination}
-                          onChange={(e) => updatePayment(index, 'destination', e.target.value)}
-                          className="w-full text-xs p-2 border rounded"
-                        >
-                          <option value="">Selecione...</option>
-                          {accounts.map(acc => (
-                            <option key={acc.id} value={acc.name}>{acc.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </>
-                  ) : (
+                    <div className="col-span-2">
+                      <label className="text-xs text-gray-500 block mb-1">Vencimento</label>
+                      <input
+                        type="date"
+                        value={payment.dueDate}
+                        onChange={(e) => updatePayment(index, 'dueDate', e.target.value)}
+                        className="w-full text-xs p-2 border rounded"
+                      />
+                    </div>
+
                     <div className="col-span-4">
                        <label className="text-xs text-gray-500 block mb-1">Destino</label>
                        <select
@@ -534,33 +582,32 @@ export const TransactionModal: React.FC = () => {
                          <option value="Fluxo de Caixa">Fluxo de Caixa</option>
                        </select>
                     </div>
-                  )}
 
-                  <div className="col-span-1 flex justify-center pb-1">
-                    <button 
-                      type="button"
-                      onClick={() => removePayment(index)}
-                      className="text-red-500 hover:bg-red-50 p-1 rounded"
-                      disabled={isTransfer}
-                    >
-                      <X size={16} />
-                    </button>
+                    <div className="col-span-1 flex justify-center pb-1">
+                      <button 
+                        type="button"
+                        onClick={() => removePayment(index)}
+                        className="text-red-500 hover:bg-red-50 p-1 rounded"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
 
-              {!isTransfer && remainingValue > 0 && (
-                <button
-                  type="button"
-                  onClick={() => addPayment(remainingValue)}
-                  className="w-full py-2 border-2 border-dashed border-emerald-200 text-emerald-600 rounded-lg hover:bg-emerald-50 text-sm font-medium flex items-center justify-center gap-2"
-                >
-                  <Plus size={16} />
-                  Adicionar Pagamento de R$ {remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </button>
-              )}
+                {remainingValue > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => addPayment(remainingValue)}
+                    className="w-full py-2 border-2 border-dashed border-emerald-200 text-emerald-600 rounded-lg hover:bg-emerald-50 text-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    <Plus size={16} />
+                    Adicionar Pagamento de R$ {remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          ) : null}
 
           <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
             <button 

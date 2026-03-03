@@ -101,8 +101,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         id: p.id,
         code: p.code,
         name: p.name,
-        type: p.type as 'receita' | 'despesa',
-        parent: p.parent_id
+        type: p.type as 'receita' | 'despesa'
       })));
 
       // Fetch Transactions with Payments
@@ -392,8 +391,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         .insert([{
           code: plan.code,
           name: plan.name,
-          type: plan.type,
-          parent_id: plan.parent
+          type: plan.type
         }]);
       if (error) throw error;
       await fetchData();
@@ -410,8 +408,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         .update({
           code: plan.code,
           name: plan.name,
-          type: plan.type,
-          parent_id: plan.parent
+          type: plan.type
         })
         .eq('id', id);
       if (error) throw error;

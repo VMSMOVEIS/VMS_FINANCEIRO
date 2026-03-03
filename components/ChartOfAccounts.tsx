@@ -12,6 +12,25 @@ export const ChartOfAccounts: React.FC = () => {
     name: ''
   });
 
+  const generateNextCode = (type: 'receita' | 'despesa') => {
+    const prefix = type === 'receita' ? '1' : '2';
+    const accounts = accountPlans.filter(a => a.type === type);
+    
+    if (accounts.length === 0) return `${prefix}.01`;
+    
+    const codes = accounts.map(a => {
+      const parts = a.code.split('.');
+      return parseInt(parts[1] || '0');
+    });
+    const maxCode = Math.max(...codes);
+    return `${prefix}.${String(maxCode + 1).padStart(2, '0')}`;
+  };
+
+  const handleTypeChange = (type: 'receita' | 'despesa') => {
+    const nextCode = generateNextCode(type);
+    setNewAccount({ ...newAccount, type, code: nextCode });
+  };
+
   const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newAccount.name && newAccount.code && newAccount.type) {
@@ -31,6 +50,37 @@ export const ChartOfAccounts: React.FC = () => {
     }
   };
 
+  const renderAccountList = (type: 'receita' | 'despesa') => {
+    const accounts = accountPlans.filter(a => a.type === type);
+    
+    return (
+      <div className="divide-y divide-gray-100">
+        {accounts.map(account => (
+          <div key={account.id} className="p-4 flex justify-between items-center hover:bg-gray-50 group">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">{account.code}</span>
+              <span className="font-bold text-gray-800">{account.name}</span>
+            </div>
+            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button className="p-1 text-gray-400 hover:text-blue-600 rounded">
+                <Edit2 size={16} />
+              </button>
+              <button 
+                onClick={() => handleDelete(account.id)}
+                className="p-1 text-gray-400 hover:text-red-600 rounded"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </div>
+        ))}
+        {accounts.length === 0 && (
+          <div className="p-8 text-center text-gray-400">Nenhuma conta de {type} cadastrada.</div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -39,7 +89,11 @@ export const ChartOfAccounts: React.FC = () => {
           <p className="text-gray-500">Estruture as categorias financeiras da sua empresa</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setIsModalOpen(true);
+            const nextCode = generateNextCode('despesa');
+            setNewAccount({ type: 'despesa', code: nextCode, name: '' });
+          }}
           className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
         >
           <Plus size={18} />
@@ -54,30 +108,7 @@ export const ChartOfAccounts: React.FC = () => {
             <ArrowUpCircle className="text-emerald-600" size={20} />
             <h3 className="font-bold text-emerald-800">Receitas</h3>
           </div>
-          <div className="divide-y divide-gray-100">
-            {accountPlans.filter(a => a.type === 'receita').map(account => (
-              <div key={account.id} className="p-4 flex justify-between items-center hover:bg-gray-50 group">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">{account.code}</span>
-                  <span className="font-medium text-gray-800">{account.name}</span>
-                </div>
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="p-1 text-gray-400 hover:text-blue-600 rounded">
-                    <Edit2 size={16} />
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(account.id)}
-                    className="p-1 text-gray-400 hover:text-red-600 rounded"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            ))}
-            {accountPlans.filter(a => a.type === 'receita').length === 0 && (
-              <div className="p-8 text-center text-gray-400">Nenhuma conta de receita cadastrada.</div>
-            )}
-          </div>
+          {renderAccountList('receita')}
         </div>
 
         {/* Despesas Column */}
@@ -86,30 +117,7 @@ export const ChartOfAccounts: React.FC = () => {
             <ArrowDownCircle className="text-red-600" size={20} />
             <h3 className="font-bold text-red-800">Despesas</h3>
           </div>
-          <div className="divide-y divide-gray-100">
-            {accountPlans.filter(a => a.type === 'despesa').map(account => (
-              <div key={account.id} className="p-4 flex justify-between items-center hover:bg-gray-50 group">
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">{account.code}</span>
-                  <span className="font-medium text-gray-800">{account.name}</span>
-                </div>
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="p-1 text-gray-400 hover:text-blue-600 rounded">
-                    <Edit2 size={16} />
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(account.id)}
-                    className="p-1 text-gray-400 hover:text-red-600 rounded"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            ))}
-             {accountPlans.filter(a => a.type === 'despesa').length === 0 && (
-              <div className="p-8 text-center text-gray-400">Nenhuma conta de despesa cadastrada.</div>
-            )}
-          </div>
+          {renderAccountList('despesa')}
         </div>
       </div>
 
@@ -126,11 +134,11 @@ export const ChartOfAccounts: React.FC = () => {
             
             <form onSubmit={handleAddAccount} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Natureza</label>
                 <div className="flex rounded-md shadow-sm">
                   <button
                     type="button"
-                    onClick={() => setNewAccount({...newAccount, type: 'receita'})}
+                    onClick={() => handleTypeChange('receita')}
                     className={`flex-1 px-4 py-2 text-sm font-medium rounded-l-md border ${
                       newAccount.type === 'receita' 
                         ? 'bg-emerald-600 text-white border-emerald-600' 
@@ -141,7 +149,7 @@ export const ChartOfAccounts: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setNewAccount({...newAccount, type: 'despesa'})}
+                    onClick={() => handleTypeChange('despesa')}
                     className={`flex-1 px-4 py-2 text-sm font-medium rounded-r-md border-t border-b border-r ${
                       newAccount.type === 'despesa' 
                         ? 'bg-red-600 text-white border-red-600' 
@@ -154,26 +162,25 @@ export const ChartOfAccounts: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Código (Ex: 1.01)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
                 <input 
                   type="text" 
                   required
+                  readOnly
                   value={newAccount.code}
-                  onChange={(e) => setNewAccount({...newAccount, code: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-                  placeholder="0.00"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 text-sm font-mono cursor-not-allowed"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Conta</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Conta / Categoria</label>
                 <input 
                   type="text" 
                   required
                   value={newAccount.name}
                   onChange={(e) => setNewAccount({...newAccount, name: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-                  placeholder="Ex: Vendas de Produtos"
+                  placeholder="Ex: Receita de Vendas"
                 />
               </div>
 

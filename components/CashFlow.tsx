@@ -74,7 +74,7 @@ export const CashFlow: React.FC = () => {
         let isExpense = t.type === 'expense';
 
         // Handle Transfer logic
-        if (t.transactionTypeId === 'transferencia') {
+        if (t.type === 'transfer') {
           if (selectedAccount === 'all') {
             // In consolidated view, transfers are neutral
             return;
@@ -197,7 +197,7 @@ export const CashFlow: React.FC = () => {
           let isIncome = t.type === 'income';
           let isExpense = t.type === 'expense';
 
-          if (t.transactionTypeId === 'transferencia') {
+          if (t.type === 'transfer') {
             if (selectedAccount === 'all') return;
             if (p.source === selectedAccount) { isIncome = false; isExpense = true; }
             else if (p.destination === selectedAccount) { isIncome = true; isExpense = false; }
@@ -257,7 +257,7 @@ export const CashFlow: React.FC = () => {
 
         let isIncome = t.type === 'income';
         let isExpense = t.type === 'expense';
-        if (t.transactionTypeId === 'transferencia') {
+        if (t.type === 'transfer') {
           if (selectedAccount === 'all') return;
           if (p.source === selectedAccount) { isIncome = false; isExpense = true; }
           else if (p.destination === selectedAccount) { isIncome = true; isExpense = false; }
@@ -296,9 +296,14 @@ export const CashFlow: React.FC = () => {
         let isIncome = t.type === 'income';
         let isExpense = t.type === 'expense';
 
-        if (t.transactionTypeId === 'transferencia') {
-          if (selectedAccount === 'all') return;
-          if (p.source === selectedAccount) {
+        if (t.type === 'transfer') {
+          if (selectedAccount === 'all') {
+            // In consolidated view, we still want to show the transfer in the table
+            // but it's neither income nor expense for the total flow.
+            // However, the user wants it to appear as "Transferência".
+            isIncome = false;
+            isExpense = false;
+          } else if (p.source === selectedAccount) {
             isIncome = false;
             isExpense = true;
           } else if (p.destination === selectedAccount) {
@@ -319,12 +324,12 @@ export const CashFlow: React.FC = () => {
           date: p.dueDate,
           description: t.description,
           document: t.orderNumber || '-',
-          type: isIncome ? 'income' : 'expense',
+          type: t.type === 'transfer' ? 'transfer' : (isIncome ? 'income' : 'expense'),
           value: p.value,
           status: p.status,
           balance: runningBalance,
           customer: t.customerName || '-',
-          bank: p.destination || '-'
+          bank: t.type === 'transfer' ? `${p.source} → ${p.destination}` : (p.destination || '-')
         });
       });
     });
@@ -668,8 +673,11 @@ export const CashFlow: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 text-gray-500">{item.document}</td>
                   <td className="px-6 py-4 text-gray-600 font-medium">{item.bank}</td>
-                  <td className={`px-6 py-4 text-right font-medium ${item.type === 'income' || item.type === 'monthly' ? 'text-emerald-600' : 'text-red-600'}`}>
-                    {item.type === 'income' ? '+' : (item.type === 'expense' ? '-' : '')} R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <td className={`px-6 py-4 text-right font-medium ${
+                    item.type === 'income' || item.type === 'monthly' ? 'text-emerald-600' : 
+                    item.type === 'expense' ? 'text-red-600' : 'text-blue-600'
+                  }`}>
+                    {item.type === 'income' ? '+' : (item.type === 'expense' ? '-' : (item.type === 'transfer' ? '⇄' : ''))} R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </td>
                   <td className="px-6 py-4 text-right font-bold text-gray-800">
                     R$ {item.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
