@@ -15,9 +15,9 @@ export const OperationalHistory: React.FC<OperationalHistoryProps> = ({ type }) 
     if (transaction) openModal(transaction);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (window.confirm('Deseja realmente excluir este registro?')) {
-      deleteTransaction(id);
+      await deleteTransaction(id);
     }
   };
   

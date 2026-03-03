@@ -25,9 +25,9 @@ export const Transactions: React.FC = () => {
     (t.orderNumber && t.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (window.confirm('Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita e afetará a contabilidade.')) {
-      deleteTransaction(id);
+      await deleteTransaction(id);
     }
   };
 

@@ -34,9 +34,9 @@ export const AccountsPayable: React.FC<AccountsPayableProps> = ({ initialTab = '
       }))
   );
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (window.confirm('Tem certeza que deseja excluir este lançamento?')) {
-      deleteTransaction(id);
+      await deleteTransaction(id);
     }
   };
 

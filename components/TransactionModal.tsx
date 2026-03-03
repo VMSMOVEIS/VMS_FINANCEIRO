@@ -33,6 +33,7 @@ export const TransactionModal: React.FC = () => {
 
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchModalType, setSearchModalType] = useState<'payment_receipt' | 'advance'>('payment_receipt');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setAccountPlans(getAccountPlans());
@@ -177,36 +178,42 @@ export const TransactionModal: React.FC = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     
-    const allCompleted = formData.payments?.every(p => p.status === 'completed');
-    const allPending = formData.payments?.every(p => p.status === 'pending');
-    let status: 'completed' | 'pending' | 'partial' = 'partial';
-    if (allCompleted) status = 'completed';
-    if (allPending) status = 'pending';
+    try {
+      const allCompleted = formData.payments?.every(p => p.status === 'completed');
+      const allPending = formData.payments?.every(p => p.status === 'pending');
+      let status: 'completed' | 'pending' | 'partial' = 'partial';
+      if (allCompleted) status = 'completed';
+      if (allPending) status = 'pending';
 
-    const transaction: Transaction = {
-      id: editingTransaction ? editingTransaction.id : Date.now(),
-      date: formData.date || '',
-      description: formData.description || '',
-      category: formData.category || '',
-      value: Number(formData.value) || 0,
-      type: formData.type as 'income' | 'expense',
-      transactionTypeId: formData.transactionTypeId || '',
-      documentType: formData.documentType || 'Outros',
-      orderNumber: formData.orderNumber,
-      customerName: formData.customerName,
-      payments: formData.payments || [],
-      status: status
-    };
-    
-    if (editingTransaction) {
-      updateTransaction(editingTransaction.id, transaction);
-    } else {
-      addTransaction(transaction);
+      const transaction: Omit<Transaction, 'id'> = {
+        date: formData.date || '',
+        description: formData.description || '',
+        category: formData.category || '',
+        value: Number(formData.value) || 0,
+        type: formData.type as 'income' | 'expense',
+        transactionTypeId: formData.transactionTypeId || '',
+        documentType: formData.documentType || 'Outros',
+        orderNumber: formData.orderNumber,
+        customerName: formData.customerName,
+        payments: formData.payments || [],
+        status: status
+      };
+      
+      if (editingTransaction) {
+        await updateTransaction(editingTransaction.id, transaction);
+      } else {
+        await addTransaction(transaction);
+      }
+      closeModal();
+    } catch (error) {
+      console.error('Error submitting transaction:', error);
+    } finally {
+      setIsSubmitting(false);
     }
-    closeModal();
   };
 
   if (!isModalOpen) return null;
@@ -508,9 +515,10 @@ export const TransactionModal: React.FC = () => {
             </button>
             <button 
               type="submit" 
-              disabled={Math.abs(remainingValue) > 0.01}
-              className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={Math.abs(remainingValue) > 0.01 || isSubmitting}
+              className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
+              {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
               {editingTransaction ? 'Salvar Alterações' : 'Salvar Lançamento'}
             </button>
           </div>
