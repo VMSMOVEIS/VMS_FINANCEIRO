@@ -103,5 +103,12 @@ ALTER TABLE payment_methods ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 
--- Basic RLS Policies (Allow authenticated users to read/write their own data)
--- Note: In a real multi-tenant app, you'd add a company_id to every table.
+-- Basic RLS Policies (Allow anonymous access for prototype/demo)
+-- WARNING: In production, you should use auth.uid() to restrict access.
+CREATE POLICY "Allow all for accounts" ON accounts FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for account_plans" ON account_plans FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for payment_methods" ON payment_methods FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for transactions" ON transactions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for payments" ON payments FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for profiles" ON profiles FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for companies" ON companies FOR ALL USING (true) WITH CHECK (true);

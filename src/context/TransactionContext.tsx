@@ -121,8 +121,11 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }))
       })));
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching data from Supabase:', error);
+      if (error.message === 'Failed to fetch') {
+        alert('Erro de conexão com o Supabase. Verifique se a URL está correta.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -182,8 +185,9 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
 
       await fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding transaction:', error);
+      alert(`Erro ao salvar lançamento: ${error.message || 'Erro desconhecido'}`);
     }
   };
 
@@ -211,8 +215,9 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       // For simplicity, we'll refresh everything. 
       // In a real app, you'd handle payment updates more specifically.
       await fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating transaction:', error);
+      alert(`Erro ao atualizar lançamento: ${error.message || 'Erro desconhecido'}`);
     }
   };
 
@@ -226,8 +231,9 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       
       if (error) throw error;
       setTransactions(prev => prev.filter(t => t.id !== id));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting transaction:', error);
+      alert(`Erro ao excluir lançamento: ${error.message || 'Erro desconhecido'}`);
     }
   };
 
@@ -245,8 +251,9 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }]);
       if (error) throw error;
       await fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding account:', error);
+      alert(`Erro ao adicionar conta: ${error.message || 'Erro desconhecido'}`);
     }
   };
 
