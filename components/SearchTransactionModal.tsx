@@ -27,12 +27,13 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
     return transactions.filter(t => {
       // Filter logic based on modal type and transaction context
       let matchesType = false;
-      let matchesStatus = t.status !== 'completed'; // Only show pending/partial
+      let matchesStatus = true;
 
       if (type === 'payment_receipt') {
         // If we are doing a Payment (Expense), we look for Accounts Payable (Expense)
         // If we are doing a Receipt (Income), we look for Accounts Receivable (Income)
         matchesType = t.type === transactionType;
+        matchesStatus = t.status !== 'completed'; // Only show pending/partial for payments/receipts
       } else if (type === 'advance') {
         // If we are doing a Sale (Income), we look for Customer Advances (Income)
         // If we are doing a Purchase (Expense), we look for Supplier Advances (Expense)
@@ -41,6 +42,9 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
         } else {
            matchesType = t.transactionTypeId === 'adiantamento_fornecedor';
         }
+        // For advances, we usually want to use COMPLETED advances (money received/paid), 
+        // but we might also want to see pending ones. Let's show all.
+        matchesStatus = true;
       }
 
       if (!matchesType || !matchesStatus) return false;

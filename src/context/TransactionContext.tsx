@@ -154,7 +154,11 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   const openModal = (transaction?: Transaction) => {
-    setEditingTransaction(transaction || null);
+    if (transaction) {
+      setEditingTransaction(transaction);
+    } else {
+      setEditingTransaction(null);
+    }
     setIsModalOpen(true);
   };
 

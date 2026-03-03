@@ -62,12 +62,12 @@ export const FinancialDashboard: React.FC = () => {
   const ebitda = totalRevenue - totalExpenses;
   const ebitdaMargin = totalRevenue > 0 ? (ebitda / totalRevenue) * 100 : 0;
 
-  // 4. Contas a Pagar (Accounts Payable) - Pending expenses
+  // 4. Contas a Pagar (Accounts Payable) - Pending expenses destined for Accounts Payable
   const accountsPayable = useMemo(() => {
     return filteredTransactions
       .filter(t => t.type === 'expense')
       .flatMap(t => t.payments)
-      .filter(p => p.status === 'pending')
+      .filter(p => p.destination === 'Contas a Pagar')
       .reduce((sum, p) => sum + p.value, 0);
   }, [filteredTransactions]);
   
@@ -75,7 +75,7 @@ export const FinancialDashboard: React.FC = () => {
       return filteredTransactions
       .filter(t => t.type === 'expense')
       .flatMap(t => t.payments)
-      .filter(p => p.status === 'pending').length;
+      .filter(p => p.destination === 'Contas a Pagar').length;
   }, [filteredTransactions]);
 
   // --- Chart Data Preparation ---

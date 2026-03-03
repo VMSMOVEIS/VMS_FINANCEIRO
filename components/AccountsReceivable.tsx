@@ -20,8 +20,8 @@ export const AccountsReceivable: React.FC<AccountsReceivableProps> = ({ initialT
         if (activeTab === 'adiantamentos') {
            return t.transactionTypeId === 'adiantamento_cliente';
         }
-        // General: Income payments that are pending or specifically marked for Accounts Receivable
-        return t.type === 'income' && t.transactionTypeId !== 'transferencia' && (p.status === 'pending' || p.destination === 'Contas a Receber');
+        // General: Income payments that are specifically marked for Accounts Receivable
+        return t.type === 'income' && t.transactionTypeId !== 'transferencia' && p.destination === 'Contas a Receber';
       })
       .map(p => ({
         ...p,
@@ -52,9 +52,22 @@ export const AccountsReceivable: React.FC<AccountsReceivableProps> = ({ initialT
           <h1 className="text-2xl font-bold text-gray-800">Contas a Receber</h1>
           <p className="text-gray-500">Acompanhe suas receitas e faturamentos</p>
         </div>
-        <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm">
+        <button 
+          onClick={() => openModal({
+            type: 'income',
+            transactionTypeId: 'duplicata_receber',
+            date: new Date().toISOString().split('T')[0],
+            value: 0,
+            description: '',
+            payments: [],
+            category: '',
+            documentType: 'NF',
+            status: 'pending'
+          } as any)}
+          className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
+        >
           <Plus size={18} />
-          <span>Novo Recebimento</span>
+          <span>Adicionar Conta</span>
         </button>
       </div>
 

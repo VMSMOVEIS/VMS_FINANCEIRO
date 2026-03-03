@@ -45,6 +45,22 @@ export const TransactionModal: React.FC = () => {
     if (editingTransaction) {
       setFormData({ ...editingTransaction });
       setLinkedTransactionId(null);
+
+      // If it's a new transaction (no ID) but has a type (e.g. from "Adicionar Conta"), initialize payments if needed
+      if (!editingTransaction.id && (editingTransaction.transactionTypeId === 'duplicata_receber' || editingTransaction.transactionTypeId === 'duplicata_pagar')) {
+         if (!editingTransaction.payments || editingTransaction.payments.length === 0) {
+            const typeId = editingTransaction.transactionTypeId;
+            const initialPayments: Payment[] = [{
+                id: Date.now().toString(),
+                method: 'A Definir',
+                value: editingTransaction.value || 0,
+                dueDate: editingTransaction.date || new Date().toISOString().split('T')[0],
+                destination: typeId === 'duplicata_receber' ? 'Contas a Receber' : 'Contas a Pagar',
+                status: 'pending'
+            }];
+            setFormData(prev => ({ ...prev, payments: initialPayments }));
+         }
+      }
     } else {
       setFormData({
         type: 'income',

@@ -20,8 +20,8 @@ export const AccountsPayable: React.FC<AccountsPayableProps> = ({ initialTab = '
         if (activeTab === 'adiantamentos') {
            return t.transactionTypeId === 'adiantamento_fornecedor';
         }
-        // General: Expense payments that are pending or specifically marked for Accounts Payable
-        return t.type === 'expense' && t.transactionTypeId !== 'transferencia' && (p.status === 'pending' || p.destination === 'Contas a Pagar');
+        // General: Expense payments that are specifically marked for Accounts Payable
+        return t.type === 'expense' && t.transactionTypeId !== 'transferencia' && p.destination === 'Contas a Pagar';
       })
       .map(p => ({
         ...p,
@@ -52,9 +52,22 @@ export const AccountsPayable: React.FC<AccountsPayableProps> = ({ initialTab = '
           <h1 className="text-2xl font-bold text-gray-800">Contas a Pagar</h1>
           <p className="text-gray-500">Gerencie seus compromissos financeiros e fornecedores</p>
         </div>
-        <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm">
+        <button 
+          onClick={() => openModal({
+            type: 'expense',
+            transactionTypeId: 'duplicata_pagar',
+            date: new Date().toISOString().split('T')[0],
+            value: 0,
+            description: '',
+            payments: [],
+            category: '',
+            documentType: 'NF',
+            status: 'pending'
+          } as any)}
+          className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
+        >
           <Plus size={18} />
-          <span>Nova Conta</span>
+          <span>Adicionar Conta</span>
         </button>
       </div>
 
