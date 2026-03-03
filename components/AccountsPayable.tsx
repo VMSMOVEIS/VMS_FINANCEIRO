@@ -21,7 +21,7 @@ export const AccountsPayable: React.FC<AccountsPayableProps> = ({ initialTab = '
            return t.transactionTypeId === 'adiantamento_fornecedor';
         }
         // General: Expense payments that are pending or specifically marked for Accounts Payable
-        return t.type === 'expense' && (p.status === 'pending' || p.destination === 'Contas a Pagar');
+        return t.type === 'expense' && t.transactionTypeId !== 'transferencia' && (p.status === 'pending' || p.destination === 'Contas a Pagar');
       })
       .map(p => ({
         ...p,

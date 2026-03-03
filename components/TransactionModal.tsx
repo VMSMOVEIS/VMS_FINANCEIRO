@@ -12,12 +12,14 @@ export const TransactionModal: React.FC = () => {
     editingTransaction, 
     addTransaction, 
     updateTransaction, 
+    transactions,
     accounts, 
     paymentMethods,
     accountPlans
   } = useTransactions();
 
   const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
+  const [linkedTransactionId, setLinkedTransactionId] = useState<number | null>(null);
   
   const [formData, setFormData] = useState<Partial<Transaction>>({
     type: 'income',
@@ -42,6 +44,7 @@ export const TransactionModal: React.FC = () => {
   useEffect(() => {
     if (editingTransaction) {
       setFormData({ ...editingTransaction });
+      setLinkedTransactionId(null);
     } else {
       setFormData({
         type: 'income',
@@ -54,6 +57,7 @@ export const TransactionModal: React.FC = () => {
         value: 0,
         payments: []
       });
+      setLinkedTransactionId(null);
     }
   }, [editingTransaction, isModalOpen]);
 
@@ -86,6 +90,7 @@ export const TransactionModal: React.FC = () => {
           value: formData.value || 0,
           dueDate: formData.date || new Date().toISOString().split('T')[0],
           source: accounts[0]?.name || '',
+          bankId: accounts[0]?.id,
           destination: accounts[1]?.name || '',
           status: 'completed'
         }];
@@ -94,7 +99,7 @@ export const TransactionModal: React.FC = () => {
       setFormData(prev => ({
         ...prev,
         transactionTypeId: typeId,
-        type: typeId === 'transferencia' ? 'transfer' : newType,
+        type: typeId === 'transferencia' ? 'expense' : newType,
         payments: initialPayments
       }));
 
@@ -113,6 +118,7 @@ export const TransactionModal: React.FC = () => {
   };
 
   const handleSearchModalSelect = (selectedTransaction: Transaction) => {
+    setLinkedTransactionId(selectedTransaction.id);
     if (searchModalType === 'payment_receipt') {
         setFormData(prev => ({
             ...prev,
@@ -214,13 +220,13 @@ export const TransactionModal: React.FC = () => {
       const transaction: Omit<Transaction, 'id'> = {
         date: formData.date || '',
         description: formData.description || '',
-        category: formData.category || (isTransfer ? 'Transferência' : ''),
+        category: isTransfer ? null : (formData.category || null),
         value: Number(formData.value) || 0,
-        type: formData.type as 'income' | 'expense' | 'transfer',
+        type: formData.type as 'income' | 'expense',
         transactionTypeId: formData.transactionTypeId || '',
         documentType: isTransfer ? 'Transferência' : (formData.documentType || 'Outros'),
-        orderNumber: isTransfer ? undefined : formData.orderNumber,
-        customerName: isTransfer ? undefined : formData.customerName,
+        orderNumber: isTransfer ? null : (formData.orderNumber || null),
+        customerName: isTransfer ? null : (formData.customerName || null),
         payments: formData.payments || [],
         status: status
       };
@@ -229,6 +235,19 @@ export const TransactionModal: React.FC = () => {
         await updateTransaction(editingTransaction.id, transaction);
       } else {
         await addTransaction(transaction);
+        
+        // If this was a payment/receipt or advance for another transaction, settle it
+        if (linkedTransactionId) {
+          const original = transactions.find(t => t.id === linkedTransactionId);
+          if (original) {
+            const updatedPayments = original.payments.map(p => ({ ...p, status: 'completed' as const }));
+            await updateTransaction(linkedTransactionId, { 
+              ...original, 
+              status: 'completed', 
+              payments: updatedPayments 
+            });
+          }
+        }
       }
       closeModal();
     } catch (error) {
@@ -242,7 +261,7 @@ export const TransactionModal: React.FC = () => {
 
   const totalPayments = formData.payments?.reduce((sum, p) => sum + p.value, 0) || 0;
   const remainingValue = (formData.value || 0) - totalPayments;
-  const isTransfer = formData.type === 'transfer';
+  const isTransfer = formData.transactionTypeId === 'transferencia';
   const isDuplicata = formData.transactionTypeId?.includes('duplicata');
   const isAdvance = formData.transactionTypeId?.includes('adiantamento');
 
@@ -478,7 +497,11 @@ export const TransactionModal: React.FC = () => {
                 <select
                   required
                   value={formData.payments?.[0]?.source || ''}
-                  onChange={(e) => updatePayment(0, 'source', e.target.value)}
+                  onChange={(e) => {
+                    const account = accounts.find(acc => acc.name === e.target.value);
+                    updatePayment(0, 'source', e.target.value);
+                    if (account) updatePayment(0, 'bankId', account.id);
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                 >
                   <option value="">Selecione...</option>
@@ -635,7 +658,10 @@ export const TransactionModal: React.FC = () => {
         type={searchModalType}
         transactionType={formData.type as 'income' | 'expense'}
         onSelect={handleSearchModalSelect}
-        onRegisterNew={() => setIsSearchModalOpen(false)}
+        onRegisterNew={() => {
+          setIsSearchModalOpen(false);
+          setLinkedTransactionId(null);
+        }}
       />
     </div>
   );

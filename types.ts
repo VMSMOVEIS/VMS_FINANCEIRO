@@ -59,9 +59,9 @@ export interface Transaction {
   id: number;
   date: string;
   description: string;
-  category: string;
+  category: string | null;
   value: number; // Total Value
-  type: 'income' | 'expense' | 'transfer';
+  type: 'income' | 'expense';
   transactionTypeId: string;
   documentType: string;
   orderNumber?: string;

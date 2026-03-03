@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Plus, 
   Search, 
   Filter, 
-  Download, 
   MoreHorizontal, 
   Edit2, 
   Trash2, 
@@ -18,12 +17,48 @@ import { useTransactions } from '../src/context/TransactionContext';
 export const Transactions: React.FC = () => {
   const { transactions, openModal, deleteTransaction } = useTransactions();
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('this-month');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
+  const [customRange, setCustomRange] = useState({ start: '', end: '' });
 
-  const filteredTransactions = transactions.filter(t => 
-    t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (t.customerName && t.customerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (t.orderNumber && t.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredTransactions = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    return transactions.filter(t => {
+      // 1. Search Filter
+      const matchesSearch = 
+        t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (t.customerName && t.customerName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (t.orderNumber && t.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      if (!matchesSearch) return false;
+
+      // 2. Date Filter
+      const [year, month, day] = t.date.split('-').map(Number);
+      const tDate = new Date(year, month - 1, day);
+      const tYear = tDate.getFullYear();
+      const tMonth = tDate.getMonth();
+
+      switch (filterType) {
+        case 'this-month':
+          return tYear === currentYear && tMonth === currentMonth;
+        case 'last-month':
+           const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
+           return tYear === lastMonthDate.getFullYear() && tMonth === lastMonthDate.getMonth();
+        case 'this-year':
+          return tYear === currentYear;
+        case 'month':
+          return tYear === currentYear && tMonth === parseInt(selectedMonth);
+        case 'custom':
+          if (!customRange.start || !customRange.end) return true;
+          return t.date >= customRange.start && t.date <= customRange.end;
+        default:
+          return true;
+      }
+    });
+  }, [transactions, searchTerm, filterType, selectedMonth, customRange]);
 
   const handleDelete = async (id: number) => {
     if (window.confirm('Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita e afetará a contabilidade.')) {
@@ -57,7 +92,7 @@ export const Transactions: React.FC = () => {
           <div>
             <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Total Receitas</p>
             <p className="text-xl font-bold text-gray-900">
-              R$ {transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R$ {filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
           </div>
         </div>
@@ -68,7 +103,7 @@ export const Transactions: React.FC = () => {
           <div>
             <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Total Despesas</p>
             <p className="text-xl font-bold text-gray-900">
-              R$ {transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.value, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R$ {filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.value, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
           </div>
         </div>
@@ -79,7 +114,7 @@ export const Transactions: React.FC = () => {
           <div>
             <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Transferências</p>
             <p className="text-xl font-bold text-gray-900">
-              R$ {transactions.filter(t => t.type === 'transfer').reduce((sum, t) => sum + t.value, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R$ {filteredTransactions.filter(t => t.transactionTypeId === 'transferencia').reduce((sum, t) => sum + t.value, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
           </div>
         </div>
@@ -91,8 +126,8 @@ export const Transactions: React.FC = () => {
             <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Saldo Período</p>
             <p className="text-xl font-bold text-gray-900">
               R$ {(
-                transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0) -
-                transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.value, 0)
+                filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0) -
+                filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.value, 0)
               ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
           </div>
@@ -111,15 +146,49 @@ export const Transactions: React.FC = () => {
             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
           />
         </div>
-        <div className="flex gap-2">
-          <button className="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 flex items-center gap-2 text-sm font-medium">
-            <Filter size={18} />
-            <span>Filtros</span>
-          </button>
-          <button className="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 flex items-center gap-2 text-sm font-medium">
-            <Download size={18} />
-            <span>Exportar</span>
-          </button>
+        <div className="flex gap-2 items-center">
+          <select 
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="this-month">Este Mês</option>
+            <option value="last-month">Último Mês</option>
+            <option value="this-year">Este Ano</option>
+            <option value="month">Mês Específico</option>
+            <option value="custom">Personalizado</option>
+          </select>
+
+          {filterType === 'month' && (
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            >
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i} value={i}>
+                  {new Date(0, i).toLocaleDateString('pt-BR', { month: 'long' })}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {filterType === 'custom' && (
+            <div className="flex gap-2">
+              <input 
+                type="date" 
+                value={customRange.start}
+                onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))}
+                className="bg-white border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <input 
+                type="date" 
+                value={customRange.end}
+                onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))}
+                className="bg-white border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -169,9 +238,9 @@ export const Transactions: React.FC = () => {
                     <td className="px-6 py-4">
                       <span className={`font-bold ${
                         t.type === 'income' ? 'text-emerald-600' : 
-                        t.type === 'expense' ? 'text-red-600' : 'text-blue-600'
+                        t.transactionTypeId === 'transferencia' ? 'text-blue-600' : 'text-red-600'
                       }`}>
-                        {t.type === 'income' ? '+' : t.type === 'expense' ? '-' : '⇄'} R$ {t.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {t.type === 'income' ? '+' : t.transactionTypeId === 'transferencia' ? '⇄' : '-'} R$ {t.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </span>
                     </td>
                     <td className="px-6 py-4">

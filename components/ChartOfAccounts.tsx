@@ -4,8 +4,9 @@ import { AccountPlan } from '../services/financialData';
 import { useTransactions } from '../src/context/TransactionContext';
 
 export const ChartOfAccounts: React.FC = () => {
-  const { accountPlans, addAccountPlan, deleteAccountPlan } = useTransactions();
+  const { accountPlans, addAccountPlan, deleteAccountPlan, updateAccountPlan } = useTransactions();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newAccount, setNewAccount] = useState<Partial<AccountPlan>>({
     type: 'despesa',
     code: '',
@@ -27,21 +28,48 @@ export const ChartOfAccounts: React.FC = () => {
   };
 
   const handleTypeChange = (type: 'receita' | 'despesa') => {
-    const nextCode = generateNextCode(type);
-    setNewAccount({ ...newAccount, type, code: nextCode });
+    if (editingId) {
+        // If editing, we generally don't want to change the type/code logic automatically 
+        // unless we want to allow moving accounts between types, which implies code change.
+        // For simplicity, let's allow it but regenerate code.
+        const nextCode = generateNextCode(type);
+        setNewAccount({ ...newAccount, type, code: nextCode });
+    } else {
+        const nextCode = generateNextCode(type);
+        setNewAccount({ ...newAccount, type, code: nextCode });
+    }
   };
 
   const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newAccount.name && newAccount.code && newAccount.type) {
-      await addAccountPlan({
-        name: newAccount.name,
-        code: newAccount.code,
-        type: newAccount.type as 'receita' | 'despesa'
-      });
+      if (editingId) {
+        await updateAccountPlan(editingId, {
+            name: newAccount.name,
+            code: newAccount.code,
+            type: newAccount.type as 'receita' | 'despesa'
+        });
+      } else {
+        await addAccountPlan({
+            name: newAccount.name,
+            code: newAccount.code,
+            type: newAccount.type as 'receita' | 'despesa'
+        });
+      }
       setIsModalOpen(false);
+      setEditingId(null);
       setNewAccount({ type: 'despesa', code: '', name: '' });
     }
+  };
+
+  const handleEdit = (account: AccountPlan) => {
+      setEditingId(account.id);
+      setNewAccount({
+          type: account.type,
+          code: account.code,
+          name: account.name
+      });
+      setIsModalOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -62,7 +90,10 @@ export const ChartOfAccounts: React.FC = () => {
               <span className="font-bold text-gray-800">{account.name}</span>
             </div>
             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button className="p-1 text-gray-400 hover:text-blue-600 rounded">
+              <button 
+                onClick={() => handleEdit(account)}
+                className="p-1 text-gray-400 hover:text-blue-600 rounded"
+              >
                 <Edit2 size={16} />
               </button>
               <button 
@@ -91,6 +122,7 @@ export const ChartOfAccounts: React.FC = () => {
         <button 
           onClick={() => {
             setIsModalOpen(true);
+            setEditingId(null);
             const nextCode = generateNextCode('despesa');
             setNewAccount({ type: 'despesa', code: nextCode, name: '' });
           }}
@@ -126,7 +158,7 @@ export const ChartOfAccounts: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-              <h3 className="text-lg font-bold text-gray-800">Nova Conta</h3>
+              <h3 className="text-lg font-bold text-gray-800">{editingId ? 'Editar Conta' : 'Nova Conta'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
                 <X size={20} />
               </button>
@@ -196,7 +228,7 @@ export const ChartOfAccounts: React.FC = () => {
                   type="submit" 
                   className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 shadow-sm"
                 >
-                  Salvar Conta
+                  {editingId ? 'Atualizar Conta' : 'Salvar Conta'}
                 </button>
               </div>
             </form>

@@ -21,7 +21,7 @@ export const AccountsReceivable: React.FC<AccountsReceivableProps> = ({ initialT
            return t.transactionTypeId === 'adiantamento_cliente';
         }
         // General: Income payments that are pending or specifically marked for Accounts Receivable
-        return t.type === 'income' && (p.status === 'pending' || p.destination === 'Contas a Receber');
+        return t.type === 'income' && t.transactionTypeId !== 'transferencia' && (p.status === 'pending' || p.destination === 'Contas a Receber');
       })
       .map(p => ({
         ...p,

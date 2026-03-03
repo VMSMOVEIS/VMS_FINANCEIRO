@@ -1,26 +1,62 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { DollarSign, TrendingUp, TrendingDown, Activity, AlertCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
 import { useTransactions } from '../src/context/TransactionContext';
 
 export const FinancialDashboard: React.FC = () => {
   const { transactions } = useTransactions();
+  const [filterType, setFilterType] = useState('this-month');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
+  const [customRange, setCustomRange] = useState({ start: '', end: '' });
+
+  const filteredTransactions = useMemo(() => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    return transactions.filter(t => {
+      // Fix timezone issue by treating the date string as local time or appending time
+      // Assuming t.date is YYYY-MM-DD
+      const [year, month, day] = t.date.split('-').map(Number);
+      const tDate = new Date(year, month - 1, day);
+      
+      const tYear = tDate.getFullYear();
+      const tMonth = tDate.getMonth();
+
+      switch (filterType) {
+        case 'this-month':
+          return tYear === currentYear && tMonth === currentMonth;
+        case 'last-month':
+           const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
+           return tYear === lastMonthDate.getFullYear() && tMonth === lastMonthDate.getMonth();
+        case 'this-year':
+          return tYear === currentYear;
+        case 'month':
+          return tYear === currentYear && tMonth === parseInt(selectedMonth);
+        case 'custom':
+          if (!customRange.start || !customRange.end) return true;
+          return t.date >= customRange.start && t.date <= customRange.end;
+        default:
+          return true;
+      }
+    });
+  }, [transactions, filterType, selectedMonth, customRange]);
 
   // --- KPI Calculations ---
 
   // 1. Receita Total (Total Revenue) - Sum of all 'income' transactions
   const totalRevenue = useMemo(() => {
-    return transactions
-      .filter(t => t.type === 'income')
+    return filteredTransactions
+      .filter(t => t.type === 'income' && t.transactionTypeId !== 'transferencia')
       .reduce((sum, t) => sum + t.value, 0);
-  }, [transactions]);
+  }, [filteredTransactions]);
 
   // 2. Despesas (Total Expenses) - Sum of all 'expense' transactions
   const totalExpenses = useMemo(() => {
-    return transactions
-      .filter(t => t.type === 'expense')
+    return filteredTransactions
+      .filter(t => t.type === 'expense' && t.transactionTypeId !== 'transferencia')
       .reduce((sum, t) => sum + t.value, 0);
-  }, [transactions]);
+  }, [filteredTransactions]);
 
   // 3. EBITDA (Simplified: Revenue - Expenses)
   const ebitda = totalRevenue - totalExpenses;
@@ -28,19 +64,19 @@ export const FinancialDashboard: React.FC = () => {
 
   // 4. Contas a Pagar (Accounts Payable) - Pending expenses
   const accountsPayable = useMemo(() => {
-    return transactions
+    return filteredTransactions
       .filter(t => t.type === 'expense')
       .flatMap(t => t.payments)
       .filter(p => p.status === 'pending')
       .reduce((sum, p) => sum + p.value, 0);
-  }, [transactions]);
+  }, [filteredTransactions]);
   
   const pendingPayablesCount = useMemo(() => {
-      return transactions
+      return filteredTransactions
       .filter(t => t.type === 'expense')
       .flatMap(t => t.payments)
       .filter(p => p.status === 'pending').length;
-  }, [transactions]);
+  }, [filteredTransactions]);
 
   // --- Chart Data Preparation ---
 
@@ -48,14 +84,17 @@ export const FinancialDashboard: React.FC = () => {
   const monthlyData = useMemo(() => {
     const data: Record<string, { name: string; receita: number; despesa: number }> = {};
     
-    transactions.forEach(t => {
-      const date = new Date(t.date);
+    filteredTransactions.forEach(t => {
+      const [year, month, day] = t.date.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
       const monthKey = `${date.getFullYear()}-${date.getMonth()}`; // Unique key YYYY-M
       const monthName = date.toLocaleDateString('pt-BR', { month: 'short' });
 
       if (!data[monthKey]) {
         data[monthKey] = { name: monthName, receita: 0, despesa: 0 };
       }
+
+      if (t.transactionTypeId === 'transferencia') return;
 
       if (t.type === 'income') {
         data[monthKey].receita += t.value;
@@ -72,14 +111,14 @@ export const FinancialDashboard: React.FC = () => {
             return yearA - yearB || monthA - monthB;
         })
         .map(([, value]) => value);
-  }, [transactions]);
+  }, [filteredTransactions]);
 
   // 2. Fluxo de Caixa (Daily Balance for the last 7 days with activity)
   const cashFlowData = useMemo(() => {
     const dailyBalances: Record<string, number> = {};
     
     // Sort transactions by date
-    const sortedTransactions = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const sortedTransactions = [...filteredTransactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     let runningBalance = 0;
     sortedTransactions.forEach(t => {
@@ -89,7 +128,9 @@ export const FinancialDashboard: React.FC = () => {
             .reduce((sum, p) => sum + p.value, 0);
 
         if (completedAmount > 0) {
-             if (t.type === 'income') {
+             if (t.transactionTypeId === 'transferencia') {
+                 // Transfers are neutral for consolidated balance
+             } else if (t.type === 'income') {
                 runningBalance += completedAmount;
             } else {
                 runningBalance -= completedAmount;
@@ -111,22 +152,22 @@ export const FinancialDashboard: React.FC = () => {
         .sort((a, b) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime())
         .slice(-7);
 
-  }, [transactions]);
+  }, [filteredTransactions]);
 
   // --- Recent Transactions ---
   const recentTransactions = useMemo(() => {
-      return [...transactions]
+      return [...filteredTransactions]
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         .slice(0, 5)
         .map(t => ({
             desc: t.description,
             cat: t.category,
             date: new Date(t.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-            status: t.status === 'completed' ? (t.type === 'income' ? 'Recebido' : 'Pago') : (t.status === 'partial' ? 'Parcial' : 'Pendente'),
-            val: `${t.type === 'income' ? '+' : '-'} R$ ${t.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-            type: t.type === 'income' ? 'in' : 'out'
+            status: t.status === 'completed' ? (t.transactionTypeId === 'transferencia' ? 'Transferido' : (t.type === 'income' ? 'Recebido' : 'Pago')) : (t.status === 'partial' ? 'Parcial' : 'Pendente'),
+            val: `${t.transactionTypeId === 'transferencia' ? '⇄' : (t.type === 'income' ? '+' : '-')} R$ ${t.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+            type: t.transactionTypeId === 'transferencia' ? 'transfer' : (t.type === 'income' ? 'in' : 'out')
         }));
-  }, [transactions]);
+  }, [filteredTransactions]);
 
 
   return (
@@ -136,12 +177,50 @@ export const FinancialDashboard: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-800">Dashboard Financeiro</h1>
           <p className="text-gray-500">Visão geral da saúde financeira da empresa</p>
         </div>
-        <div className="flex gap-2">
-          <select className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
-            <option>Este Mês</option>
-            <option>Último Mês</option>
-            <option>Este Ano</option>
+        <div className="flex gap-2 items-center">
+          <select 
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="this-month">Este Mês</option>
+            <option value="last-month">Último Mês</option>
+            <option value="this-year">Este Ano</option>
+            <option value="month">Mês Específico</option>
+            <option value="custom">Personalizado</option>
           </select>
+
+          {filterType === 'month' && (
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            >
+              {Array.from({ length: 12 }, (_, i) => (
+                <option key={i} value={i}>
+                  {new Date(0, i).toLocaleDateString('pt-BR', { month: 'long' })}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {filterType === 'custom' && (
+            <div className="flex gap-2">
+              <input 
+                type="date" 
+                value={customRange.start}
+                onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))}
+                className="bg-white border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+              <input 
+                type="date" 
+                value={customRange.end}
+                onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))}
+                className="bg-white border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          )}
+
           <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors">
             Exportar Relatório
           </button>
@@ -294,7 +373,7 @@ export const FinancialDashboard: React.FC = () => {
                           {item.status}
                         </span>
                       </td>
-                      <td className={`px-6 py-4 text-right font-medium ${item.type === 'in' ? 'text-emerald-600' : 'text-red-600'}`}>
+                      <td className={`px-6 py-4 text-right font-medium ${item.type === 'in' ? 'text-emerald-600' : (item.type === 'transfer' ? 'text-blue-600' : 'text-red-600')}`}>
                         {item.val}
                       </td>
                     </tr>
