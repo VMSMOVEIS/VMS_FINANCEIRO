@@ -39,7 +39,9 @@ export const transactionTypes: TransactionType[] = [
   { id: 'recebimento', label: 'Recebimento', defaultDestination: 'Fluxo de Caixa', defaultType: 'income' },
   { id: 'adiantamento_cliente', label: 'Adiantamento de Cliente', defaultDestination: 'Fluxo de Caixa', defaultType: 'income' },
   { id: 'adiantamento_fornecedor', label: 'Adiantamento a Fornecedor', defaultDestination: 'Fluxo de Caixa', defaultType: 'expense' },
-  { id: 'transferencia', label: 'Transferência', defaultDestination: 'Tesouraria', defaultType: 'expense' }, // Neutral in reality, but needs a type
+  { id: 'transferencia', label: 'Transferência', defaultDestination: 'Tesouraria', defaultType: 'expense' },
+  { id: 'duplicata_receber', label: 'Duplicatas ou promissórias a receber', defaultDestination: 'Contas a Receber', defaultType: 'income' },
+  { id: 'duplicata_pagar', label: 'Duplicatas ou promissórias a pagar', defaultDestination: 'Contas a Pagar', defaultType: 'expense' },
 ];
 
 // Service methods to simulate API calls

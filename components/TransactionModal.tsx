@@ -13,10 +13,10 @@ export const TransactionModal: React.FC = () => {
     addTransaction, 
     updateTransaction, 
     accounts, 
-    paymentMethods 
+    paymentMethods,
+    accountPlans
   } = useTransactions();
 
-  const [accountPlans, setAccountPlans] = useState<AccountPlan[]>([]);
   const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
   
   const [formData, setFormData] = useState<Partial<Transaction>>({
@@ -36,7 +36,6 @@ export const TransactionModal: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    setAccountPlans(getAccountPlans());
     setTransactionTypes(getTransactionTypes());
   }, []);
 
@@ -69,11 +68,34 @@ export const TransactionModal: React.FC = () => {
     
     if (selectedType) {
       const newType = selectedType.defaultType;
+      let initialPayments: Payment[] = [];
+
+      if (typeId === 'duplicata_receber' || typeId === 'duplicata_pagar') {
+        initialPayments = [{
+          id: Date.now().toString(),
+          method: 'A Definir',
+          value: formData.value || 0,
+          dueDate: formData.date || new Date().toISOString().split('T')[0],
+          destination: typeId === 'duplicata_receber' ? 'Contas a Receber' : 'Contas a Pagar',
+          status: 'pending'
+        }];
+      } else if (typeId === 'transferencia') {
+        initialPayments = [{
+          id: Date.now().toString(),
+          method: 'Transferência',
+          value: formData.value || 0,
+          dueDate: formData.date || new Date().toISOString().split('T')[0],
+          source: accounts[0]?.name || '',
+          destination: accounts[1]?.name || '',
+          status: 'completed'
+        }];
+      }
+
       setFormData(prev => ({
         ...prev,
         transactionTypeId: typeId,
         type: newType,
-        payments: []
+        payments: initialPayments
       }));
 
       if (!editingTransaction) {
@@ -221,6 +243,7 @@ export const TransactionModal: React.FC = () => {
   const totalPayments = formData.payments?.reduce((sum, p) => sum + p.value, 0) || 0;
   const remainingValue = (formData.value || 0) - totalPayments;
   const isTransfer = formData.transactionTypeId === 'transferencia';
+  const isDuplicata = formData.transactionTypeId?.includes('duplicata');
   const isAdvance = formData.transactionTypeId?.includes('adiantamento');
 
   return (
@@ -420,14 +443,14 @@ export const TransactionModal: React.FC = () => {
             <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
               {formData.payments?.map((payment, index) => (
                 <div key={payment.id} className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-3">
+                  <div className="col-span-2">
                     <label className="text-xs text-gray-500 block mb-1">Valor</label>
                     <input
                       type="number"
                       value={payment.value}
                       onChange={(e) => updatePayment(index, 'value', parseFloat(e.target.value))}
                       className="w-full text-xs p-2 border rounded"
-                      readOnly={payment.method === 'Adiantamento'}
+                      readOnly={payment.method === 'Adiantamento' || isTransfer}
                     />
                   </div>
 
@@ -437,7 +460,7 @@ export const TransactionModal: React.FC = () => {
                       value={payment.method}
                       onChange={(e) => updatePayment(index, 'method', e.target.value)}
                       className="w-full text-xs p-2 border rounded"
-                      disabled={payment.method === 'Adiantamento'}
+                      disabled={payment.method === 'Adiantamento' || isDuplicata || isTransfer}
                     >
                       <option value="A Definir">A Definir</option>
                       {paymentMethods.map(pm => {
@@ -449,11 +472,12 @@ export const TransactionModal: React.FC = () => {
                         );
                       })}
                       <option value="Adiantamento">Adiantamento</option>
+                      <option value="Transferência">Transferência</option>
                       <option value="Outros">Outros</option>
                     </select>
                   </div>
 
-                  <div className="col-span-3">
+                  <div className="col-span-2">
                     <label className="text-xs text-gray-500 block mb-1">Vencimento</label>
                     <input
                       type="date"
@@ -463,28 +487,61 @@ export const TransactionModal: React.FC = () => {
                     />
                   </div>
 
-                  <div className="col-span-2">
-                     <label className="text-xs text-gray-500 block mb-1">Destino</label>
-                     <select
-                       value={payment.destination}
-                       onChange={(e) => updatePayment(index, 'destination', e.target.value)}
-                       className="w-full text-xs p-2 border rounded"
-                     >
-                       <option value="">Selecione...</option>
-                       {accounts.map(acc => (
-                         <option key={acc.id} value={acc.name}>{acc.name}</option>
-                       ))}
-                       <option value="Contas a Receber">Contas a Receber</option>
-                       <option value="Contas a Pagar">Contas a Pagar</option>
-                       <option value="Fluxo de Caixa">Fluxo de Caixa</option>
-                     </select>
-                  </div>
+                  {isTransfer ? (
+                    <>
+                      <div className="col-span-2">
+                        <label className="text-xs text-gray-500 block mb-1">Origem</label>
+                        <select
+                          value={payment.source}
+                          onChange={(e) => updatePayment(index, 'source', e.target.value)}
+                          className="w-full text-xs p-2 border rounded"
+                        >
+                          <option value="">Selecione...</option>
+                          {accounts.map(acc => (
+                            <option key={acc.id} value={acc.name}>{acc.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-xs text-gray-500 block mb-1">Destino</label>
+                        <select
+                          value={payment.destination}
+                          onChange={(e) => updatePayment(index, 'destination', e.target.value)}
+                          className="w-full text-xs p-2 border rounded"
+                        >
+                          <option value="">Selecione...</option>
+                          {accounts.map(acc => (
+                            <option key={acc.id} value={acc.name}>{acc.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="col-span-4">
+                       <label className="text-xs text-gray-500 block mb-1">Destino</label>
+                       <select
+                         value={payment.destination}
+                         onChange={(e) => updatePayment(index, 'destination', e.target.value)}
+                         className="w-full text-xs p-2 border rounded"
+                         disabled={isDuplicata}
+                       >
+                         <option value="">Selecione...</option>
+                         {accounts.map(acc => (
+                           <option key={acc.id} value={acc.name}>{acc.name}</option>
+                         ))}
+                         <option value="Contas a Receber">Contas a Receber</option>
+                         <option value="Contas a Pagar">Contas a Pagar</option>
+                         <option value="Fluxo de Caixa">Fluxo de Caixa</option>
+                       </select>
+                    </div>
+                  )}
 
                   <div className="col-span-1 flex justify-center pb-1">
                     <button 
                       type="button"
                       onClick={() => removePayment(index)}
                       className="text-red-500 hover:bg-red-50 p-1 rounded"
+                      disabled={isTransfer}
                     >
                       <X size={16} />
                     </button>
@@ -492,7 +549,7 @@ export const TransactionModal: React.FC = () => {
                 </div>
               ))}
 
-              {remainingValue > 0 && (
+              {!isTransfer && remainingValue > 0 && (
                 <button
                   type="button"
                   onClick={() => addPayment(remainingValue)}

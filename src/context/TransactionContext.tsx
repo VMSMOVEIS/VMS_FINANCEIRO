@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Transaction, Account, PaymentMethod, UserProfile, CompanyProfile, Payment } from '../../types';
 import { supabase } from '../lib/supabase';
+import { AccountPlan } from '../../services/financialData';
 
 interface TransactionContextType {
   transactions: Transaction[];
   accounts: Account[];
   paymentMethods: PaymentMethod[];
+  accountPlans: AccountPlan[];
   userProfile: UserProfile;
   companyProfile: CompanyProfile;
   isModalOpen: boolean;
@@ -22,6 +24,9 @@ interface TransactionContextType {
   addPaymentMethod: (method: Omit<PaymentMethod, 'id'>) => Promise<void>;
   updatePaymentMethod: (id: string, method: Partial<PaymentMethod>) => Promise<void>;
   deletePaymentMethod: (id: string) => Promise<void>;
+  addAccountPlan: (plan: Omit<AccountPlan, 'id'>) => Promise<void>;
+  updateAccountPlan: (id: string, plan: Partial<AccountPlan>) => Promise<void>;
+  deleteAccountPlan: (id: string) => Promise<void>;
   updateUserProfile: (profile: Partial<UserProfile>) => Promise<void>;
   updateCompanyProfile: (profile: Partial<CompanyProfile>) => Promise<void>;
   refreshData: () => Promise<void>;
@@ -49,6 +54,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [accountPlans, setAccountPlans] = useState<AccountPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -84,6 +90,19 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         name: pm.name,
         type: pm.type,
         defaultAccountId: pm.default_account_id
+      })));
+
+      // Fetch Account Plans
+      const { data: plansData, error: plansError } = await supabase
+        .from('account_plans')
+        .select('*');
+      if (plansError) throw plansError;
+      setAccountPlans(plansData.map(p => ({
+        id: p.id,
+        code: p.code,
+        name: p.name,
+        type: p.type as 'receita' | 'despesa',
+        parent: p.parent_id
       })));
 
       // Fetch Transactions with Payments
@@ -123,8 +142,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     } catch (error: any) {
       console.error('Error fetching data from Supabase:', error);
-      if (error.message === 'Failed to fetch') {
-        alert('Erro de conexão com o Supabase. Verifique se a URL está correta.');
+      if (error.message === 'Failed to fetch' || error.message?.includes('TypeError')) {
+        alert('Erro de conexão com o Supabase. Verifique se a URL no Vercel está correta e se o projeto não está pausado.');
       }
     } finally {
       setIsLoading(false);
@@ -194,6 +213,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const updateTransaction = async (id: number, updatedTransaction: Partial<Transaction>) => {
     if (!supabase) return;
     try {
+      // 1. Update the transaction record
       const { error: transError } = await supabase
         .from('transactions')
         .update({
@@ -212,8 +232,32 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
       if (transError) throw transError;
 
-      // For simplicity, we'll refresh everything. 
-      // In a real app, you'd handle payment updates more specifically.
+      // 2. Update payments: Delete existing and insert new ones
+      // This is the most reliable way to sync a list of related items
+      const { error: deleteError } = await supabase
+        .from('payments')
+        .delete()
+        .eq('transaction_id', id);
+      
+      if (deleteError) throw deleteError;
+
+      if (updatedTransaction.payments && updatedTransaction.payments.length > 0) {
+        const { error: insertError } = await supabase
+          .from('payments')
+          .insert(updatedTransaction.payments.map(p => ({
+            transaction_id: id,
+            method: p.method,
+            value: p.value,
+            due_date: p.dueDate,
+            bank_id: p.bankId,
+            destination: p.destination,
+            source: p.source,
+            status: p.status
+          })));
+        
+        if (insertError) throw insertError;
+      }
+
       await fetchData();
     } catch (error: any) {
       console.error('Error updating transaction:', error);
@@ -340,6 +384,57 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
 
+  const addAccountPlan = async (plan: Omit<AccountPlan, 'id'>) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('account_plans')
+        .insert([{
+          code: plan.code,
+          name: plan.name,
+          type: plan.type,
+          parent_id: plan.parent
+        }]);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error adding account plan:', error);
+    }
+  };
+
+  const updateAccountPlan = async (id: string, plan: Partial<AccountPlan>) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('account_plans')
+        .update({
+          code: plan.code,
+          name: plan.name,
+          type: plan.type,
+          parent_id: plan.parent
+        })
+        .eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error updating account plan:', error);
+    }
+  };
+
+  const deleteAccountPlan = async (id: string) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('account_plans')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error deleting account plan:', error);
+    }
+  };
+
   const updateUserProfile = async (profile: Partial<UserProfile>) => {
     // In a real app, this would update the 'profiles' table
     setUserProfile(prev => ({ ...prev, ...profile }));
@@ -355,6 +450,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       transactions, 
       accounts, 
       paymentMethods,
+      accountPlans,
       userProfile,
       companyProfile,
       isModalOpen,
@@ -371,6 +467,9 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       addPaymentMethod,
       updatePaymentMethod,
       deletePaymentMethod,
+      addAccountPlan,
+      updateAccountPlan,
+      deleteAccountPlan,
       updateUserProfile,
       updateCompanyProfile,
       refreshData: fetchData

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Edit2, FolderTree, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
-import { AccountPlan, getAccountPlans, addAccountPlan, removeAccountPlan } from '../services/financialData';
+import React, { useState } from 'react';
+import { Plus, Trash2, Edit2, ArrowUpCircle, ArrowDownCircle, X } from 'lucide-react';
+import { AccountPlan } from '../services/financialData';
+import { useTransactions } from '../src/context/TransactionContext';
 
 export const ChartOfAccounts: React.FC = () => {
-  const [accounts, setAccounts] = useState<AccountPlan[]>([]);
+  const { accountPlans, addAccountPlan, deleteAccountPlan } = useTransactions();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newAccount, setNewAccount] = useState<Partial<AccountPlan>>({
     type: 'despesa',
@@ -11,28 +12,22 @@ export const ChartOfAccounts: React.FC = () => {
     name: ''
   });
 
-  useEffect(() => {
-    setAccounts(getAccountPlans());
-  }, []);
-
-  const handleAddAccount = (e: React.FormEvent) => {
+  const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newAccount.name && newAccount.code && newAccount.type) {
-      const added = addAccountPlan({
+      await addAccountPlan({
         name: newAccount.name,
         code: newAccount.code,
         type: newAccount.type as 'receita' | 'despesa'
       });
-      setAccounts([...accounts, added]);
       setIsModalOpen(false);
       setNewAccount({ type: 'despesa', code: '', name: '' });
     }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Tem certeza que deseja remover esta conta?')) {
-      removeAccountPlan(id);
-      setAccounts(accounts.filter(a => a.id !== id));
+      await deleteAccountPlan(id);
     }
   };
 
@@ -60,7 +55,7 @@ export const ChartOfAccounts: React.FC = () => {
             <h3 className="font-bold text-emerald-800">Receitas</h3>
           </div>
           <div className="divide-y divide-gray-100">
-            {accounts.filter(a => a.type === 'receita').map(account => (
+            {accountPlans.filter(a => a.type === 'receita').map(account => (
               <div key={account.id} className="p-4 flex justify-between items-center hover:bg-gray-50 group">
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">{account.code}</span>
@@ -79,7 +74,7 @@ export const ChartOfAccounts: React.FC = () => {
                 </div>
               </div>
             ))}
-            {accounts.filter(a => a.type === 'receita').length === 0 && (
+            {accountPlans.filter(a => a.type === 'receita').length === 0 && (
               <div className="p-8 text-center text-gray-400">Nenhuma conta de receita cadastrada.</div>
             )}
           </div>
@@ -92,7 +87,7 @@ export const ChartOfAccounts: React.FC = () => {
             <h3 className="font-bold text-red-800">Despesas</h3>
           </div>
           <div className="divide-y divide-gray-100">
-            {accounts.filter(a => a.type === 'despesa').map(account => (
+            {accountPlans.filter(a => a.type === 'despesa').map(account => (
               <div key={account.id} className="p-4 flex justify-between items-center hover:bg-gray-50 group">
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">{account.code}</span>
@@ -111,7 +106,7 @@ export const ChartOfAccounts: React.FC = () => {
                 </div>
               </div>
             ))}
-             {accounts.filter(a => a.type === 'despesa').length === 0 && (
+             {accountPlans.filter(a => a.type === 'despesa').length === 0 && (
               <div className="p-8 text-center text-gray-400">Nenhuma conta de despesa cadastrada.</div>
             )}
           </div>
@@ -125,8 +120,7 @@ export const ChartOfAccounts: React.FC = () => {
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
               <h3 className="text-lg font-bold text-gray-800">Nova Conta</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <Trash2 size={20} className="rotate-45" /> 
-                {/* Using Trash2 rotated as close icon just for quickness, better to import X */}
+                <X size={20} />
               </button>
             </div>
             

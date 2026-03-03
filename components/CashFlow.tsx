@@ -7,7 +7,12 @@ import {
   TrendingDown, 
   DollarSign, 
   AlertCircle,
-  Wallet
+  Wallet,
+  ChevronDown,
+  FileText,
+  FileSpreadsheet,
+  FileCode,
+  File
 } from 'lucide-react';
 import { 
   ComposedChart, 
@@ -27,8 +32,20 @@ export const CashFlow: React.FC = () => {
   const { transactions, accounts } = useTransactions();
   const [viewMode, setViewMode] = useState<'daily' | 'monthly'>('daily');
   const [selectedAccount, setSelectedAccount] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    date: '',
+    description: '',
+    document: '',
+    status: 'all',
+    type: 'all',
+    minValue: '',
+    maxValue: ''
+  });
 
-  const data = useMemo(() => {
+  const chartData = useMemo(() => {
     const dailyData: Record<string, { 
       entrada: number; 
       saida: number; 
@@ -37,6 +54,9 @@ export const CashFlow: React.FC = () => {
     }> = {};
 
     transactions.forEach(t => {
+      const transYear = new Date(t.date).getFullYear();
+      if (transYear !== selectedYear) return;
+
       t.payments.forEach(p => {
         // Filter by account if selected
         if (selectedAccount !== 'all') {
@@ -53,14 +73,21 @@ export const CashFlow: React.FC = () => {
         let isIncome = t.type === 'income';
         let isExpense = t.type === 'expense';
 
-        // Handle Transfer logic for specific account view
-        if (t.transactionTypeId === 'transferencia' && selectedAccount !== 'all') {
+        // Handle Transfer logic
+        if (t.transactionTypeId === 'transferencia') {
+          if (selectedAccount === 'all') {
+            // In consolidated view, transfers are neutral
+            return;
+          }
           if (p.source === selectedAccount) {
             isIncome = false;
             isExpense = true;
           } else if (p.destination === selectedAccount) {
             isIncome = true;
             isExpense = false;
+          } else {
+            // If the selected account is neither source nor destination, ignore
+            return;
           }
         }
 
@@ -94,24 +121,6 @@ export const CashFlow: React.FC = () => {
       currentBalance = acc ? acc.balance : 0;
     }
     
-    // Adjust initial balance by reversing past transactions? 
-    // For simplicity, we assume the current balance IS the balance as of today/latest, 
-    // and we project forward or backward. 
-    // However, usually "Cash Flow" shows flow over time. 
-    // If we want the chart to be accurate relative to the *current* balance, 
-    // we might need to adjust the starting point or just show the flow.
-    // Let's assume 'currentBalance' is the starting balance for the period shown? 
-    // Or better, let's just accumulate from 0 for the flow, or use the account balance as the *end* state?
-    // Let's stick to the previous logic: Start with a mock or calculated balance.
-    // Since we have real account balances now, let's use them as the "Current" balance and work backwards?
-    // Or just start with the current balance and add/subtract future?
-    // The chart shows *history* usually.
-    // Let's just use the calculated flow for now, starting from the current account balance as a baseline for the *last* day, 
-    // or just start from 0 if we don't have historical balance snapshots.
-    // To make it look good, let's assume the current balance is the *result* of these transactions if they are recent.
-    // But `accounts.balance` is static in our context.
-    // Let's just use the static balance as the "Starting Balance" for the visualization for now.
-    
     let projectedBalance = currentBalance;
 
     return sortedDates.map(date => {
@@ -132,20 +141,220 @@ export const CashFlow: React.FC = () => {
         projetado: projectedBalance
       };
     });
-  }, [transactions, selectedAccount, accounts]);
+  }, [transactions, selectedAccount, accounts, selectedYear]);
+
+  // Individual entries for the table
+  const tableData = useMemo(() => {
+    if (viewMode === 'monthly') {
+      const monthlyData: Record<string, { 
+        month: string;
+        entrada: number; 
+        saida: number; 
+        saldo: number;
+        status: string;
+      }> = {};
+
+      // Initialize all months of the selected year
+      const monthNames = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+      ];
+
+      monthNames.forEach((name, index) => {
+        const key = `${selectedYear}-${String(index + 1).padStart(2, '0')}`;
+        monthlyData[key] = { month: name, entrada: 0, saida: 0, saldo: 0, status: 'Positivo' };
+      });
+
+      // Calculate running balance starting from the beginning of the year
+      let runningBalance = 0;
+      if (selectedAccount === 'all') {
+        runningBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+      } else {
+        const acc = accounts.find(a => a.name === selectedAccount || a.id === selectedAccount);
+        runningBalance = acc ? acc.balance : 0;
+      }
+
+      // We need to adjust runningBalance to be the balance at the START of the year
+      // by reversing all completed transactions from the start of the year to now.
+      // But for simplicity in this view, let's just show the monthly flow and the balance at the end of each month.
+      
+      const sortedTransactions = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      sortedTransactions.forEach(t => {
+        const transYear = new Date(t.date).getFullYear();
+        if (transYear !== selectedYear) return;
+
+        t.payments.forEach(p => {
+          if (selectedAccount !== 'all') {
+            const isDestination = p.destination === selectedAccount;
+            const isSource = p.source === selectedAccount;
+            if (!isDestination && !isSource) return;
+          }
+
+          const monthKey = p.dueDate.substring(0, 7); // YYYY-MM
+          if (!monthlyData[monthKey]) return;
+
+          let isIncome = t.type === 'income';
+          let isExpense = t.type === 'expense';
+
+          if (t.transactionTypeId === 'transferencia') {
+            if (selectedAccount === 'all') return;
+            if (p.source === selectedAccount) { isIncome = false; isExpense = true; }
+            else if (p.destination === selectedAccount) { isIncome = true; isExpense = false; }
+            else return;
+          }
+
+          if (p.status === 'completed') {
+            if (isIncome) {
+              monthlyData[monthKey].entrada += p.value;
+              runningBalance += p.value;
+            } else if (isExpense) {
+              monthlyData[monthKey].saida += p.value;
+              runningBalance -= p.value;
+            }
+          }
+          monthlyData[monthKey].saldo = runningBalance;
+          monthlyData[monthKey].status = runningBalance >= 0 ? 'Positivo' : 'Negativo';
+        });
+      });
+
+      return Object.entries(monthlyData).map(([key, data]) => ({
+        id: key,
+        date: key,
+        description: data.month,
+        document: '-',
+        type: 'monthly',
+        entrada: data.entrada,
+        saida: data.saida,
+        value: data.entrada - data.saida,
+        status: data.status,
+        balance: data.saldo,
+        customer: '-',
+        bank: '-'
+      })).filter(m => m.entrada > 0 || m.saida > 0);
+    }
+
+    const entries: any[] = [];
+    
+    // Sort transactions by date first
+    const sortedTransactions = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // 1. Calculate the sum of all completed transactions to find the "Starting Balance"
+    // relative to the current balance in the accounts.
+    let totalFlow = 0;
+    sortedTransactions.forEach(t => {
+      const transYear = new Date(t.date).getFullYear();
+      if (transYear !== selectedYear) return;
+
+      t.payments.forEach(p => {
+        if (p.status !== 'completed') return;
+        
+        if (selectedAccount !== 'all') {
+          const isDestination = p.destination === selectedAccount;
+          const isSource = p.source === selectedAccount;
+          if (!isDestination && !isSource) return;
+        }
+
+        let isIncome = t.type === 'income';
+        let isExpense = t.type === 'expense';
+        if (t.transactionTypeId === 'transferencia') {
+          if (selectedAccount === 'all') return;
+          if (p.source === selectedAccount) { isIncome = false; isExpense = true; }
+          else if (p.destination === selectedAccount) { isIncome = true; isExpense = false; }
+          else return;
+        }
+
+        if (isIncome) totalFlow += p.value;
+        else if (isExpense) totalFlow -= p.value;
+      });
+    });
+
+    // Current Balance from accounts
+    let currentAccountBalance = 0;
+    if (selectedAccount === 'all') {
+      currentAccountBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+    } else {
+      const acc = accounts.find(a => a.name === selectedAccount || a.id === selectedAccount);
+      currentAccountBalance = acc ? acc.balance : 0;
+    }
+
+    // Starting balance = Current - Total Flow
+    let runningBalance = currentAccountBalance - totalFlow;
+
+    sortedTransactions.forEach(t => {
+      const transYear = new Date(t.date).getFullYear();
+      if (transYear !== selectedYear) return;
+
+      t.payments.forEach(p => {
+        // Filter by account if selected
+        if (selectedAccount !== 'all') {
+          const isDestination = p.destination === selectedAccount;
+          const isSource = p.source === selectedAccount;
+          if (!isDestination && !isSource) return;
+        }
+
+        let isIncome = t.type === 'income';
+        let isExpense = t.type === 'expense';
+
+        if (t.transactionTypeId === 'transferencia') {
+          if (selectedAccount === 'all') return;
+          if (p.source === selectedAccount) {
+            isIncome = false;
+            isExpense = true;
+          } else if (p.destination === selectedAccount) {
+            isIncome = true;
+            isExpense = false;
+          } else {
+            return;
+          }
+        }
+
+        if (p.status === 'completed') {
+          if (isIncome) runningBalance += p.value;
+          else if (isExpense) runningBalance -= p.value;
+        }
+
+        entries.push({
+          id: `${t.id}-${p.id}`,
+          date: p.dueDate,
+          description: t.description,
+          document: t.orderNumber || '-',
+          type: isIncome ? 'income' : 'expense',
+          value: p.value,
+          status: p.status,
+          balance: runningBalance,
+          customer: t.customerName || '-',
+          bank: p.destination || '-'
+        });
+      });
+    });
+
+    // Apply filters
+    return entries.filter(entry => {
+      const matchDate = filters.date === '' || entry.date.includes(filters.date);
+      const matchDesc = filters.description === '' || entry.description.toLowerCase().includes(filters.description.toLowerCase()) || entry.customer.toLowerCase().includes(filters.description.toLowerCase());
+      const matchDoc = filters.document === '' || entry.document.toLowerCase().includes(filters.document.toLowerCase());
+      const matchStatus = filters.status === 'all' || entry.status === filters.status;
+      const matchType = filters.type === 'all' || entry.type === filters.type;
+      const matchMin = filters.minValue === '' || entry.value >= parseFloat(filters.minValue);
+      const matchMax = filters.maxValue === '' || entry.value <= parseFloat(filters.maxValue);
+      
+      return matchDate && matchDesc && matchDoc && matchStatus && matchType && matchMin && matchMax;
+    }).reverse(); // Show newest first in table
+  }, [transactions, selectedAccount, accounts, filters, viewMode, selectedYear]);
 
   // Calculate totals
   const totals = useMemo(() => {
-    return data.reduce((acc, curr) => ({
+    return chartData.reduce((acc, curr) => ({
       entradas: acc.entradas + curr.entrada,
       saidas: acc.saidas + curr.saida
     }), { entradas: 0, saidas: 0 });
-  }, [data]);
+  }, [chartData]);
 
-  const lastBalance = data.length > 0 ? data[data.length - 1].saldo : 
+  const lastBalance = chartData.length > 0 ? chartData[chartData.length - 1].saldo : 
     (selectedAccount === 'all' ? accounts.reduce((sum, a) => sum + a.balance, 0) : (accounts.find(a => a.name === selectedAccount)?.balance || 0));
     
-  const lastProjectedBalance = data.length > 0 ? data[data.length - 1].projetado : lastBalance;
+  const lastProjectedBalance = chartData.length > 0 ? chartData[chartData.length - 1].projetado : lastBalance;
 
   return (
     <div className="p-6 space-y-6">
@@ -184,14 +393,43 @@ export const CashFlow: React.FC = () => {
               Mensal
             </button>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium">
-            <Calendar size={16} />
-            <span>Março 2026</span>
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium shadow-sm">
-            <Download size={16} />
-            <span>Exportar</span>
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setSelectedYear(prev => prev === 2026 ? 2025 : 2026)} // Simple toggle for demo
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium"
+            >
+              <Calendar size={16} />
+              <span>{selectedYear}</span>
+              <ChevronDown size={14} className="text-gray-400" />
+            </button>
+          </div>
+          <div className="relative">
+            <button 
+              onClick={() => setIsExportOpen(!isExportOpen)}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium shadow-sm"
+            >
+              <Download size={16} />
+              <span>Exportar</span>
+              <ChevronDown size={14} className="text-emerald-200" />
+            </button>
+            
+            {isExportOpen && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+                <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                  <FileText size={16} className="text-red-500" /> Exportar PDF
+                </button>
+                <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                  <FileSpreadsheet size={16} className="text-emerald-500" /> Exportar para Excel
+                </button>
+                <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                  <FileCode size={16} className="text-blue-500" /> Exportar CSV
+                </button>
+                <button className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                  <File size={16} className="text-indigo-500" /> Exportar DOC
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -266,7 +504,7 @@ export const CashFlow: React.FC = () => {
         </div>
         <div className="h-96 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} />
               <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} />
@@ -287,54 +525,175 @@ export const CashFlow: React.FC = () => {
 
       {/* Detailed Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-gray-800">Detalhamento Diário</h3>
-          <button className="text-emerald-600 text-sm font-medium hover:text-emerald-700 flex items-center gap-1">
-            <Filter size={16} />
-            Filtrar
-          </button>
+        <div className="p-6 border-b border-gray-100 flex flex-col gap-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-gray-800">
+              {viewMode === 'daily' ? 'Detalhamento de Lançamentos' : 'Resumo Mensal'}
+            </h3>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setFilters({ date: '', description: '', document: '', status: 'all', type: 'all', minValue: '', maxValue: '' })}
+                className="text-xs text-gray-500 hover:text-emerald-600 font-medium mr-2"
+              >
+                Limpar Filtros
+              </button>
+              <div className="relative">
+                <button 
+                  onClick={() => setIsFilterOpen(!isFilterOpen)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isFilterOpen ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >
+                  <Filter size={16} />
+                  <span>Filtros</span>
+                  <ChevronDown size={14} />
+                </button>
+
+                {isFilterOpen && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Data</label>
+                        <input 
+                          type="date"
+                          value={filters.date}
+                          onChange={(e) => setFilters(prev => ({ ...prev, date: e.target.value }))}
+                          className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Descrição/Cliente</label>
+                        <input 
+                          type="text"
+                          placeholder="Buscar..."
+                          value={filters.description}
+                          onChange={(e) => setFilters(prev => ({ ...prev, description: e.target.value }))}
+                          className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Documento</label>
+                        <input 
+                          type="text"
+                          placeholder="Nº Doc"
+                          value={filters.document}
+                          onChange={(e) => setFilters(prev => ({ ...prev, document: e.target.value }))}
+                          className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Tipo</label>
+                          <select
+                            value={filters.type}
+                            onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
+                            className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full bg-white"
+                          >
+                            <option value="all">Todos</option>
+                            <option value="income">Entrada</option>
+                            <option value="expense">Saída</option>
+                          </select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Status</label>
+                          <select
+                            value={filters.status}
+                            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                            className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full bg-white"
+                          >
+                            <option value="all">Todos</option>
+                            <option value="completed">Realizado</option>
+                            <option value="pending">Pendente</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Valor Mín.</label>
+                          <input 
+                            type="number"
+                            placeholder="R$ 0,00"
+                            value={filters.minValue}
+                            onChange={(e) => setFilters(prev => ({ ...prev, minValue: e.target.value }))}
+                            className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Valor Máx.</label>
+                          <input 
+                            type="number"
+                            placeholder="R$ 0,00"
+                            value={filters.maxValue}
+                            onChange={(e) => setFilters(prev => ({ ...prev, maxValue: e.target.value }))}
+                            className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full"
+                          />
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => setIsFilterOpen(false)}
+                        className="w-full mt-2 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-colors"
+                      >
+                        Aplicar Filtros
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="bg-gray-50 text-gray-500 font-medium">
               <tr>
-                <th className="px-6 py-3">Data</th>
-                <th className="px-6 py-3 text-right text-emerald-600">Entradas</th>
-                <th className="px-6 py-3 text-right text-red-600">Saídas</th>
-                <th className="px-6 py-3 text-right text-blue-600">Saldo do Dia</th>
-                <th className="px-6 py-3 text-right font-bold text-gray-800">Saldo Acumulado</th>
+                <th className="px-6 py-3">{viewMode === 'daily' ? 'Data' : 'Mês'}</th>
+                <th className="px-6 py-3">Descrição / Cliente</th>
+                <th className="px-6 py-3">Documento</th>
+                <th className="px-6 py-3">Banco/Caixa</th>
+                <th className="px-6 py-3 text-right">Valor</th>
+                <th className="px-6 py-3 text-right">Saldo Acumulado</th>
                 <th className="px-6 py-3 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {data.map((item, index) => (
-                <tr key={index} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900">{item.name}/2026</td>
-                  <td className="px-6 py-4 text-right text-emerald-600 font-medium">
-                    + R$ {item.entrada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              {tableData.map((item) => (
+                <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 font-medium text-gray-900">
+                    {viewMode === 'daily' 
+                      ? new Date(item.date).toLocaleDateString('pt-BR')
+                      : item.description // In monthly mode, description is the month name
+                    }
                   </td>
-                  <td className="px-6 py-4 text-right text-red-600 font-medium">
-                    - R$ {item.saida.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <td className="px-6 py-4">
+                    <div className="font-medium text-gray-800">{item.description}</div>
+                    <div className="text-xs text-gray-400">{item.customer}</div>
                   </td>
-                  <td className="px-6 py-4 text-right text-blue-600">
-                    R$ {(item.entrada - item.saida).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <td className="px-6 py-4 text-gray-500">{item.document}</td>
+                  <td className="px-6 py-4 text-gray-600 font-medium">{item.bank}</td>
+                  <td className={`px-6 py-4 text-right font-medium ${item.type === 'income' || item.type === 'monthly' ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {item.type === 'income' ? '+' : (item.type === 'expense' ? '-' : '')} R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </td>
                   <td className="px-6 py-4 text-right font-bold text-gray-800">
-                    R$ {item.saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {item.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </td>
                   <td className="px-6 py-4 text-center">
-                    {item.saldo < 0 ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700">
-                        <AlertCircle size={12} /> Negativo
+                    {item.status === 'completed' || item.status === 'Positivo' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                        {viewMode === 'daily' ? 'Realizado' : 'Positivo'}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                        Positivo
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${item.status === 'Negativo' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {viewMode === 'daily' ? 'Pendente' : 'Negativo'}
                       </span>
                     )}
                   </td>
                 </tr>
               ))}
+              {tableData.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-6 py-10 text-center text-gray-400">
+                    Nenhum lançamento encontrado para os filtros selecionados.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
