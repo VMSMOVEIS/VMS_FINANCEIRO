@@ -22,13 +22,13 @@ export const OperationalHistory: React.FC<OperationalHistoryProps> = ({ type }) 
   };
   
   const filteredData = transactions
-    .filter(t => isSales ? t.type === 'income' : t.type === 'expense')
+    .filter(t => isSales ? t.transactionTypeId === 'venda' : t.transactionTypeId === 'compra')
     .map(t => ({
       id: t.id,
       date: t.date,
       orderNumber: t.orderNumber || '-',
       description: t.description,
-      clientOrSupplier: isSales ? 'Cliente Exemplo' : 'Fornecedor Exemplo', // Placeholder
+      clientOrSupplier: isSales ? (t.customerName || 'Cliente não informado') : (t.customerName || 'Fornecedor não informado'),
       value: t.value,
       type: isSales ? 'sale' : 'purchase',
       status: t.status

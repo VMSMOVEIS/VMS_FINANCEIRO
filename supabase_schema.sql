@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS payments (
   destination TEXT,
   source TEXT,
   status TEXT CHECK (status IN ('completed', 'pending')),
+  reconciled BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

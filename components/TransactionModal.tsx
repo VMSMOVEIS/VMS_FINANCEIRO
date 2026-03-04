@@ -8,6 +8,7 @@ import { SearchTransactionModal } from './SearchTransactionModal';
 export const TransactionModal: React.FC = () => {
   const { 
     isModalOpen, 
+    openModal,
     closeModal, 
     editingTransaction, 
     addTransaction, 
@@ -35,7 +36,9 @@ export const TransactionModal: React.FC = () => {
 
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [searchModalType, setSearchModalType] = useState<'payment_receipt' | 'advance'>('payment_receipt');
+  const [searchModalTransactionType, setSearchModalTransactionType] = useState<'income' | 'expense'>('income');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingCompletion, setPendingCompletion] = useState(false);
 
   useEffect(() => {
     setTransactionTypes(getTransactionTypes());
@@ -43,7 +46,26 @@ export const TransactionModal: React.FC = () => {
 
   useEffect(() => {
     if (editingTransaction) {
-      setFormData({ ...editingTransaction });
+      // If we are pending completion (came from "Recebimento"/"Pagamento" selection),
+      // we want to auto-complete the transaction and its payments.
+      if (pendingCompletion) {
+        const completedPayments = editingTransaction.payments?.map(p => ({
+            ...p,
+            status: 'completed' as const,
+            // If the payment method was "A Definir", we might want to force a default or let user choose.
+            // For now, let's keep it as is, user can change in the form.
+        })) || [];
+
+        setFormData({
+            ...editingTransaction,
+            status: 'completed',
+            payments: completedPayments
+        });
+        setPendingCompletion(false); // Reset flag
+      } else {
+        setFormData({ ...editingTransaction });
+      }
+      
       setLinkedTransactionId(null);
 
       // If it's a new transaction (no ID) but has a type (e.g. from "Adicionar Conta"), initialize payments if needed
@@ -122,9 +144,11 @@ export const TransactionModal: React.FC = () => {
       if (!editingTransaction) {
         if (['pagamento', 'recebimento'].includes(typeId)) {
           setSearchModalType('payment_receipt');
+          setSearchModalTransactionType(newType);
           setIsSearchModalOpen(true);
         } else if (['venda', 'compra'].includes(typeId)) {
           setSearchModalType('advance');
+          setSearchModalTransactionType(newType);
           setIsSearchModalOpen(true);
         }
       }
@@ -134,18 +158,14 @@ export const TransactionModal: React.FC = () => {
   };
 
   const handleSearchModalSelect = (selectedTransaction: Transaction) => {
-    setLinkedTransactionId(selectedTransaction.id);
     if (searchModalType === 'payment_receipt') {
-        setFormData(prev => ({
-            ...prev,
-            description: selectedTransaction.description,
-            value: selectedTransaction.value,
-            category: selectedTransaction.category,
-            documentType: selectedTransaction.documentType,
-            customerName: selectedTransaction.customerName,
-            orderNumber: selectedTransaction.orderNumber,
-        }));
+        // Instead of just copying data, we switch to editing the original transaction
+        // But we mark it as "pending completion" so the form pre-fills with "Completed" status
+        setPendingCompletion(true);
+        openModal(selectedTransaction);
+        setIsSearchModalOpen(false);
     } else if (searchModalType === 'advance') {
+        setLinkedTransactionId(selectedTransaction.id);
         const advancePayment: Payment = {
             id: `adv-${Date.now()}`,
             method: 'Adiantamento',
@@ -159,8 +179,8 @@ export const TransactionModal: React.FC = () => {
             ...prev,
             payments: [...(prev.payments || []).filter(p => p.method !== 'Adiantamento'), advancePayment]
         }));
+        setIsSearchModalOpen(false);
     }
-    setIsSearchModalOpen(false);
   };
 
   const addPayment = (amount: number) => {
@@ -201,7 +221,14 @@ export const TransactionModal: React.FC = () => {
           }
           
           if (selectedMethod) {
-               if (['credit_card', 'boleto', 'other'].includes(selectedMethod.type)) {
+               // If the payment is assigned to a specific account (not "Contas a Pagar/Receber"), 
+               // it should be considered completed/realized in that account's ledger.
+               // This applies to Credit Cards too (it's a realized debt/expense on the card account).
+               const isSpecificAccount = accounts.some(a => a.name === payment.destination);
+               
+               if (isSpecificAccount) {
+                   payment.status = 'completed';
+               } else if (['credit_card', 'boleto', 'other'].includes(selectedMethod.type)) {
                    payment.status = 'pending';
                } else {
                    payment.status = 'completed';
@@ -672,7 +699,7 @@ export const TransactionModal: React.FC = () => {
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
         type={searchModalType}
-        transactionType={formData.type as 'income' | 'expense'}
+        transactionType={searchModalTransactionType}
         onSelect={handleSearchModalSelect}
         onRegisterNew={() => {
           setIsSearchModalOpen(false);
