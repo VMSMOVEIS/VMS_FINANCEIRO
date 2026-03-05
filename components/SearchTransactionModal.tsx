@@ -1,15 +1,26 @@
 import React, { useState, useMemo } from 'react';
 import { Search, X, Check, AlertCircle } from 'lucide-react';
 import { useTransactions } from '../src/context/TransactionContext';
-import { Transaction } from '../types';
+import { Transaction, Payment } from '../types';
 
 interface SearchTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   type: 'payment_receipt' | 'advance';
   transactionType: 'income' | 'expense'; // The context of the current operation
-  onSelect: (transaction: Transaction | Transaction[]) => void;
+  onSelect: (result: any) => void;
   onRegisterNew: () => void;
+}
+
+interface SearchableItem {
+    id: string | number;
+    date: string;
+    description: string;
+    customerName: string;
+    value: number;
+    originalTransaction: Transaction;
+    paymentId?: string; // Only for payments
+    isPayment: boolean;
 }
 
 export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
@@ -22,56 +33,81 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
 }) => {
   const { transactions } = useTransactions();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<(string | number)[]>([]);
 
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter(t => {
-      // Filter logic based on modal type and transaction context
-      let matchesType = false;
-      let matchesStatus = true;
+  const filteredItems = useMemo(() => {
+    let items: SearchableItem[] = [];
 
-      if (type === 'payment_receipt') {
-        // If we are doing a Payment (Expense), we look for Accounts Payable (Expense)
-        // If we are doing a Receipt (Income), we look for Accounts Receivable (Income)
-        // Exclude advances from this search as they are handled separately
-        matchesType = t.type === transactionType && !t.transactionTypeId?.includes('adiantamento');
-        matchesStatus = t.status !== 'completed'; // Only show pending/partial for payments/receipts
-      } else if (type === 'advance') {
-        // If we are doing a Sale (Income), we look for Customer Advances (Income)
-        // If we are doing a Purchase (Expense), we look for Supplier Advances (Expense)
-        if (transactionType === 'income') {
-           matchesType = (t.transactionTypeId === 'adiantamento_cliente' || t.transactionTypeId?.includes('adiantamento')) && t.type === 'income';
-        } else {
-           matchesType = (t.transactionTypeId === 'adiantamento_fornecedor' || t.transactionTypeId?.includes('adiantamento')) && t.type === 'expense';
-        }
-        
-        // Only show advances that are waiting compensation (pending)
-        // If it's completed, it means it has been used/reconciled.
-        matchesStatus = t.status === 'pending';
-      }
+    if (type === 'payment_receipt') {
+        // Flatten transactions into pending payments
+        transactions.forEach(t => {
+            // Filter by type (Income/Expense) and exclude advances
+            if (t.type === transactionType && !t.transactionTypeId?.includes('adiantamento')) {
+                t.payments.forEach((p, index) => {
+                    if (p.status !== 'completed') {
+                        items.push({
+                            id: p.id,
+                            paymentId: p.id,
+                            date: p.dueDate,
+                            description: `${t.description} ${t.payments.length > 1 ? `(${index + 1}/${t.payments.length})` : ''}`,
+                            customerName: t.customerName || '-',
+                            value: p.value,
+                            originalTransaction: t,
+                            isPayment: true
+                        });
+                    }
+                });
+            }
+        });
+    } else if (type === 'advance') {
+        // List transactions that are advances and pending
+        transactions.forEach(t => {
+            let matchesType = false;
+            if (transactionType === 'income') {
+                matchesType = (t.transactionTypeId === 'adiantamento_cliente' || t.transactionTypeId?.includes('adiantamento')) && t.type === 'income';
+            } else {
+                matchesType = (t.transactionTypeId === 'adiantamento_fornecedor' || t.transactionTypeId?.includes('adiantamento')) && t.type === 'expense';
+            }
 
-      if (!matchesType || !matchesStatus) return false;
+            if (matchesType && t.status === 'pending') {
+                items.push({
+                    id: t.id,
+                    date: t.date,
+                    description: t.description,
+                    customerName: t.customerName || '-',
+                    value: t.value,
+                    originalTransaction: t,
+                    isPayment: false
+                });
+            }
+        });
+    }
 
-      // Search logic
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        t.description.toLowerCase().includes(searchLower) ||
-        (t.customerName && t.customerName.toLowerCase().includes(searchLower)) ||
-        (t.orderNumber && t.orderNumber.toLowerCase().includes(searchLower)) ||
-        t.value.toString().includes(searchLower)
-      );
-    });
+    // Filter by search term
+    const searchLower = searchTerm.toLowerCase();
+    return items.filter(item => 
+        item.description.toLowerCase().includes(searchLower) ||
+        item.customerName.toLowerCase().includes(searchLower) ||
+        item.value.toString().includes(searchLower)
+    );
+
   }, [transactions, type, transactionType, searchTerm]);
 
-  const toggleSelection = (id: number) => {
+  const toggleSelection = (id: string | number) => {
     setSelectedIds(prev => 
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
 
   const handleConfirm = () => {
-    const selected = filteredTransactions.filter(t => selectedIds.includes(t.id));
-    onSelect(selected);
+    const selected = filteredItems.filter(item => selectedIds.includes(item.id));
+    // If it's advance, we return array of transactions (mapped from items)
+    // If it's payment, we return the item itself (which contains paymentId)
+    if (type === 'advance') {
+        onSelect(selected.map(i => i.originalTransaction));
+    } else {
+        onSelect(selected[0]); // Single selection for payment
+    }
   };
 
   if (!isOpen) return null;
@@ -96,7 +132,7 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
               type="text" 
-              placeholder="Buscar por nome, pedido ou valor..." 
+              placeholder="Buscar por nome, descrição ou valor..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
@@ -106,7 +142,7 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
 
           {/* Results List */}
           <div className="max-h-[300px] overflow-y-auto border border-gray-100 rounded-lg">
-            {filteredTransactions.length === 0 ? (
+            {filteredItems.length === 0 ? (
               <div className="p-8 text-center text-gray-500 flex flex-col items-center gap-2">
                 <AlertCircle size={32} className="text-gray-300" />
                 <p>Nenhum registro encontrado.</p>
@@ -116,7 +152,7 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
                 <thead className="bg-gray-50 text-gray-500 font-medium sticky top-0">
                   <tr>
                     {type === 'advance' && <th className="px-4 py-2 w-10"></th>}
-                    <th className="px-4 py-2">Data</th>
+                    <th className="px-4 py-2">Vencimento</th>
                     <th className="px-4 py-2">Nome</th>
                     <th className="px-4 py-2">Descrição</th>
                     <th className="px-4 py-2 text-right">Valor</th>
@@ -124,38 +160,37 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredTransactions.map(t => (
+                  {filteredItems.map(item => (
                     <tr 
-                      key={t.id} 
-                      className={`hover:bg-gray-50 transition-colors ${selectedIds.includes(t.id) ? 'bg-emerald-50' : ''}`}
-                      onClick={() => type === 'advance' && toggleSelection(t.id)}
+                      key={item.id} 
+                      className={`hover:bg-gray-50 transition-colors ${selectedIds.includes(item.id) ? 'bg-emerald-50' : ''}`}
+                      onClick={() => type === 'advance' && toggleSelection(item.id)}
                     >
                       {type === 'advance' && (
                         <td className="px-4 py-3">
                           <div className={`w-5 h-5 rounded border flex items-center justify-center ${
-                            selectedIds.includes(t.id) 
+                            selectedIds.includes(item.id) 
                               ? 'bg-emerald-500 border-emerald-500 text-white' 
                               : 'border-gray-300'
                           }`}>
-                            {selectedIds.includes(t.id) && <Check size={12} />}
+                            {selectedIds.includes(item.id) && <Check size={12} />}
                           </div>
                         </td>
                       )}
-                      <td className="px-4 py-3 text-gray-500">{t.date.split('-').reverse().join('/')}</td>
-                      <td className="px-4 py-3 font-medium text-gray-800">{t.customerName || '-'}</td>
+                      <td className="px-4 py-3 text-gray-500">{item.date.split('-').reverse().join('/')}</td>
+                      <td className="px-4 py-3 font-medium text-gray-800">{item.customerName}</td>
                       <td className="px-4 py-3 text-gray-600">
-                        <div>{t.description}</div>
-                        {t.orderNumber && <div className="text-xs text-gray-400">Doc: {t.orderNumber}</div>}
+                        <div>{item.description}</div>
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-gray-900">
-                        R$ {t.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </td>
                       {type === 'payment_receipt' && (
                         <td className="px-4 py-3 text-center">
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
-                              onSelect(t);
+                              onSelect(item);
                             }}
                             className="p-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
                             title="Selecionar"

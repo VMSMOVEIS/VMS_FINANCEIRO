@@ -44,24 +44,32 @@ export const TransactionModal: React.FC = () => {
     setTransactionTypes(getTransactionTypes());
   }, []);
 
+  const [targetPaymentId, setTargetPaymentId] = useState<string | null>(null);
+
   useEffect(() => {
     if (editingTransaction) {
       // If we are pending completion (came from "Recebimento"/"Pagamento" selection),
       // we want to auto-complete the transaction and its payments.
       if (pendingCompletion) {
-        const completedPayments = editingTransaction.payments?.map(p => ({
-            ...p,
-            status: 'completed' as const,
-            // If the payment method was "A Definir", we might want to force a default or let user choose.
-            // For now, let's keep it as is, user can change in the form.
-        })) || [];
+        const completedPayments = editingTransaction.payments?.map(p => {
+            // If a specific payment was targeted, only complete that one
+            if (targetPaymentId) {
+                return p.id === targetPaymentId ? { ...p, status: 'completed' as const } : p;
+            }
+            // Otherwise complete all (legacy behavior or if no specific target)
+            return { ...p, status: 'completed' as const };
+        }) || [];
 
+        // Determine overall status
+        const allCompleted = completedPayments.every(p => p.status === 'completed');
+        
         setFormData({
             ...editingTransaction,
-            status: 'completed',
+            status: allCompleted ? 'completed' : 'partial',
             payments: completedPayments
         });
         setPendingCompletion(false); // Reset flag
+        setTargetPaymentId(null); // Reset target
       } else {
         setFormData({ ...editingTransaction });
       }
@@ -170,16 +178,16 @@ export const TransactionModal: React.FC = () => {
     }
   };
 
-  const handleSearchModalSelect = (selected: Transaction | Transaction[]) => {
+  const handleSearchModalSelect = (selected: any) => {
     if (searchModalType === 'payment_receipt') {
         // Single selection for payment/receipt
-        const selectedTransaction = Array.isArray(selected) ? selected[0] : selected;
-        if (!selectedTransaction) return;
+        // 'selected' is now a SearchableItem which contains originalTransaction and paymentId
+        const item = selected;
+        if (!item || !item.originalTransaction) return;
 
-        // Instead of just copying data, we switch to editing the original transaction
-        // But we mark it as "pending completion" so the form pre-fills with "Completed" status
         setPendingCompletion(true);
-        openModal(selectedTransaction);
+        setTargetPaymentId(item.paymentId); // Set the specific payment to complete
+        openModal(item.originalTransaction);
         setIsSearchModalOpen(false);
     } else if (searchModalType === 'advance') {
         const selectedTransactions = Array.isArray(selected) ? selected : [selected];
