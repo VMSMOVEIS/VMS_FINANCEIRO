@@ -101,7 +101,19 @@ export const TransactionModal: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value };
+      
+      // If date changes, update all payments' due dates to match
+      if (name === 'date') {
+        newData.payments = prev.payments?.map(p => ({
+          ...p,
+          dueDate: value
+        })) || [];
+      }
+      
+      return newData;
+    });
   };
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

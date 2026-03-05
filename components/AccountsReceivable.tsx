@@ -173,7 +173,10 @@ export const AccountsReceivable: React.FC<AccountsReceivableProps> = ({ initialT
                         ? 'bg-emerald-100 text-emerald-700' 
                         : 'bg-yellow-100 text-yellow-700'
                     }`}>
-                      {item.status === 'completed' ? 'Recebido' : 'A Receber'}
+                      {activeTab === 'adiantamentos' 
+                        ? (item.status === 'completed' ? 'Realizado' : 'Aguardando Compensação')
+                        : (item.status === 'completed' ? 'Recebido' : 'A Receber')
+                      }
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">

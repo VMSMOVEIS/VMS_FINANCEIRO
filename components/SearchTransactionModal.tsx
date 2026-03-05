@@ -33,7 +33,8 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
       if (type === 'payment_receipt') {
         // If we are doing a Payment (Expense), we look for Accounts Payable (Expense)
         // If we are doing a Receipt (Income), we look for Accounts Receivable (Income)
-        matchesType = t.type === transactionType;
+        // Exclude advances from this search as they are handled separately
+        matchesType = t.type === transactionType && !t.transactionTypeId?.includes('adiantamento');
         matchesStatus = t.status !== 'completed'; // Only show pending/partial for payments/receipts
       } else if (type === 'advance') {
         // If we are doing a Sale (Income), we look for Customer Advances (Income)
