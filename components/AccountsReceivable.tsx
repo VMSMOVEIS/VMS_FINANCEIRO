@@ -21,7 +21,8 @@ export const AccountsReceivable: React.FC<AccountsReceivableProps> = ({ initialT
            return t.transactionTypeId === 'adiantamento_cliente';
         }
         // General: Income payments that are specifically marked for Accounts Receivable
-        return t.type === 'income' && t.transactionTypeId !== 'transferencia' && p.destination === 'Contas a Receber';
+        // OR transactions explicitly typed as 'duplicata_receber' (to keep them visible after payment)
+        return t.type === 'income' && t.transactionTypeId !== 'transferencia' && (p.destination === 'Contas a Receber' || t.transactionTypeId === 'duplicata_receber');
       })
       .map(p => ({
         ...p,

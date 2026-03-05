@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Menu, Bell, Search, UserCircle, ChevronDown, ChevronRight, Dot, Store } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Menu, Bell, Search, UserCircle, ChevronDown, ChevronRight, Dot, Store, X, Calendar, ArrowRight } from 'lucide-react';
 import { MENU_ITEMS } from './constants';
 import { MenuItem, ModuleId } from './types';
 import { FinancialDashboard } from './components/FinancialDashboard';
@@ -96,12 +96,75 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
 import { useTransactions } from './src/context/TransactionContext';
 
 const App: React.FC = () => {
-  const { userProfile, companyProfile, isLoading, refreshData } = useTransactions();
+  const { userProfile, companyProfile, isLoading, refreshData, transactions, notificationSettings } = useTransactions();
   const [activeModule, setActiveModule] = useState<ModuleId>(ModuleId.DASHBOARD);
   // activeSubItem is kept for potential future use or deep linking, though mostly flattened now
   const [activeSubItem, setActiveSubItem] = useState<string | null>(null);
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set()); 
   const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [isNotificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
+
+  // Close notifications when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setNotificationsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const notifications = useMemo(() => {
+    if (!notificationSettings.dueDateAlert) return [];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const alerts: any[] = [];
+
+    transactions.forEach(transaction => {
+      if (transaction.status === 'completed') return;
+
+      transaction.payments.forEach(payment => {
+        if (payment.status === 'paid') return;
+
+        const dueDate = new Date(payment.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        
+        const diffTime = dueDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        // Show if within alert range OR overdue (up to 30 days)
+        if (diffDays <= notificationSettings.alertDaysBefore && diffDays >= -30) {
+          alerts.push({
+            id: `${transaction.id}-${payment.dueDate}`,
+            transactionId: transaction.id,
+            title: transaction.type === 'expense' ? 'Conta a Pagar' : 'Conta a Receber',
+            description: transaction.description,
+            value: payment.value,
+            dueDate: payment.dueDate,
+            daysUntil: diffDays,
+            type: transaction.type
+          });
+        }
+      });
+    });
+
+    return alerts.sort((a, b) => a.daysUntil - b.daysUntil);
+  }, [transactions, notificationSettings]);
+
+  const handleNotificationClick = (notification: any) => {
+    if (notification.type === 'expense') {
+      setActiveModule(ModuleId.CONTAS_PAGAR);
+      setActiveSubItem('cp_geral');
+    } else {
+      setActiveModule(ModuleId.CONTAS_RECEBER);
+      setActiveSubItem('cr_geral');
+    }
+    setNotificationsOpen(false);
+  };
 
   const toggleModule = (id: string) => {
     const newExpanded = new Set(expandedModules);
@@ -289,10 +352,64 @@ const App: React.FC = () => {
                 <Store size={20} className={isLoading ? 'animate-spin text-emerald-600' : ''} />
               </button>
 
-              <button className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
-                <Bell size={20} />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-              </button>
+              <div className="relative" ref={notificationRef}>
+                <button 
+                  onClick={() => setNotificationsOpen(!isNotificationsOpen)}
+                  className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <Bell size={20} />
+                  {notifications.length > 0 && (
+                    <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                  )}
+                </button>
+
+                {isNotificationsOpen && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
+                      <h3 className="font-semibold text-gray-900">Notificações</h3>
+                      <span className="text-xs text-gray-500">{notifications.length} pendentes</span>
+                    </div>
+                    
+                    <div className="max-h-96 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-8 text-center text-gray-500">
+                          <Bell size={32} className="mx-auto mb-2 opacity-20" />
+                          <p className="text-sm">Nenhuma notificação</p>
+                        </div>
+                      ) : (
+                        notifications.map((notification) => (
+                          <div 
+                            key={notification.id}
+                            onClick={() => handleNotificationClick(notification)}
+                            className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`p-2 rounded-full ${notification.type === 'expense' ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                <Calendar size={16} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">{notification.description}</p>
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  {notification.title} • {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(notification.value)}
+                                </p>
+                                <p className={`text-xs mt-1 font-medium ${notification.daysUntil < 0 ? 'text-red-600' : notification.daysUntil === 0 ? 'text-orange-600' : 'text-emerald-600'}`}>
+                                  {notification.daysUntil < 0 
+                                    ? `Venceu há ${Math.abs(notification.daysUntil)} dias`
+                                    : notification.daysUntil === 0
+                                      ? 'Vence hoje'
+                                      : `Vence em ${notification.daysUntil} dias`
+                                  }
+                                </p>
+                              </div>
+                              <ArrowRight size={14} className="text-gray-300 mt-1" />
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
               
               <div className="h-8 w-px bg-gray-200 mx-1"></div>
 

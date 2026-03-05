@@ -62,7 +62,23 @@ export const FinancialDashboard: React.FC = () => {
   const ebitda = totalRevenue - totalExpenses;
   const ebitdaMargin = totalRevenue > 0 ? (ebitda / totalRevenue) * 100 : 0;
 
-  // 4. Contas a Pagar (Accounts Payable) - Pending expenses destined for Accounts Payable
+  // 4. Contas a Receber (Accounts Receivable) - Pending income destined for Accounts Receivable
+  const accountsReceivable = useMemo(() => {
+    return filteredTransactions
+      .filter(t => t.type === 'income')
+      .flatMap(t => t.payments)
+      .filter(p => p.destination === 'Contas a Receber')
+      .reduce((sum, p) => sum + p.value, 0);
+  }, [filteredTransactions]);
+  
+  const pendingReceivablesCount = useMemo(() => {
+      return filteredTransactions
+      .filter(t => t.type === 'income')
+      .flatMap(t => t.payments)
+      .filter(p => p.destination === 'Contas a Receber').length;
+  }, [filteredTransactions]);
+
+  // 5. Contas a Pagar (Accounts Payable) - Pending expenses destined for Accounts Payable
   const accountsPayable = useMemo(() => {
     return filteredTransactions
       .filter(t => t.type === 'expense')
@@ -124,7 +140,7 @@ export const FinancialDashboard: React.FC = () => {
     sortedTransactions.forEach(t => {
         // Only count completed payments for cash flow
         const completedAmount = t.payments
-            .filter(p => p.status === 'completed')
+            .filter(p => p.status === 'completed' && p.method !== 'Adiantamento')
             .reduce((sum, p) => sum + p.value, 0);
 
         if (completedAmount > 0) {
@@ -228,7 +244,7 @@ export const FinancialDashboard: React.FC = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-start">
             <div>
@@ -280,6 +296,21 @@ export const FinancialDashboard: React.FC = () => {
               {ebitdaMargin.toFixed(1)}%
             </span>
             <span className="text-gray-500 ml-2">Margem</span>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Contas a Receber (Pendente)</p>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">R$ {accountsReceivable.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+            </div>
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <AlertCircle className="text-indigo-600" size={20} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-sm">
+            <span className="text-gray-500">{pendingReceivablesCount} títulos pendentes</span>
           </div>
         </div>
 

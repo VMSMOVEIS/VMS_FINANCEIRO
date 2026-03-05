@@ -35,6 +35,7 @@ export interface Account {
   accountNumber?: string;
   type: 'bank' | 'cash' | 'investment' | 'other';
   balance: number;
+  color?: string;
 }
 
 export interface PaymentMethod {
@@ -86,6 +87,12 @@ export interface CompanyProfile {
   phone: string;
   address: string;
   logo?: string;
+}
+
+export interface NotificationSettings {
+  dueDateAlert: boolean;
+  alertDaysBefore: number;
+  emailAlerts: boolean;
 }
 
 export interface ChatMessage {

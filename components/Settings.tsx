@@ -16,7 +16,9 @@ export const Settings: React.FC = () => {
     userProfile,
     updateUserProfile,
     companyProfile,
-    updateCompanyProfile
+    updateCompanyProfile,
+    notificationSettings: contextNotificationSettings,
+    updateNotificationSettings
   } = useTransactions();
 
   // Profile State
@@ -34,11 +36,7 @@ export const Settings: React.FC = () => {
   });
 
   // Notifications State
-  const [notificationSettings, setNotificationSettings] = useState({
-    dueDateAlert: true,
-    alertDaysBefore: 3,
-    emailAlerts: true
-  });
+  const [notificationSettings, setNotificationSettings] = useState(contextNotificationSettings);
 
   // Banks State
   const [newAccount, setNewAccount] = useState<Partial<Account>>({ name: '', type: 'bank', balance: 0 });
@@ -56,6 +54,10 @@ export const Settings: React.FC = () => {
   useEffect(() => {
     setCompanyForm(companyProfile);
   }, [companyProfile]);
+
+  useEffect(() => {
+    setNotificationSettings(contextNotificationSettings);
+  }, [contextNotificationSettings]);
 
   const handleSaveProfile = () => {
     updateUserProfile(profileForm);
@@ -78,6 +80,7 @@ export const Settings: React.FC = () => {
   };
 
   const handleSaveNotifications = () => {
+    updateNotificationSettings(notificationSettings);
     alert('Preferências de notificação salvas!');
   };
 
@@ -363,7 +366,7 @@ export const Settings: React.FC = () => {
                   ))}
                 </div>
 
-                <form onSubmit={handleAddAccount} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-gray-50 p-4 rounded-lg border border-gray-200 border-dashed">
+                <form onSubmit={handleAddAccount} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end bg-gray-50 p-4 rounded-lg border border-gray-200 border-dashed">
                   <div className="md:col-span-1">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Nome da Conta</label>
                     <input 
@@ -397,6 +400,17 @@ export const Settings: React.FC = () => {
                       <option value="investment">Investimento</option>
                       <option value="other">Outros</option>
                     </select>
+                  </div>
+                  <div className="md:col-span-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Cor</label>
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="color" 
+                        className="h-9 w-full border border-gray-300 rounded-lg cursor-pointer p-1"
+                        value={newAccount.color || '#10B981'}
+                        onChange={e => setNewAccount({...newAccount, color: e.target.value})}
+                      />
+                    </div>
                   </div>
                   <button type="submit" className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 flex items-center justify-center gap-2">
                     <Plus size={16} /> Adicionar

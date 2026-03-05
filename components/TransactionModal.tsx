@@ -20,7 +20,7 @@ export const TransactionModal: React.FC = () => {
   } = useTransactions();
 
   const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
-  const [linkedTransactionId, setLinkedTransactionId] = useState<number | null>(null);
+  const [linkedTransactionIds, setLinkedTransactionIds] = useState<number[]>([]);
   
   const [formData, setFormData] = useState<Partial<Transaction>>({
     type: 'income',
@@ -66,7 +66,7 @@ export const TransactionModal: React.FC = () => {
         setFormData({ ...editingTransaction });
       }
       
-      setLinkedTransactionId(null);
+      setLinkedTransactionIds([]);
 
       // If it's a new transaction (no ID) but has a type (e.g. from "Adicionar Conta"), initialize payments if needed
       if (!editingTransaction.id && (editingTransaction.transactionTypeId === 'duplicata_receber' || editingTransaction.transactionTypeId === 'duplicata_pagar')) {
@@ -95,7 +95,7 @@ export const TransactionModal: React.FC = () => {
         value: 0,
         payments: []
       });
-      setLinkedTransactionId(null);
+      setLinkedTransactionIds([]);
     }
   }, [editingTransaction, isModalOpen]);
 
@@ -138,6 +138,7 @@ export const TransactionModal: React.FC = () => {
         ...prev,
         transactionTypeId: typeId,
         type: typeId === 'transferencia' ? 'expense' : newType,
+        category: typeId === 'transferencia' ? 'Transferência' : '',
         payments: initialPayments
       }));
 
@@ -157,27 +158,41 @@ export const TransactionModal: React.FC = () => {
     }
   };
 
-  const handleSearchModalSelect = (selectedTransaction: Transaction) => {
+  const handleSearchModalSelect = (selected: Transaction | Transaction[]) => {
     if (searchModalType === 'payment_receipt') {
+        // Single selection for payment/receipt
+        const selectedTransaction = Array.isArray(selected) ? selected[0] : selected;
+        if (!selectedTransaction) return;
+
         // Instead of just copying data, we switch to editing the original transaction
         // But we mark it as "pending completion" so the form pre-fills with "Completed" status
         setPendingCompletion(true);
         openModal(selectedTransaction);
         setIsSearchModalOpen(false);
     } else if (searchModalType === 'advance') {
-        setLinkedTransactionId(selectedTransaction.id);
-        const advancePayment: Payment = {
-            id: `adv-${Date.now()}`,
+        const selectedTransactions = Array.isArray(selected) ? selected : [selected];
+        if (selectedTransactions.length === 0) return;
+
+        const ids = selectedTransactions.map(t => t.id);
+        setLinkedTransactionIds(ids);
+
+        const advancePayments: Payment[] = selectedTransactions.map(t => ({
+            id: `adv-${t.id}-${Date.now()}`,
             method: 'Adiantamento',
-            value: selectedTransaction.value,
+            value: t.value,
             dueDate: formData.date || '',
             destination: 'Adiantamento Abatido',
             status: 'completed'
-        };
+        }));
+
+        // Use the first transaction's details for pre-filling if not already set
+        const first = selectedTransactions[0];
 
         setFormData(prev => ({
             ...prev,
-            payments: [...(prev.payments || []).filter(p => p.method !== 'Adiantamento'), advancePayment]
+            customerName: first.customerName || prev.customerName,
+            orderNumber: first.orderNumber || prev.orderNumber,
+            payments: [...(prev.payments || []).filter(p => p.method !== 'Adiantamento'), ...advancePayments]
         }));
         setIsSearchModalOpen(false);
     }
@@ -260,6 +275,11 @@ export const TransactionModal: React.FC = () => {
       if (allCompleted) status = 'completed';
       if (allPending) status = 'pending';
 
+      // Force pending status for new advances so they show as "Aguardando compensação"
+      if (isAdvance && !editingTransaction) {
+          status = 'pending';
+      }
+
       const transaction: Omit<Transaction, 'id'> = {
         date: formData.date || '',
         description: formData.description || '',
@@ -280,15 +300,17 @@ export const TransactionModal: React.FC = () => {
         await addTransaction(transaction);
         
         // If this was a payment/receipt or advance for another transaction, settle it
-        if (linkedTransactionId) {
-          const original = transactions.find(t => t.id === linkedTransactionId);
-          if (original) {
-            const updatedPayments = original.payments.map(p => ({ ...p, status: 'completed' as const }));
-            await updateTransaction(linkedTransactionId, { 
-              ...original, 
-              status: 'completed', 
-              payments: updatedPayments 
-            });
+        if (linkedTransactionIds.length > 0) {
+          for (const id of linkedTransactionIds) {
+            const original = transactions.find(t => t.id === id);
+            if (original) {
+              const updatedPayments = original.payments.map(p => ({ ...p, status: 'completed' as const }));
+              await updateTransaction(id, { 
+                ...original, 
+                status: 'completed', 
+                payments: updatedPayments 
+              });
+            }
           }
         }
       }
@@ -373,6 +395,7 @@ export const TransactionModal: React.FC = () => {
                       ...prev, 
                       type: 'transfer',
                       transactionTypeId: 'transferencia',
+                      category: 'Transferência',
                       payments: [{
                         id: Date.now(),
                         value: prev.value || 0,
@@ -533,6 +556,21 @@ export const TransactionModal: React.FC = () => {
             )}
           </div>
 
+          {!isTransfer && (
+            <div>
+               <label className="block text-sm font-medium text-gray-700 mb-1">Valor do Adiantamento</label>
+               <div className="relative">
+                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                 <input 
+                   type="text" 
+                   value={(formData.payments?.filter(p => p.method === 'Adiantamento').reduce((sum, p) => sum + p.value, 0) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                   readOnly
+                   className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 text-sm"
+                 />
+               </div>
+            </div>
+          )}
+
           {isTransfer && (
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -586,7 +624,9 @@ export const TransactionModal: React.FC = () => {
               </div>
 
               <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                {formData.payments?.map((payment, index) => (
+                {formData.payments?.map((payment, index) => {
+                  if (payment.method === 'Adiantamento') return null;
+                  return (
                   <div key={payment.id} className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-2">
                       <label className="text-xs text-gray-500 block mb-1">Valor</label>
@@ -595,7 +635,6 @@ export const TransactionModal: React.FC = () => {
                         value={payment.value}
                         onChange={(e) => updatePayment(index, 'value', parseFloat(e.target.value))}
                         className="w-full text-xs p-2 border rounded"
-                        readOnly={payment.method === 'Adiantamento'}
                       />
                     </div>
 
@@ -605,7 +644,7 @@ export const TransactionModal: React.FC = () => {
                         value={payment.method}
                         onChange={(e) => updatePayment(index, 'method', e.target.value)}
                         className="w-full text-xs p-2 border rounded"
-                        disabled={payment.method === 'Adiantamento' || isDuplicata}
+                        disabled={isDuplicata}
                       >
                         <option value="A Definir">A Definir</option>
                         {paymentMethods.map(pm => {
@@ -659,7 +698,7 @@ export const TransactionModal: React.FC = () => {
                       </button>
                     </div>
                   </div>
-                ))}
+                )})}
 
                 {remainingValue > 0 && (
                   <button
@@ -703,7 +742,7 @@ export const TransactionModal: React.FC = () => {
         onSelect={handleSearchModalSelect}
         onRegisterNew={() => {
           setIsSearchModalOpen(false);
-          setLinkedTransactionId(null);
+          setLinkedTransactionIds([]);
         }}
       />
     </div>

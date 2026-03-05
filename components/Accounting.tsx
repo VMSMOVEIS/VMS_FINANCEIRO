@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { FileText, Book, Scale, Calculator, Calendar, Edit2, Trash2 } from 'lucide-react';
+import { FileText, Book, Scale, Calculator, Calendar, Edit2, Trash2, PieChart, TrendingUp, FileBarChart, List, AlignLeft } from 'lucide-react';
 import { useTransactions } from '../src/context/TransactionContext';
 
 interface AccountingProps {
@@ -29,6 +29,18 @@ export const Accounting: React.FC<AccountingProps> = ({ initialView = 'contab_dr
         return <JournalView transactions={transactions} />;
       case 'contab_razao':
         return <LedgerView transactions={transactions} />;
+      case 'contab_dfc':
+        return <DFCView transactions={transactions} />;
+      case 'contab_dmpl':
+        return <DMPLView transactions={transactions} />;
+      case 'contab_dva':
+        return <DVAView transactions={transactions} />;
+      case 'contab_notas':
+        return <NotesView />;
+      case 'contab_dlpa':
+        return <DLPAView transactions={transactions} />;
+      case 'contab_dra':
+        return <DRAView transactions={transactions} />;
       default:
         return <DREView transactions={transactions} />;
     }
@@ -46,41 +58,17 @@ export const Accounting: React.FC<AccountingProps> = ({ initialView = 'contab_dr
       {/* Navigation Tabs */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-1 overflow-x-auto">
         <div className="flex space-x-1 min-w-max">
-          <TabButton 
-            id="contab_dre" 
-            label="DRE" 
-            icon={FileText} 
-            active={activeTab === 'contab_dre'} 
-            onClick={setActiveTab} 
-          />
-          <TabButton 
-            id="contab_balanco" 
-            label="Balanço Patrimonial" 
-            icon={Scale} 
-            active={activeTab === 'contab_balanco'} 
-            onClick={setActiveTab} 
-          />
-          <TabButton 
-            id="contab_balancete" 
-            label="Balancete" 
-            icon={Calculator} 
-            active={activeTab === 'contab_balancete'} 
-            onClick={setActiveTab} 
-          />
-          <TabButton 
-            id="contab_diario" 
-            label="Livro Diário" 
-            icon={Calendar} 
-            active={activeTab === 'contab_diario'} 
-            onClick={setActiveTab} 
-          />
-          <TabButton 
-            id="contab_razao" 
-            label="Livro Razão" 
-            icon={Book} 
-            active={activeTab === 'contab_razao'} 
-            onClick={setActiveTab} 
-          />
+          <TabButton id="contab_dre" label="DRE" icon={FileText} active={activeTab === 'contab_dre'} onClick={setActiveTab} />
+          <TabButton id="contab_balanco" label="Balanço Patrimonial" icon={Scale} active={activeTab === 'contab_balanco'} onClick={setActiveTab} />
+          <TabButton id="contab_balancete" label="Balancete" icon={Calculator} active={activeTab === 'contab_balancete'} onClick={setActiveTab} />
+          <TabButton id="contab_diario" label="Livro Diário" icon={Calendar} active={activeTab === 'contab_diario'} onClick={setActiveTab} />
+          <TabButton id="contab_razao" label="Livro Razão" icon={Book} active={activeTab === 'contab_razao'} onClick={setActiveTab} />
+          <TabButton id="contab_dfc" label="DFC" icon={TrendingUp} active={activeTab === 'contab_dfc'} onClick={setActiveTab} />
+          <TabButton id="contab_dmpl" label="DMPL" icon={FileBarChart} active={activeTab === 'contab_dmpl'} onClick={setActiveTab} />
+          <TabButton id="contab_dva" label="DVA" icon={PieChart} active={activeTab === 'contab_dva'} onClick={setActiveTab} />
+          <TabButton id="contab_dlpa" label="DLPA" icon={List} active={activeTab === 'contab_dlpa'} onClick={setActiveTab} />
+          <TabButton id="contab_dra" label="DRA" icon={AlignLeft} active={activeTab === 'contab_dra'} onClick={setActiveTab} />
+          <TabButton id="contab_notas" label="Notas Explicativas" icon={FileText} active={activeTab === 'contab_notas'} onClick={setActiveTab} />
         </div>
       </div>
 
@@ -566,6 +554,375 @@ const LedgerView = ({ transactions }: { transactions: any[] }) => {
                 );
             })
         )}
+      </div>
+    </div>
+  );
+};
+
+const DFCView = ({ transactions }: { transactions: any[] }) => {
+  const dfcData = useMemo(() => {
+    // Operating Activities: Net Income + Non-cash items + Changes in Working Capital
+    // Simplified: Cash In - Cash Out from Operating activities
+    const operatingIn = transactions
+      .filter(t => t.type === 'income' && t.status === 'completed')
+      .reduce((sum, t) => sum + t.value, 0);
+    
+    const operatingOut = transactions
+      .filter(t => t.type === 'expense' && t.status === 'completed' && t.category !== 'Investimento' && t.category !== 'Empréstimos')
+      .reduce((sum, t) => sum + t.value, 0);
+
+    const netOperating = operatingIn - operatingOut;
+
+    // Investing Activities
+    const investingOut = transactions
+      .filter(t => t.type === 'expense' && t.status === 'completed' && t.category === 'Investimento')
+      .reduce((sum, t) => sum + t.value, 0);
+    
+    const netInvesting = -investingOut;
+
+    // Financing Activities
+    const financingIn = transactions
+      .filter(t => t.type === 'income' && t.status === 'completed' && (t.category === 'Empréstimos' || t.category === 'Capital'))
+      .reduce((sum, t) => sum + t.value, 0);
+    
+    const financingOut = transactions
+      .filter(t => t.type === 'expense' && t.status === 'completed' && t.category === 'Empréstimos')
+      .reduce((sum, t) => sum + t.value, 0);
+
+    const netFinancing = financingIn - financingOut;
+
+    const initialCash = 50000; // Mock initial cash
+    const finalCash = initialCash + netOperating + netInvesting + netFinancing;
+
+    return { netOperating, netInvesting, netFinancing, initialCash, finalCash };
+  }, [transactions]);
+
+  return (
+    <div className="p-8">
+      <h3 className="text-lg font-semibold text-gray-900 mb-6">Demonstração dos Fluxos de Caixa (DFC)</h3>
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
+            <tr>
+              <th className="px-6 py-3">Descrição</th>
+              <th className="px-6 py-3 text-right">Valor</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            <tr className="bg-gray-50 font-medium">
+              <td className="px-6 py-3">ATIVIDADES OPERACIONAIS</td>
+              <td className={`px-6 py-3 text-right ${dfcData.netOperating >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                R$ {dfcData.netOperating.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </td>
+            </tr>
+            <tr className="bg-gray-50 font-medium">
+              <td className="px-6 py-3">ATIVIDADES DE INVESTIMENTO</td>
+              <td className={`px-6 py-3 text-right ${dfcData.netInvesting >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                R$ {dfcData.netInvesting.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </td>
+            </tr>
+            <tr className="bg-gray-50 font-medium">
+              <td className="px-6 py-3">ATIVIDADES DE FINANCIAMENTO</td>
+              <td className={`px-6 py-3 text-right ${dfcData.netFinancing >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                R$ {dfcData.netFinancing.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </td>
+            </tr>
+            <tr className="bg-emerald-50 font-bold border-t border-emerald-100">
+              <td className="px-6 py-4 text-emerald-900">VARIAÇÃO LÍQUIDA DE CAIXA</td>
+              <td className="px-6 py-4 text-right text-emerald-700">
+                R$ {(dfcData.netOperating + dfcData.netInvesting + dfcData.netFinancing).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </td>
+            </tr>
+            <tr>
+              <td className="px-6 py-3 text-gray-600">Saldo Inicial de Caixa</td>
+              <td className="px-6 py-3 text-right text-gray-900">R$ {dfcData.initialCash.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr className="font-bold">
+              <td className="px-6 py-3 text-gray-900">Saldo Final de Caixa</td>
+              <td className="px-6 py-3 text-right text-gray-900">R$ {dfcData.finalCash.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const DMPLView = ({ transactions }: { transactions: any[] }) => {
+  const dmplData = useMemo(() => {
+    const capital = 100000;
+    const reserves = 15000;
+    const profit = transactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.value, 0) - 
+      transactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.value, 0);
+    
+    return { capital, reserves, profit };
+  }, [transactions]);
+
+  return (
+    <div className="p-8">
+      <h3 className="text-lg font-semibold text-gray-900 mb-6">Demonstração das Mutações do Patrimônio Líquido (DMPL)</h3>
+      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
+            <tr>
+              <th className="px-6 py-3">Descrição</th>
+              <th className="px-6 py-3 text-right">Capital Social</th>
+              <th className="px-6 py-3 text-right">Reservas de Lucro</th>
+              <th className="px-6 py-3 text-right">Lucros Acumulados</th>
+              <th className="px-6 py-3 text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            <tr>
+              <td className="px-6 py-3 font-medium">Saldo Inicial</td>
+              <td className="px-6 py-3 text-right">R$ {dmplData.capital.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              <td className="px-6 py-3 text-right">R$ {dmplData.reserves.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              <td className="px-6 py-3 text-right">R$ 0,00</td>
+              <td className="px-6 py-3 text-right font-bold">R$ {(dmplData.capital + dmplData.reserves).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr>
+              <td className="px-6 py-3">Lucro Líquido do Exercício</td>
+              <td className="px-6 py-3 text-right">-</td>
+              <td className="px-6 py-3 text-right">-</td>
+              <td className={`px-6 py-3 text-right ${dmplData.profit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                R$ {dmplData.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </td>
+              <td className={`px-6 py-3 text-right font-bold ${dmplData.profit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                R$ {dmplData.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </td>
+            </tr>
+            <tr className="bg-gray-50 font-bold border-t border-gray-200">
+              <td className="px-6 py-4">Saldo Final</td>
+              <td className="px-6 py-4 text-right">R$ {dmplData.capital.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              <td className="px-6 py-4 text-right">R$ {dmplData.reserves.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              <td className="px-6 py-4 text-right">R$ {dmplData.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              <td className="px-6 py-4 text-right text-emerald-700">
+                R$ {(dmplData.capital + dmplData.reserves + dmplData.profit).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const DVAView = ({ transactions }: { transactions: any[] }) => {
+  const dvaData = useMemo(() => {
+    const revenue = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0);
+    const inputs = transactions.filter(t => t.type === 'expense' && t.category !== 'Pessoal' && t.category !== 'Impostos').reduce((sum, t) => sum + t.value, 0);
+    const grossAddedValue = revenue - inputs;
+    const retention = grossAddedValue * 0.05; // Mock 5% depreciation
+    const netAddedValue = grossAddedValue - retention;
+    
+    // Distribution
+    const personnel = transactions.filter(t => t.type === 'expense' && t.category === 'Pessoal').reduce((sum, t) => sum + t.value, 0);
+    const taxes = transactions.filter(t => t.type === 'expense' && t.category === 'Impostos').reduce((sum, t) => sum + t.value, 0);
+    const equity = netAddedValue - personnel - taxes; // Remainder to equity/profit
+
+    return { revenue, inputs, grossAddedValue, retention, netAddedValue, personnel, taxes, equity };
+  }, [transactions]);
+
+  return (
+    <div className="p-8">
+      <h3 className="text-lg font-semibold text-gray-900 mb-6">Demonstração do Valor Adicionado (DVA)</h3>
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
+            <tr>
+              <th className="px-6 py-3">Descrição</th>
+              <th className="px-6 py-3 text-right">Valor</th>
+              <th className="px-6 py-3 text-right">%</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            <tr className="font-medium">
+              <td className="px-6 py-3">1. RECEITAS</td>
+              <td className="px-6 py-3 text-right">R$ {dvaData.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              <td className="px-6 py-3 text-right">-</td>
+            </tr>
+            <tr>
+              <td className="px-6 py-3 pl-10 text-gray-600">2. Insumos Adquiridos de Terceiros</td>
+              <td className="px-6 py-3 text-right text-red-600">(R$ {dvaData.inputs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</td>
+              <td className="px-6 py-3 text-right">-</td>
+            </tr>
+            <tr className="font-medium bg-gray-50">
+              <td className="px-6 py-3">3. VALOR ADICIONADO BRUTO (1-2)</td>
+              <td className="px-6 py-3 text-right">R$ {dvaData.grossAddedValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              <td className="px-6 py-3 text-right">-</td>
+            </tr>
+            <tr>
+              <td className="px-6 py-3 pl-10 text-gray-600">4. Retenções (Depreciação)</td>
+              <td className="px-6 py-3 text-right text-red-600">(R$ {dvaData.retention.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</td>
+              <td className="px-6 py-3 text-right">-</td>
+            </tr>
+            <tr className="font-bold bg-emerald-50 text-emerald-900">
+              <td className="px-6 py-3">5. VALOR ADICIONADO LÍQUIDO (3-4)</td>
+              <td className="px-6 py-3 text-right">R$ {dvaData.netAddedValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              <td className="px-6 py-3 text-right">100%</td>
+            </tr>
+            <tr>
+              <td className="px-6 py-4 font-medium" colSpan={3}>6. DISTRIBUIÇÃO DO VALOR ADICIONADO</td>
+            </tr>
+            <tr>
+              <td className="px-6 py-2 pl-10 text-gray-600">6.1. Pessoal</td>
+              <td className="px-6 py-2 text-right">R$ {dvaData.personnel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              <td className="px-6 py-2 text-right">{((dvaData.personnel / dvaData.netAddedValue) * 100).toFixed(1)}%</td>
+            </tr>
+            <tr>
+              <td className="px-6 py-2 pl-10 text-gray-600">6.2. Impostos, Taxas e Contribuições</td>
+              <td className="px-6 py-2 text-right">R$ {dvaData.taxes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              <td className="px-6 py-2 text-right">{((dvaData.taxes / dvaData.netAddedValue) * 100).toFixed(1)}%</td>
+            </tr>
+            <tr>
+              <td className="px-6 py-2 pl-10 text-gray-600">6.3. Remuneração de Capitais Próprios (Lucros)</td>
+              <td className="px-6 py-2 text-right">R$ {dvaData.equity.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              <td className="px-6 py-2 text-right">{((dvaData.equity / dvaData.netAddedValue) * 100).toFixed(1)}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const NotesView = () => (
+  <div className="p-8">
+    <h3 className="text-lg font-semibold text-gray-900 mb-6">Notas Explicativas</h3>
+    <div className="space-y-6 text-gray-700">
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <h4 className="font-bold text-gray-900 mb-2">Nota 1 - Contexto Operacional</h4>
+        <p className="text-sm leading-relaxed">
+          A empresa Móveis & Design Ltda. tem como objetivo principal a comercialização de móveis e artigos de decoração. 
+          As demonstrações contábeis foram elaboradas de acordo com as práticas contábeis adotadas no Brasil.
+        </p>
+      </div>
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <h4 className="font-bold text-gray-900 mb-2">Nota 2 - Principais Práticas Contábeis</h4>
+        <ul className="list-disc pl-5 text-sm space-y-2">
+          <li><strong>Caixa e Equivalentes de Caixa:</strong> Incluem dinheiro em caixa, depósitos bancários e aplicações financeiras de curto prazo.</li>
+          <li><strong>Contas a Receber:</strong> Registradas pelo valor nominal dos títulos representativos desses créditos.</li>
+          <li><strong>Estoques:</strong> Avaliados pelo custo médio de aquisição, inferior aos valores de reposição ou de realização.</li>
+          <li><strong>Imobilizado:</strong> Demonstrado ao custo de aquisição, deduzido da depreciação acumulada.</li>
+        </ul>
+      </div>
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <h4 className="font-bold text-gray-900 mb-2">Nota 3 - Eventos Subsequentes</h4>
+        <p className="text-sm leading-relaxed">
+          Não ocorreram eventos subsequentes ao encerramento do exercício que pudessem alterar de forma relevante a situação patrimonial e financeira da Sociedade.
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
+const DLPAView = ({ transactions }: { transactions: any[] }) => {
+  const dlpaData = useMemo(() => {
+    const previousBalance = 0;
+    const profit = transactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.value, 0) - 
+      transactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.value, 0);
+    const dividends = 0; // Mock
+    const finalBalance = previousBalance + profit - dividends;
+    return { previousBalance, profit, dividends, finalBalance };
+  }, [transactions]);
+
+  return (
+    <div className="p-8">
+      <h3 className="text-lg font-semibold text-gray-900 mb-6">Demonstração dos Lucros ou Prejuízos Acumulados (DLPA)</h3>
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
+            <tr>
+              <th className="px-6 py-3">Descrição</th>
+              <th className="px-6 py-3 text-right">Valor</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            <tr>
+              <td className="px-6 py-3">Saldo Inicial</td>
+              <td className="px-6 py-3 text-right">R$ {dlpaData.previousBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr>
+              <td className="px-6 py-3">Ajustes de Exercícios Anteriores</td>
+              <td className="px-6 py-3 text-right">R$ 0,00</td>
+            </tr>
+            <tr className="bg-gray-50 font-medium">
+              <td className="px-6 py-3">Saldo Ajustado</td>
+              <td className="px-6 py-3 text-right">R$ {dlpaData.previousBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr>
+              <td className="px-6 py-3">(+) Lucro Líquido do Exercício</td>
+              <td className={`px-6 py-3 text-right ${dlpaData.profit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                R$ {dlpaData.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </td>
+            </tr>
+            <tr>
+              <td className="px-6 py-3">(-) Dividendos Distribuídos</td>
+              <td className="px-6 py-3 text-right text-red-600">(R$ {dlpaData.dividends.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</td>
+            </tr>
+            <tr className="bg-emerald-50 font-bold border-t border-emerald-100">
+              <td className="px-6 py-4 text-emerald-900">SALDO FINAL</td>
+              <td className="px-6 py-4 text-right text-emerald-700">
+                R$ {dlpaData.finalBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const DRAView = ({ transactions }: { transactions: any[] }) => {
+  const draData = useMemo(() => {
+    const profit = transactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.value, 0) - 
+      transactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.value, 0);
+    const otherComprehensiveIncome = 0;
+    return { profit, otherComprehensiveIncome };
+  }, [transactions]);
+
+  return (
+    <div className="p-8">
+      <h3 className="text-lg font-semibold text-gray-900 mb-6">Demonstração do Resultado Abrangente (DRA)</h3>
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
+            <tr>
+              <th className="px-6 py-3">Descrição</th>
+              <th className="px-6 py-3 text-right">Valor</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            <tr className="font-medium">
+              <td className="px-6 py-3">LUCRO LÍQUIDO DO EXERCÍCIO</td>
+              <td className={`px-6 py-3 text-right ${draData.profit >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                R$ {draData.profit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </td>
+            </tr>
+            <tr>
+              <td className="px-6 py-3 pl-10 text-gray-600">Outros Resultados Abrangentes</td>
+              <td className="px-6 py-3 text-right">R$ {draData.otherComprehensiveIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+            </tr>
+            <tr className="bg-emerald-50 font-bold border-t border-emerald-100">
+              <td className="px-6 py-4 text-emerald-900">RESULTADO ABRANGENTE TOTAL</td>
+              <td className="px-6 py-4 text-right text-emerald-700">
+                R$ {(draData.profit + draData.otherComprehensiveIncome).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );

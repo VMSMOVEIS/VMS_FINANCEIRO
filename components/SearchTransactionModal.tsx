@@ -8,7 +8,7 @@ interface SearchTransactionModalProps {
   onClose: () => void;
   type: 'payment_receipt' | 'advance';
   transactionType: 'income' | 'expense'; // The context of the current operation
-  onSelect: (transaction: Transaction) => void;
+  onSelect: (transaction: Transaction | Transaction[]) => void;
   onRegisterNew: () => void;
 }
 
@@ -22,6 +22,7 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
 }) => {
   const { transactions } = useTransactions();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
@@ -38,13 +39,14 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
         // If we are doing a Sale (Income), we look for Customer Advances (Income)
         // If we are doing a Purchase (Expense), we look for Supplier Advances (Expense)
         if (transactionType === 'income') {
-           matchesType = t.transactionTypeId === 'adiantamento_cliente';
+           matchesType = (t.transactionTypeId === 'adiantamento_cliente' || t.transactionTypeId?.includes('adiantamento')) && t.type === 'income';
         } else {
-           matchesType = t.transactionTypeId === 'adiantamento_fornecedor';
+           matchesType = (t.transactionTypeId === 'adiantamento_fornecedor' || t.transactionTypeId?.includes('adiantamento')) && t.type === 'expense';
         }
-        // For advances, we usually want to use COMPLETED advances (money received/paid), 
-        // but we might also want to see pending ones. Let's show all.
-        matchesStatus = true;
+        
+        // Only show advances that are waiting compensation (pending)
+        // If it's completed, it means it has been used/reconciled.
+        matchesStatus = t.status === 'pending';
       }
 
       if (!matchesType || !matchesStatus) return false;
@@ -59,6 +61,17 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
       );
     });
   }, [transactions, type, transactionType, searchTerm]);
+
+  const toggleSelection = (id: number) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleConfirm = () => {
+    const selected = filteredTransactions.filter(t => selectedIds.includes(t.id));
+    onSelect(selected);
+  };
 
   if (!isOpen) return null;
 
@@ -101,16 +114,32 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
               <table className="w-full text-sm text-left">
                 <thead className="bg-gray-50 text-gray-500 font-medium sticky top-0">
                   <tr>
+                    {type === 'advance' && <th className="px-4 py-2 w-10"></th>}
                     <th className="px-4 py-2">Data</th>
                     <th className="px-4 py-2">Nome</th>
                     <th className="px-4 py-2">Descrição</th>
                     <th className="px-4 py-2 text-right">Valor</th>
-                    <th className="px-4 py-2 text-center">Ação</th>
+                    {type === 'payment_receipt' && <th className="px-4 py-2 text-center">Ação</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredTransactions.map(t => (
-                    <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+                    <tr 
+                      key={t.id} 
+                      className={`hover:bg-gray-50 transition-colors ${selectedIds.includes(t.id) ? 'bg-emerald-50' : ''}`}
+                      onClick={() => type === 'advance' && toggleSelection(t.id)}
+                    >
+                      {type === 'advance' && (
+                        <td className="px-4 py-3">
+                          <div className={`w-5 h-5 rounded border flex items-center justify-center ${
+                            selectedIds.includes(t.id) 
+                              ? 'bg-emerald-500 border-emerald-500 text-white' 
+                              : 'border-gray-300'
+                          }`}>
+                            {selectedIds.includes(t.id) && <Check size={12} />}
+                          </div>
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-gray-500">{t.date.split('-').reverse().join('/')}</td>
                       <td className="px-4 py-3 font-medium text-gray-800">{t.customerName || '-'}</td>
                       <td className="px-4 py-3 text-gray-600">
@@ -120,15 +149,20 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
                       <td className="px-4 py-3 text-right font-medium text-gray-900">
                         R$ {t.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <button 
-                          onClick={() => onSelect(t)}
-                          className="p-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
-                          title="Selecionar"
-                        >
-                          <Check size={16} />
-                        </button>
-                      </td>
+                      {type === 'payment_receipt' && (
+                        <td className="px-4 py-3 text-center">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelect(t);
+                            }}
+                            className="p-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
+                            title="Selecionar"
+                          >
+                            <Check size={16} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -144,12 +178,23 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
             >
               Cancelar
             </button>
-            <button 
-              onClick={onRegisterNew}
-              className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-900 transition-colors shadow-sm"
-            >
-              Registrar Novo (Sem Vínculo)
-            </button>
+            {type === 'advance' ? (
+              <button 
+                onClick={handleConfirm}
+                disabled={selectedIds.length === 0}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <Check size={16} />
+                Confirmar Seleção ({selectedIds.length})
+              </button>
+            ) : (
+              <button 
+                onClick={onRegisterNew}
+                className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-900 transition-colors shadow-sm"
+              >
+                Registrar Novo (Sem Vínculo)
+              </button>
+            )}
           </div>
         </div>
       </div>

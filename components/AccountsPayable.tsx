@@ -21,7 +21,8 @@ export const AccountsPayable: React.FC<AccountsPayableProps> = ({ initialTab = '
            return t.transactionTypeId === 'adiantamento_fornecedor';
         }
         // General: Expense payments that are specifically marked for Accounts Payable
-        return t.type === 'expense' && t.transactionTypeId !== 'transferencia' && p.destination === 'Contas a Pagar';
+        // OR transactions explicitly typed as 'duplicata_pagar' (to keep them visible after payment)
+        return t.type === 'expense' && t.transactionTypeId !== 'transferencia' && (p.destination === 'Contas a Pagar' || t.transactionTypeId === 'duplicata_pagar');
       })
       .map(p => ({
         ...p,

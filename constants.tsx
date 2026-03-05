@@ -78,6 +78,12 @@ export const MENU_ITEMS: MenuItem[] = [
       { id: 'contab_balancete', label: 'Balancete' },
       { id: 'contab_diario', label: 'Livro Diário' },
       { id: 'contab_razao', label: 'Livro Razão' },
+      { id: 'contab_dfc', label: 'DFC' },
+      { id: 'contab_dmpl', label: 'DMPL' },
+      { id: 'contab_dva', label: 'DVA' },
+      { id: 'contab_notas', label: 'Notas Explicativas' },
+      { id: 'contab_dlpa', label: 'DLPA' },
+      { id: 'contab_dra', label: 'DRA' },
     ]
   },
   {
