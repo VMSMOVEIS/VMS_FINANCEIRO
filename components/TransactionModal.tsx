@@ -157,7 +157,7 @@ export const TransactionModal: React.FC = () => {
       setFormData(prev => ({
         ...prev,
         transactionTypeId: typeId,
-        type: typeId === 'transferencia' ? 'expense' : newType,
+        type: typeId === 'transferencia' ? 'transfer' : newType,
         category: typeId === 'transferencia' ? 'Transferência' : '',
         payments: initialPayments
       }));
@@ -305,7 +305,7 @@ export const TransactionModal: React.FC = () => {
         description: formData.description || '',
         category: isTransfer ? null : (formData.category || null),
         value: Number(formData.value) || 0,
-        type: formData.type as 'income' | 'expense',
+        type: formData.type as 'income' | 'expense' | 'transfer',
         transactionTypeId: formData.transactionTypeId || '',
         documentType: isTransfer ? 'Transferência' : (formData.documentType || 'Outros'),
         orderNumber: isTransfer ? null : (formData.orderNumber || null),
@@ -417,7 +417,7 @@ export const TransactionModal: React.FC = () => {
                       transactionTypeId: 'transferencia',
                       category: 'Transferência',
                       payments: [{
-                        id: Date.now(),
+                        id: String(Date.now()),
                         value: prev.value || 0,
                         method: 'Transferência',
                         dueDate: prev.date || new Date().toISOString().split('T')[0],

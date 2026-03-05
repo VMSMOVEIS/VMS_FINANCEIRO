@@ -658,7 +658,7 @@ export const CashFlow: React.FC = () => {
           date: p.dueDate,
           description: t.description,
           document: t.orderNumber || '-',
-          type: t.transactionTypeId === 'transferencia' ? 'transfer' : (isIncome ? 'income' : 'expense'),
+          type: t.type,
           value: p.value,
           status: p.status,
           balance: runningBalance,

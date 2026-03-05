@@ -102,6 +102,25 @@ const generateAccountingEntries = (transactions: any[]) => {
   let entryId = 1;
 
   transactions.forEach(t => {
+    // Handle Transfers specially
+    if (t.type === 'transfer') {
+      t.payments.forEach((p: any) => {
+        if (p.status === 'completed') {
+          const transferEntry = {
+            id: entryId++,
+            transactionId: t.id,
+            date: p.dueDate || t.date,
+            description: `Transferência - ${t.description}`,
+            debit: `1.01.01 - ${p.destination}`,
+            credit: `1.01.01 - ${p.source}`,
+            value: p.value
+          };
+          entries.push(transferEntry);
+        }
+      });
+      return;
+    }
+
     // 1. Initial Recognition (Accrual Basis)
     const accrualEntry = {
       id: entryId++,
@@ -261,13 +280,14 @@ const BalanceSheetView = ({ transactions }: { transactions: any[] }) => {
         const paidAmount = t.payments.filter((p: any) => p.status === 'completed').reduce((sum: number, p: any) => sum + p.value, 0);
         assets.cash += paidAmount;
         assets.receivables += (t.value - paidAmount);
-      } else {
+      } else if (t.type === 'expense') {
         equity.earnings -= t.value; // Expense decreases equity
         // If paid, comes from cash. If pending, goes to payables.
         const paidAmount = t.payments.filter((p: any) => p.status === 'completed').reduce((sum: number, p: any) => sum + p.value, 0);
         assets.cash -= paidAmount;
         liabilities.payables += (t.value - paidAmount);
       }
+      // Transfers are neutral for consolidated cash and equity earnings
     });
 
     // Add initial mock cash to prevent negative balance in demo

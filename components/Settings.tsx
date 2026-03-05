@@ -88,7 +88,6 @@ export const Settings: React.FC = () => {
     e.preventDefault();
     if (newAccount.name) {
       addAccount({
-        id: `acc-${Date.now()}`,
         name: newAccount.name,
         type: newAccount.type as any,
         balance: Number(newAccount.balance) || 0,
@@ -120,7 +119,6 @@ export const Settings: React.FC = () => {
     e.preventDefault();
     if (newMethod.name && newMethod.defaultAccountId) {
       addPaymentMethod({
-        id: `pm-${Date.now()}`,
         name: newMethod.name,
         type: newMethod.type as any,
         defaultAccountId: newMethod.defaultAccountId

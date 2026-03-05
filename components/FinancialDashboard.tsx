@@ -47,14 +47,14 @@ export const FinancialDashboard: React.FC = () => {
   // 1. Receita Total (Total Revenue) - Sum of all 'income' transactions
   const totalRevenue = useMemo(() => {
     return filteredTransactions
-      .filter(t => t.type === 'income' && t.transactionTypeId !== 'transferencia')
+      .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + t.value, 0);
   }, [filteredTransactions]);
 
   // 2. Despesas (Total Expenses) - Sum of all 'expense' transactions
   const totalExpenses = useMemo(() => {
     return filteredTransactions
-      .filter(t => t.type === 'expense' && t.transactionTypeId !== 'transferencia')
+      .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + t.value, 0);
   }, [filteredTransactions]);
 
@@ -110,11 +110,11 @@ export const FinancialDashboard: React.FC = () => {
         data[monthKey] = { name: monthName, receita: 0, despesa: 0 };
       }
 
-      if (t.transactionTypeId === 'transferencia') return;
+      if (t.type === 'transfer') return;
 
       if (t.type === 'income') {
         data[monthKey].receita += t.value;
-      } else {
+      } else if (t.type === 'expense') {
         data[monthKey].despesa += t.value;
       }
     });
@@ -144,7 +144,7 @@ export const FinancialDashboard: React.FC = () => {
             .reduce((sum, p) => sum + p.value, 0);
 
         if (completedAmount > 0) {
-             if (t.transactionTypeId === 'transferencia') {
+             if (t.type === 'transfer') {
                  // Transfers are neutral for consolidated balance
              } else if (t.type === 'income') {
                 runningBalance += completedAmount;
