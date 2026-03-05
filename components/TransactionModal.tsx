@@ -119,6 +119,7 @@ export const TransactionModal: React.FC = () => {
               status: 'completed'
             }]
           });
+          setPendingCompletion(false); // Reset flag after pre-filling
           return;
         }
       }
@@ -136,7 +137,7 @@ export const TransactionModal: React.FC = () => {
       });
       setLinkedTransactionIds([]);
     }
-  }, [editingTransaction, isModalOpen]);
+  }, [editingTransaction, isModalOpen, pendingCompletion, targetTransactionId, targetPaymentId, transactions]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -426,7 +427,7 @@ export const TransactionModal: React.FC = () => {
                   required
                   value={formData.transactionTypeId || ''}
                   onChange={handleTypeChange}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                 >
                   <option value="">Selecione...</option>
                   {transactionTypes.map(type => (
@@ -444,7 +445,7 @@ export const TransactionModal: React.FC = () => {
                   onClick={() => setFormData({...formData, type: 'income'})}
                   className={`flex-1 px-4 py-2 text-sm font-medium rounded-l-md border ${
                     formData.type === 'income' 
-                      ? 'bg-emerald-600 text-white border-emerald-600' 
+                      ? 'bg-blue-600 text-white border-blue-600' 
                       : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                   }`}
                 >
@@ -517,7 +518,7 @@ export const TransactionModal: React.FC = () => {
                       name="documentType"
                       value={formData.documentType || 'Outros'}
                       onChange={handleInputChange}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                     >
                       <option value="NF-e">Nota Fiscal (NF-e)</option>
                       <option value="NFS-e">Nota de Serviço (NFS-e)</option>
@@ -539,7 +540,7 @@ export const TransactionModal: React.FC = () => {
                       placeholder="Ex: 123"
                       value={formData.orderNumber || ''}
                       onChange={handleInputChange}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                     />
                   </div>
                 </div>
@@ -558,7 +559,7 @@ export const TransactionModal: React.FC = () => {
                     placeholder={formData.type === 'income' ? 'Nome do Cliente' : 'Nome do Fornecedor'}
                     value={formData.customerName || ''}
                     onChange={handleInputChange}
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                   />
                 </div>
               </div>
@@ -574,7 +575,7 @@ export const TransactionModal: React.FC = () => {
               placeholder="Ex: Venda de Mercadorias para Cliente X"
               value={formData.description || ''}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             />
           </div>
 
@@ -616,7 +617,7 @@ export const TransactionModal: React.FC = () => {
                   required
                   value={formData.category || ''}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                 >
                   <option value="">Selecione...</option>
                   {accountPlans
@@ -685,12 +686,12 @@ export const TransactionModal: React.FC = () => {
             <div className="border-t border-gray-200 pt-4">
               <div className="flex justify-between items-center mb-3">
                 <h4 className="font-semibold text-gray-800 flex items-center gap-2">
-                  <Wallet size={18} className="text-emerald-600" />
+                  <Wallet size={18} className="text-blue-600" />
                   Pagamentos / Parcelas
                 </h4>
                 <div className="text-sm">
                   <span className="text-gray-500">Restante: </span>
-                  <span className={`font-bold ${remainingValue !== 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                  <span className={`font-bold ${remainingValue !== 0 ? 'text-red-600' : 'text-blue-600'}`}>
                     R$ {remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
@@ -777,7 +778,7 @@ export const TransactionModal: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => addPayment(remainingValue)}
-                    className="w-full py-2 border-2 border-dashed border-emerald-200 text-emerald-600 rounded-lg hover:bg-emerald-50 text-sm font-medium flex items-center justify-center gap-2"
+                    className="w-full py-2 border-2 border-dashed border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 text-sm font-medium flex items-center justify-center gap-2"
                   >
                     <Plus size={16} />
                     Adicionar Pagamento de R$ {remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -798,7 +799,7 @@ export const TransactionModal: React.FC = () => {
             <button 
               type="submit" 
               disabled={Math.abs(remainingValue) > 0.01 || isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
               {editingTransaction ? 'Salvar Alterações' : 'Salvar Lançamento'}

@@ -86,12 +86,12 @@ const TabButton = ({ id, label, icon: Icon, active, onClick }: any) => (
     className={`
       flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all
       ${active 
-        ? 'bg-emerald-50 text-emerald-700 shadow-sm ring-1 ring-emerald-200' 
+        ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-200' 
         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
       }
     `}
   >
-    <Icon size={16} className={active ? 'text-emerald-600' : 'text-gray-400'} />
+    <Icon size={16} className={active ? 'text-blue-600' : 'text-gray-400'} />
     {label}
   </button>
 );

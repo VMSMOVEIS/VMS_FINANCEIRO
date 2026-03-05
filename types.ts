@@ -2,7 +2,9 @@ import { LucideIcon } from 'lucide-react';
 
 export enum SectorId {
   FINANCEIRO = 'financeiro',
-  RH = 'rh'
+  RH = 'rh',
+  PRODUCAO = 'producao',
+  VENDAS = 'vendas'
 }
 
 export enum ModuleId {
@@ -28,7 +30,25 @@ export enum ModuleId {
   RH_TREINAMENTO = 'rh_treinamento',
   RH_BENEFICIOS = 'rh_beneficios',
   RH_PONTO = 'rh_ponto',
-  RH_CONFIG = 'rh_config'
+  RH_CONFIG = 'rh_config',
+  
+  // Produção Modules
+  PRODUCAO_DASHBOARD = 'producao_dashboard',
+  PRODUCAO_ORDENS = 'producao_ordens',
+  PRODUCAO_ESTOQUE = 'producao_estoque',
+  PRODUCAO_MAQUINAS = 'producao_maquinas',
+  PRODUCAO_QUALIDADE = 'producao_qualidade',
+  PRODUCAO_MANUTENCAO = 'producao_manutencao',
+  PRODUCAO_CONFIG = 'producao_config',
+  
+  // Vendas Modules
+  VENDAS_DASHBOARD = 'vendas_dashboard',
+  VENDAS_CRM = 'vendas_crm',
+  VENDAS_PEDIDOS = 'vendas_pedidos',
+  VENDAS_PROPOSTAS = 'vendas_propostas',
+  VENDAS_CLIENTES = 'vendas_clientes',
+  VENDAS_METAS = 'vendas_metas',
+  VENDAS_CONFIG = 'vendas_config'
 }
 
 export interface SubMenuItem {

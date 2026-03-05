@@ -76,7 +76,7 @@ export const Transactions: React.FC = () => {
         </div>
         <button 
           onClick={() => openModal()}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all shadow-sm font-medium"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-sm font-medium"
         >
           <Plus size={20} />
           <span>Novo Lançamento</span>
@@ -143,14 +143,14 @@ export const Transactions: React.FC = () => {
             placeholder="Buscar por descrição, cliente, fornecedor ou pedido..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
           />
         </div>
         <div className="flex gap-2 items-center">
           <select 
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="this-month">Este Mês</option>
             <option value="last-month">Último Mês</option>
@@ -163,7 +163,7 @@ export const Transactions: React.FC = () => {
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="bg-white border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {Array.from({ length: 12 }, (_, i) => (
                 <option key={i} value={i}>

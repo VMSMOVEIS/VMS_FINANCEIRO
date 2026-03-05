@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Menu, Bell, Search, UserCircle, ChevronDown, ChevronRight, Dot, Store, X, Calendar, ArrowRight, Users, Clock, UserPlus } from 'lucide-react';
-import { MENU_ITEMS, RH_MENU_ITEMS } from './constants';
+import { MENU_ITEMS, RH_MENU_ITEMS, PRODUCAO_MENU_ITEMS, VENDAS_MENU_ITEMS } from './constants';
 import { MenuItem, ModuleId, SectorId } from './types';
 import { FinancialDashboard } from './components/FinancialDashboard';
 import { AccountsPayable } from './components/AccountsPayable';
@@ -17,7 +17,7 @@ import { ChartOfAccounts } from './components/ChartOfAccounts';
 import { Accounting } from './components/Accounting';
 import { TransactionModal } from './components/TransactionModal';
 import { useTransactions } from './src/context/TransactionContext';
-import { DollarSign, LayoutDashboard, Briefcase } from 'lucide-react';
+import { DollarSign, LayoutDashboard, Briefcase, Factory, Package, ClipboardList, Wrench, CheckCircle2, ShoppingCart, Target, FileText, UserCheck, BarChart3 } from 'lucide-react';
 
 const App: React.FC = () => {
   const { userProfile, companyProfile, isLoading, refreshData, transactions, notificationSettings } = useTransactions();
@@ -196,6 +196,90 @@ const App: React.FC = () => {
           </div>
         );
 
+      // Produção Modules
+      case ModuleId.PRODUCAO_DASHBOARD:
+        return (
+          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
+            <div className="bg-orange-100 p-8 rounded-full mb-6">
+              <LayoutDashboard size={64} className="text-orange-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Dashboard Produção</h2>
+            <p className="text-gray-500 max-w-md">Visão geral da linha de produção e produtividade.</p>
+          </div>
+        );
+      case ModuleId.PRODUCAO_ORDENS:
+        return (
+          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
+            <div className="bg-orange-100 p-8 rounded-full mb-6">
+              <ClipboardList size={64} className="text-orange-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Ordens de Produção</h2>
+            <p className="text-gray-500 max-w-md">Gestão e acompanhamento de ordens de fabricação.</p>
+          </div>
+        );
+      case ModuleId.PRODUCAO_ESTOQUE:
+        return (
+          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
+            <div className="bg-orange-100 p-8 rounded-full mb-6">
+              <Package size={64} className="text-orange-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Estoque de Matéria-Prima</h2>
+            <p className="text-gray-500 max-w-md">Controle de insumos e materiais para produção.</p>
+          </div>
+        );
+      case ModuleId.PRODUCAO_MAQUINAS:
+        return (
+          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
+            <div className="bg-orange-100 p-8 rounded-full mb-6">
+              <Factory size={64} className="text-orange-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Máquinas & Equipamentos</h2>
+            <p className="text-gray-500 max-w-md">Gestão de ativos e capacidade produtiva.</p>
+          </div>
+        );
+
+      // Vendas Modules
+      case ModuleId.VENDAS_DASHBOARD:
+        return (
+          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
+            <div className="bg-emerald-100 p-8 rounded-full mb-6">
+              <LayoutDashboard size={64} className="text-emerald-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Dashboard Vendas</h2>
+            <p className="text-gray-500 max-w-md">Visão geral do desempenho comercial e funil de vendas.</p>
+          </div>
+        );
+      case ModuleId.VENDAS_CRM:
+        return (
+          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
+            <div className="bg-emerald-100 p-8 rounded-full mb-6">
+              <Target size={64} className="text-emerald-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">CRM / Funil</h2>
+            <p className="text-gray-500 max-w-md">Gestão de leads, oportunidades e negociações.</p>
+          </div>
+        );
+      case ModuleId.VENDAS_PEDIDOS:
+        return (
+          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
+            <div className="bg-emerald-100 p-8 rounded-full mb-6">
+              <ShoppingCart size={64} className="text-emerald-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Pedidos de Venda</h2>
+            <p className="text-gray-500 max-w-md">Acompanhamento e emissão de pedidos.</p>
+          </div>
+        );
+      case ModuleId.VENDAS_CLIENTES:
+        return (
+          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
+            <div className="bg-emerald-100 p-8 rounded-full mb-6">
+              <UserCheck size={64} className="text-emerald-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Gestão de Clientes</h2>
+            <p className="text-gray-500 max-w-md">Base de dados e relacionamento com clientes.</p>
+          </div>
+        );
+
       case ModuleId.DASHBOARD:
         return <FinancialDashboard />;
       case ModuleId.LANCAMENTOS:
@@ -228,19 +312,20 @@ const App: React.FC = () => {
               </div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">Módulo em Desenvolvimento</h2>
               <p className="text-gray-500 max-w-md">
-                  O módulo de <strong>{currentMenuItems.find(m => m.id === activeModule)?.label}</strong> está sendo preparado para o sistema VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : 'RH'}.
+                  O módulo de <strong>{currentMenuItems.find(m => m.id === activeModule)?.label}</strong> está sendo preparado para o sistema VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : 'Vendas'}.
               </p>
           </div>
         );
     }
   };
 
-  const currentMenuItems = activeSector === SectorId.FINANCEIRO ? MENU_ITEMS : RH_MENU_ITEMS;
-  const sectorColor = activeSector === SectorId.FINANCEIRO ? '#022c22' : '#500724'; // Dark Green vs Dark Pink (Pink-950)
-  const sectorAccent = activeSector === SectorId.FINANCEIRO ? '#047857' : '#831843'; // Emerald vs Pink-900
-  const sectorBorder = activeSector === SectorId.FINANCEIRO ? '#064e3b' : '#700b34';
-  const sectorIconColor = activeSector === SectorId.FINANCEIRO ? 'text-emerald-400' : 'text-pink-400';
-  const sectorShadow = activeSector === SectorId.FINANCEIRO ? 'rgba(52,211,153,0.5)' : 'rgba(244,114,182,0.5)';
+  const currentMenuItems = activeSector === SectorId.FINANCEIRO ? MENU_ITEMS : activeSector === SectorId.RH ? RH_MENU_ITEMS : activeSector === SectorId.PRODUCAO ? PRODUCAO_MENU_ITEMS : VENDAS_MENU_ITEMS;
+  const sectorColor = activeSector === SectorId.FINANCEIRO ? '#0f172a' : activeSector === SectorId.RH ? '#500724' : activeSector === SectorId.PRODUCAO ? '#431407' : '#022c22'; 
+  const sectorAccent = activeSector === SectorId.FINANCEIRO ? '#1e40af' : activeSector === SectorId.RH ? '#831843' : activeSector === SectorId.PRODUCAO ? '#78350f' : '#047857'; 
+  const sectorBorder = activeSector === SectorId.FINANCEIRO ? '#1e3a8a' : activeSector === SectorId.RH ? '#700b34' : activeSector === SectorId.PRODUCAO ? '#92400e' : '#064e3b';
+  const sectorIconColor = activeSector === SectorId.FINANCEIRO ? 'text-blue-400' : activeSector === SectorId.RH ? 'text-pink-400' : activeSector === SectorId.PRODUCAO ? 'text-orange-400' : 'text-emerald-400';
+  const sectorShadow = activeSector === SectorId.FINANCEIRO ? 'rgba(59,130,246,0.5)' : activeSector === SectorId.RH ? 'rgba(244,114,182,0.5)' : activeSector === SectorId.PRODUCAO ? 'rgba(251,146,60,0.5)' : 'rgba(52,211,153,0.5)';
+  const sectorIndicator = activeSector === SectorId.FINANCEIRO ? '#3b82f6' : activeSector === SectorId.RH ? '#f472b6' : activeSector === SectorId.PRODUCAO ? '#f59e0b' : '#10b981';
 
   return (
       <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
@@ -254,7 +339,7 @@ const App: React.FC = () => {
             }}
             className={`
               w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all
-              ${activeSector === SectorId.FINANCEIRO ? 'bg-emerald-600 text-white shadow-lg scale-110' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}
+              ${activeSector === SectorId.FINANCEIRO ? 'bg-blue-600 text-white shadow-lg scale-110' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}
             `}
             title="Setor Financeiro"
           >
@@ -273,6 +358,34 @@ const App: React.FC = () => {
           >
             <Users size={20} />
           </div>
+
+          <div 
+            onClick={() => {
+              setActiveSector(SectorId.PRODUCAO);
+              setActiveModule(ModuleId.PRODUCAO_DASHBOARD);
+            }}
+            className={`
+              w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all duration-300
+              ${activeSector === SectorId.PRODUCAO ? 'bg-orange-600 text-white shadow-lg scale-110' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}
+            `}
+            title="Setor Produção"
+          >
+            <Factory size={20} />
+          </div>
+
+          <div 
+            onClick={() => {
+              setActiveSector(SectorId.VENDAS);
+              setActiveModule(ModuleId.VENDAS_DASHBOARD);
+            }}
+            className={`
+              w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all duration-300
+              ${activeSector === SectorId.VENDAS ? 'bg-emerald-600 text-white shadow-lg scale-110' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}
+            `}
+            title="Setor Vendas"
+          >
+            <ShoppingCart size={20} />
+          </div>
         </div>
 
         {/* Sidebar */}
@@ -288,10 +401,10 @@ const App: React.FC = () => {
           {/* Logo Area */}
           <div className="h-16 flex items-center px-6 border-b border-white/10 shadow-md" style={{ backgroundColor: sectorAccent }}>
             <div className="font-bold text-2xl tracking-tighter flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-lg bg-gradient-to-br ${activeSector === SectorId.FINANCEIRO ? 'from-emerald-400 to-teal-600' : 'from-pink-400 to-rose-600'}`}>
-                {activeSector === SectorId.FINANCEIRO ? <Store size={18} className="text-white" /> : <Users size={18} className="text-white" />}
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-lg bg-gradient-to-br ${activeSector === SectorId.FINANCEIRO ? 'from-blue-400 to-indigo-600' : activeSector === SectorId.RH ? 'from-pink-400 to-rose-600' : activeSector === SectorId.PRODUCAO ? 'from-orange-400 to-amber-600' : 'from-emerald-400 to-teal-600'}`}>
+                {activeSector === SectorId.FINANCEIRO ? <Store size={18} className="text-white" /> : activeSector === SectorId.RH ? <Users size={18} className="text-white" /> : activeSector === SectorId.PRODUCAO ? <Factory size={18} className="text-white" /> : <ShoppingCart size={18} className="text-white" />}
               </div>
-              <span className="font-bold tracking-tight">VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : 'RH'}</span>
+              <span className="font-bold tracking-tight">VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : 'Vendas'}</span>
             </div>
           </div>
 
@@ -316,12 +429,12 @@ const App: React.FC = () => {
                     {activeModule === item.id && (
                       <div 
                         className="absolute left-0 top-0 bottom-0 w-1" 
-                        style={{ backgroundColor: activeSector === SectorId.FINANCEIRO ? '#34d399' : '#f472b6', boxShadow: `0 0 10px ${sectorShadow}` }}
+                        style={{ backgroundColor: sectorIndicator, boxShadow: `0 0 10px ${sectorShadow}` }}
                       ></div>
                     )}
 
                     <div className="flex items-center flex-1 gap-3">
-                       <item.icon size={20} className={activeModule === item.id ? (activeSector === SectorId.FINANCEIRO ? 'text-emerald-400' : 'text-pink-400') : 'text-gray-400'} />
+                       <item.icon size={20} className={activeModule === item.id ? sectorIconColor : 'text-gray-400'} />
                        <span className="text-sm tracking-wide">{item.label}</span>
                     </div>
                     
@@ -348,7 +461,7 @@ const App: React.FC = () => {
                               ${isSubActive ? 'text-white bg-white/10 font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}
                             `}
                           >
-                            <div className={`w-1.5 h-1.5 rounded-full transition-colors ${isSubActive ? (activeSector === SectorId.FINANCEIRO ? 'bg-emerald-400' : 'bg-pink-400') : 'bg-gray-600 group-hover:bg-emerald-400'}`}></div>
+                            <div className={`w-1.5 h-1.5 rounded-full transition-colors ${isSubActive ? sectorIconColor.replace('text-', 'bg-') : 'bg-gray-600 group-hover:bg-emerald-400'}`}></div>
                             <span>{sub.label}</span>
                           </div>
                         );
@@ -362,8 +475,8 @@ const App: React.FC = () => {
 
           {/* Footer */}
           <div className="p-4 border-t border-white/10" style={{ backgroundColor: sectorColor }}>
-            <div className="text-center text-[10px] uppercase tracking-widest opacity-40" style={{ color: activeSector === SectorId.FINANCEIRO ? '#6ee7b7' : '#f472b6' }}>
-              VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : 'RH'} v1.0
+            <div className="text-center text-[10px] uppercase tracking-widest opacity-40" style={{ color: activeSector === SectorId.FINANCEIRO ? '#93c5fd' : activeSector === SectorId.RH ? '#f472b6' : activeSector === SectorId.PRODUCAO ? '#fbbf24' : '#6ee7b7' }}>
+              VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : 'Vendas'} v1.0
             </div>
           </div>
         </aside>
@@ -383,10 +496,10 @@ const App: React.FC = () => {
               
               {/* Context Breadcrumb */}
               <div className="hidden md:flex items-center text-sm text-gray-500">
-                <span className="font-medium text-gray-900">VMS Financeiro</span>
+                <span className="font-medium text-gray-900">VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : 'Vendas'}</span>
                 <ChevronRight size={14} className="mx-2" />
                 <span className="cursor-pointer hover:text-gray-700">
-                  {MENU_ITEMS.find(i => i.id === activeModule)?.label}
+                  {currentMenuItems.find(i => i.id === activeModule)?.label}
                 </span>
               </div>
             </div>
@@ -483,12 +596,12 @@ const App: React.FC = () => {
           </header>
 
           {/* Page Content */}
-          <main className={`flex-1 overflow-y-auto relative ${activeSector === SectorId.FINANCEIRO ? 'bg-[#f0fdf4]' : 'bg-[#fdf2f8]'}`}>
+          <main className={`flex-1 overflow-y-auto relative ${activeSector === SectorId.FINANCEIRO ? 'bg-blue-50/30' : activeSector === SectorId.RH ? 'bg-pink-50/30' : activeSector === SectorId.PRODUCAO ? 'bg-orange-50/30' : 'bg-emerald-50/30'}`}>
             {isLoading && (
               <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-50 flex items-center justify-center">
-                <div className={`bg-white p-6 rounded-2xl shadow-xl border flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300 ${activeSector === SectorId.FINANCEIRO ? 'border-emerald-100' : 'border-pink-100'}`}>
-                  <div className={`w-12 h-12 border-4 rounded-full animate-spin ${activeSector === SectorId.FINANCEIRO ? 'border-emerald-100 border-t-emerald-600' : 'border-pink-100 border-t-pink-600'}`}></div>
-                  <p className={`font-medium text-sm ${activeSector === SectorId.FINANCEIRO ? 'text-emerald-900' : 'text-pink-900'}`}>Sincronizando com a nuvem...</p>
+                <div className={`bg-white p-6 rounded-2xl shadow-xl border flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300 ${activeSector === SectorId.FINANCEIRO ? 'border-blue-100' : activeSector === SectorId.RH ? 'border-pink-100' : activeSector === SectorId.PRODUCAO ? 'border-orange-100' : 'border-emerald-100'}`}>
+                  <div className={`w-12 h-12 border-4 rounded-full animate-spin ${activeSector === SectorId.FINANCEIRO ? 'border-blue-100 border-t-blue-600' : activeSector === SectorId.RH ? 'border-pink-100 border-t-pink-600' : activeSector === SectorId.PRODUCAO ? 'border-orange-100 border-t-orange-600' : 'border-emerald-100 border-t-emerald-600'}`}></div>
+                  <p className={`font-medium text-sm ${activeSector === SectorId.FINANCEIRO ? 'text-blue-900' : activeSector === SectorId.RH ? 'text-pink-900' : activeSector === SectorId.PRODUCAO ? 'text-orange-900' : 'text-emerald-900'}`}>Sincronizando com a nuvem...</p>
                 </div>
               </div>
             )}

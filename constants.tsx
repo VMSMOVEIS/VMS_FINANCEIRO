@@ -18,7 +18,17 @@ import {
   Heart,
   Clock,
   UserPlus,
-  Settings2
+  Settings2,
+  Factory,
+  Package,
+  CheckCircle2,
+  Wrench,
+  ClipboardList,
+  ShoppingCart,
+  UserCheck,
+  FileText,
+  Target,
+  BarChart3
 } from 'lucide-react';
 import { MenuItem, ModuleId } from './types';
 
@@ -164,6 +174,87 @@ export const RH_MENU_ITEMS: MenuItem[] = [
   {
     id: ModuleId.RH_CONFIG,
     label: 'Configurações RH',
+    icon: Settings2,
+  }
+];
+
+export const PRODUCAO_MENU_ITEMS: MenuItem[] = [
+  {
+    id: ModuleId.PRODUCAO_DASHBOARD,
+    label: 'Dashboard Produção',
+    icon: LayoutDashboard,
+  },
+  {
+    id: ModuleId.PRODUCAO_ORDENS,
+    label: 'Ordens de Produção',
+    icon: ClipboardList,
+    subItems: [
+      { id: 'op_lista', label: 'Lista de OPs' },
+      { id: 'op_nova', label: 'Nova Ordem' },
+      { id: 'op_planejamento', label: 'Planejamento' },
+    ]
+  },
+  {
+    id: ModuleId.PRODUCAO_ESTOQUE,
+    label: 'Estoque MP',
+    icon: Package,
+  },
+  {
+    id: ModuleId.PRODUCAO_MAQUINAS,
+    label: 'Máquinas & Equipamentos',
+    icon: Factory,
+  },
+  {
+    id: ModuleId.PRODUCAO_QUALIDADE,
+    label: 'Controle de Qualidade',
+    icon: CheckCircle2,
+  },
+  {
+    id: ModuleId.PRODUCAO_MANUTENCAO,
+    label: 'Manutenção',
+    icon: Wrench,
+  },
+  {
+    id: ModuleId.PRODUCAO_CONFIG,
+    label: 'Configurações Produção',
+    icon: Settings2,
+  }
+];
+
+export const VENDAS_MENU_ITEMS: MenuItem[] = [
+  {
+    id: ModuleId.VENDAS_DASHBOARD,
+    label: 'Dashboard Vendas',
+    icon: LayoutDashboard,
+  },
+  {
+    id: ModuleId.VENDAS_CRM,
+    label: 'CRM / Funil',
+    icon: Target,
+  },
+  {
+    id: ModuleId.VENDAS_PEDIDOS,
+    label: 'Pedidos de Venda',
+    icon: ShoppingCart,
+  },
+  {
+    id: ModuleId.VENDAS_PROPOSTAS,
+    label: 'Propostas Comerciais',
+    icon: FileText,
+  },
+  {
+    id: ModuleId.VENDAS_CLIENTES,
+    label: 'Gestão de Clientes',
+    icon: UserCheck,
+  },
+  {
+    id: ModuleId.VENDAS_METAS,
+    label: 'Metas & Performance',
+    icon: BarChart3,
+  },
+  {
+    id: ModuleId.VENDAS_CONFIG,
+    label: 'Configurações Vendas',
     icon: Settings2,
   }
 ];

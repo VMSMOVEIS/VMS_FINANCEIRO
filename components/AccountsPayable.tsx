@@ -65,7 +65,7 @@ export const AccountsPayable: React.FC<AccountsPayableProps> = ({ initialTab = '
             documentType: 'NF',
             status: 'pending'
           } as any)}
-          className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors shadow-sm"
         >
           <Plus size={18} />
           <span>Adicionar Conta</span>
@@ -80,7 +80,7 @@ export const AccountsPayable: React.FC<AccountsPayableProps> = ({ initialTab = '
             className={`
               whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm
               ${activeTab === 'geral'
-                ? 'border-emerald-500 text-emerald-600'
+                ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
             `}
           >
@@ -91,7 +91,7 @@ export const AccountsPayable: React.FC<AccountsPayableProps> = ({ initialTab = '
             className={`
               whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm
               ${activeTab === 'adiantamentos'
-                ? 'border-emerald-500 text-emerald-600'
+                ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
             `}
           >
