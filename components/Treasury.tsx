@@ -16,6 +16,14 @@ export const Treasury: React.FC = () => {
     transactions.forEach(t => {
       t.payments.forEach(p => {
         if (p.status === 'completed') {
+          // If this payment was settled by another independent transaction, skip it here
+          // to avoid double counting the cash movement
+          const isSettledByOther = transactions.some(other => 
+            other.linkedTransactionId === t.id && other.linkedPaymentId === p.id
+          );
+          
+          if (isSettledByOther) return;
+
           if (t.type === 'transfer') {
             // For transfers, subtract from source and add to destination
             if (p.source && balances[p.source] !== undefined) {

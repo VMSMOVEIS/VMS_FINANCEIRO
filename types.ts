@@ -1,5 +1,10 @@
 import { LucideIcon } from 'lucide-react';
 
+export enum SectorId {
+  FINANCEIRO = 'financeiro',
+  RH = 'rh'
+}
+
 export enum ModuleId {
   DASHBOARD = 'dashboard',
   LANCAMENTOS = 'lancamentos',
@@ -13,7 +18,17 @@ export enum ModuleId {
   CONTROLADORIA = 'controladoria',
   FISCAL = 'fiscal',
   RELATORIOS = 'relatorios',
-  CONFIGURACOES = 'configuracoes'
+  CONFIGURACOES = 'configuracoes',
+  
+  // RH Modules
+  RH_DASHBOARD = 'rh_dashboard',
+  RH_FUNCIONARIOS = 'rh_funcionarios',
+  RH_FOLHA = 'rh_folha',
+  RH_RECRUTAMENTO = 'rh_recrutamento',
+  RH_TREINAMENTO = 'rh_treinamento',
+  RH_BENEFICIOS = 'rh_beneficios',
+  RH_PONTO = 'rh_ponto',
+  RH_CONFIG = 'rh_config'
 }
 
 export interface SubMenuItem {
@@ -70,6 +85,8 @@ export interface Transaction {
   customerName?: string; // Added customer/supplier name
   payments: Payment[];
   status: 'completed' | 'pending' | 'partial';
+  linkedTransactionId?: number;
+  linkedPaymentId?: string;
 }
 
 export interface UserProfile {

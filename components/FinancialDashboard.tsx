@@ -47,14 +47,14 @@ export const FinancialDashboard: React.FC = () => {
   // 1. Receita Total (Total Revenue) - Sum of all 'income' transactions
   const totalRevenue = useMemo(() => {
     return filteredTransactions
-      .filter(t => t.type === 'income')
+      .filter(t => t.type === 'income' && !t.linkedTransactionId)
       .reduce((sum, t) => sum + t.value, 0);
   }, [filteredTransactions]);
 
   // 2. Despesas (Total Expenses) - Sum of all 'expense' transactions
   const totalExpenses = useMemo(() => {
     return filteredTransactions
-      .filter(t => t.type === 'expense')
+      .filter(t => t.type === 'expense' && !t.linkedTransactionId)
       .reduce((sum, t) => sum + t.value, 0);
   }, [filteredTransactions]);
 
@@ -110,7 +110,7 @@ export const FinancialDashboard: React.FC = () => {
         data[monthKey] = { name: monthName, receita: 0, despesa: 0 };
       }
 
-      if (t.type === 'transfer') return;
+      if (t.type === 'transfer' || t.linkedTransactionId) return;
 
       if (t.type === 'income') {
         data[monthKey].receita += t.value;
@@ -140,7 +140,15 @@ export const FinancialDashboard: React.FC = () => {
     sortedTransactions.forEach(t => {
         // Only count completed payments for cash flow
         const completedAmount = t.payments
-            .filter(p => p.status === 'completed' && p.method !== 'Adiantamento')
+            .filter(p => {
+                if (p.status !== 'completed' || p.method === 'Adiantamento') return false;
+                // If this payment was settled by another independent transaction, skip it here
+                // to avoid double counting the cash movement
+                const isSettledByOther = transactions.some(other => 
+                    other.linkedTransactionId === t.id && other.linkedPaymentId === p.id
+                );
+                return !isSettledByOther;
+            })
             .reduce((sum, p) => sum + p.value, 0);
 
         if (completedAmount > 0) {

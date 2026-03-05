@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Menu, Bell, Search, UserCircle, ChevronDown, ChevronRight, Dot, Store, X, Calendar, ArrowRight } from 'lucide-react';
-import { MENU_ITEMS } from './constants';
-import { MenuItem, ModuleId } from './types';
+import { Menu, Bell, Search, UserCircle, ChevronDown, ChevronRight, Dot, Store, X, Calendar, ArrowRight, Users, Clock, UserPlus } from 'lucide-react';
+import { MENU_ITEMS, RH_MENU_ITEMS } from './constants';
+import { MenuItem, ModuleId, SectorId } from './types';
 import { FinancialDashboard } from './components/FinancialDashboard';
 import { AccountsPayable } from './components/AccountsPayable';
 import { AccountsReceivable } from './components/AccountsReceivable';
@@ -16,87 +16,12 @@ import { OperationalHistory } from './components/OperationalHistory';
 import { ChartOfAccounts } from './components/ChartOfAccounts';
 import { Accounting } from './components/Accounting';
 import { TransactionModal } from './components/TransactionModal';
-
-interface SidebarItemProps {
-  item: MenuItem;
-  depth?: number;
-  activeModule: ModuleId;
-  expandedModules: Set<string>;
-  activeSubItem: string | null;
-  onMainItemClick: (item: MenuItem) => void;
-  onSubItemClick: (moduleId: ModuleId, subItemId: string) => void;
-}
-
-const SidebarItem: React.FC<SidebarItemProps> = ({ 
-  item, 
-  depth = 0, 
-  activeModule, 
-  expandedModules, 
-  activeSubItem, 
-  onMainItemClick, 
-  onSubItemClick 
-}) => {
-  const isExpanded = expandedModules.has(item.id);
-  const isActiveModule = activeModule === item.id;
-  const hasChildren = item.subItems && item.subItems.length > 0;
-  const Icon = item.icon;
-
-  return (
-    <div className="mb-1 select-none">
-      <div
-        onClick={() => onMainItemClick(item)}
-        className={`
-          relative flex items-center px-4 py-3 cursor-pointer transition-all duration-200
-          ${isActiveModule ? 'bg-white/10 text-white font-medium' : 'text-gray-300 hover:bg-white/5 hover:text-white'}
-        `}
-      >
-        {isActiveModule && (
-          <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)]"></div>
-        )}
-
-        <div className="flex items-center flex-1 gap-3">
-           <Icon size={20} className={isActiveModule ? 'text-emerald-400' : 'text-gray-400'} />
-           <span className="text-sm tracking-wide">{item.label}</span>
-        </div>
-        
-        {hasChildren && (
-          <div className="text-gray-400">
-            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          </div>
-        )}
-      </div>
-
-      {hasChildren && isExpanded && (
-        <div className="relative ml-4 pl-4 border-l border-white/10 space-y-1 py-1 animate-in slide-in-from-top-2 duration-200">
-          {item.subItems?.map((sub) => {
-            const isSubActive = activeSubItem === sub.id && isActiveModule;
-            return (
-              <div
-                key={sub.id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSubItemClick(item.id, sub.id);
-                }}
-                className={`
-                  group flex items-center gap-3 px-3 py-2 text-sm rounded-md cursor-pointer transition-colors
-                  ${isSubActive ? 'text-white bg-white/10 font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}
-                `}
-              >
-                <div className={`w-1.5 h-1.5 rounded-full transition-colors ${isSubActive ? 'bg-emerald-400' : 'bg-gray-600 group-hover:bg-emerald-400'}`}></div>
-                <span>{sub.label}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
-
 import { useTransactions } from './src/context/TransactionContext';
+import { DollarSign, LayoutDashboard, Briefcase } from 'lucide-react';
 
 const App: React.FC = () => {
   const { userProfile, companyProfile, isLoading, refreshData, transactions, notificationSettings } = useTransactions();
+  const [activeSector, setActiveSector] = useState<SectorId>(SectorId.FINANCEIRO);
   const [activeModule, setActiveModule] = useState<ModuleId>(ModuleId.DASHBOARD);
   // activeSubItem is kept for potential future use or deep linking, though mostly flattened now
   const [activeSubItem, setActiveSubItem] = useState<string | null>(null);
@@ -219,6 +144,58 @@ const App: React.FC = () => {
     }
 
     switch (activeModule) {
+      // RH Modules
+      case ModuleId.RH_DASHBOARD:
+        return (
+          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
+            <div className="bg-pink-100 p-8 rounded-full mb-6">
+              <LayoutDashboard size={64} className="text-pink-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Dashboard RH</h2>
+            <p className="text-gray-500 max-w-md">Visão geral da gestão de pessoas e indicadores de RH.</p>
+          </div>
+        );
+      case ModuleId.RH_FUNCIONARIOS:
+        return (
+          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
+            <div className="bg-pink-100 p-8 rounded-full mb-6">
+              <Users size={64} className="text-pink-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Gestão de Funcionários</h2>
+            <p className="text-gray-500 max-w-md">Cadastro e gestão de colaboradores da empresa.</p>
+          </div>
+        );
+      case ModuleId.RH_FOLHA:
+        return (
+          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
+            <div className="bg-pink-100 p-8 rounded-full mb-6">
+              <Briefcase size={64} className="text-pink-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Folha de Pagamento</h2>
+            <p className="text-gray-500 max-w-md">Processamento de salários, encargos e benefícios.</p>
+          </div>
+        );
+      case ModuleId.RH_PONTO:
+        return (
+          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
+            <div className="bg-pink-100 p-8 rounded-full mb-6">
+              <Clock size={64} className="text-pink-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Ponto Eletrônico</h2>
+            <p className="text-gray-500 max-w-md">Controle de jornada e banco de horas.</p>
+          </div>
+        );
+      case ModuleId.RH_RECRUTAMENTO:
+        return (
+          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
+            <div className="bg-pink-100 p-8 rounded-full mb-6">
+              <UserPlus size={64} className="text-pink-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Recrutamento & Seleção</h2>
+            <p className="text-gray-500 max-w-md">Gestão de vagas e processos seletivos.</p>
+          </div>
+        );
+
       case ModuleId.DASHBOARD:
         return <FinancialDashboard />;
       case ModuleId.LANCAMENTOS:
@@ -245,68 +222,148 @@ const App: React.FC = () => {
           <div className="p-12 flex flex-col items-center justify-center h-full text-center opacity-60">
               <div className="bg-gray-100 p-8 rounded-full mb-6">
                   {(() => {
-                      const Icon = MENU_ITEMS.find(m => m.id === activeModule)?.icon || Dot;
+                      const Icon = currentMenuItems.find(m => m.id === activeModule)?.icon || Dot;
                       return <Icon size={64} className="text-gray-400" />;
                   })()}
               </div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">Módulo em Desenvolvimento</h2>
               <p className="text-gray-500 max-w-md">
-                  O módulo de <strong>{MENU_ITEMS.find(m => m.id === activeModule)?.label}</strong> está sendo preparado para o sistema VMS Financeiro.
+                  O módulo de <strong>{currentMenuItems.find(m => m.id === activeModule)?.label}</strong> está sendo preparado para o sistema VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : 'RH'}.
               </p>
           </div>
         );
     }
   };
 
+  const currentMenuItems = activeSector === SectorId.FINANCEIRO ? MENU_ITEMS : RH_MENU_ITEMS;
+  const sectorColor = activeSector === SectorId.FINANCEIRO ? '#022c22' : '#500724'; // Dark Green vs Dark Pink (Pink-950)
+  const sectorAccent = activeSector === SectorId.FINANCEIRO ? '#047857' : '#831843'; // Emerald vs Pink-900
+  const sectorBorder = activeSector === SectorId.FINANCEIRO ? '#064e3b' : '#700b34';
+  const sectorIconColor = activeSector === SectorId.FINANCEIRO ? 'text-emerald-400' : 'text-pink-400';
+  const sectorShadow = activeSector === SectorId.FINANCEIRO ? 'rgba(52,211,153,0.5)' : 'rgba(244,114,182,0.5)';
+
   return (
       <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
         
-        {/* Sidebar - Green Theme */}
+        {/* Sector Sidebar (Far Left) */}
+        <div className="w-16 bg-[#111827] flex flex-col items-center py-6 gap-6 z-30 border-r border-white/5">
+          <div 
+            onClick={() => {
+              setActiveSector(SectorId.FINANCEIRO);
+              setActiveModule(ModuleId.DASHBOARD);
+            }}
+            className={`
+              w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all
+              ${activeSector === SectorId.FINANCEIRO ? 'bg-emerald-600 text-white shadow-lg scale-110' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}
+            `}
+            title="Setor Financeiro"
+          >
+            <DollarSign size={20} />
+          </div>
+          <div 
+            onClick={() => {
+              setActiveSector(SectorId.RH);
+              setActiveModule(ModuleId.RH_DASHBOARD);
+            }}
+            className={`
+              w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all
+              ${activeSector === SectorId.RH ? 'bg-pink-600 text-white shadow-lg scale-110' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}
+            `}
+            title="Setor RH"
+          >
+            <Users size={20} />
+          </div>
+        </div>
+
+        {/* Sidebar */}
         <aside 
           className={`
-            flex flex-col bg-[#022c22] text-white transition-all duration-300 z-20 shadow-2xl
+            flex flex-col text-white transition-all duration-300 z-20 shadow-2xl
             ${isSidebarOpen ? 'w-72' : 'w-0 -ml-72'} 
             lg:w-72 lg:ml-0
-            border-r border-[#064e3b]
+            border-r
           `}
+          style={{ backgroundColor: sectorColor, borderColor: sectorBorder }}
         >
           {/* Logo Area */}
-          <div className="h-16 flex items-center px-6 bg-[#047857] border-b border-white/10 shadow-md">
+          <div className="h-16 flex items-center px-6 border-b border-white/10 shadow-md" style={{ backgroundColor: sectorAccent }}>
             <div className="font-bold text-2xl tracking-tighter flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-600 rounded-lg flex items-center justify-center shadow-lg">
-                <Store size={18} className="text-white" />
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-lg bg-gradient-to-br ${activeSector === SectorId.FINANCEIRO ? 'from-emerald-400 to-teal-600' : 'from-pink-400 to-rose-600'}`}>
+                {activeSector === SectorId.FINANCEIRO ? <Store size={18} className="text-white" /> : <Users size={18} className="text-white" />}
               </div>
-              <span className="font-bold tracking-tight">VMS Financeiro</span>
+              <span className="font-bold tracking-tight">VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : 'RH'}</span>
             </div>
           </div>
 
           {/* User Info Compact */}
-          <div className="px-6 py-6 border-b border-white/10 bg-[#064e3b]">
-            <p className="text-xs text-emerald-200 uppercase tracking-wider mb-1">Organização</p>
+          <div className="px-6 py-6 border-b border-white/10" style={{ backgroundColor: sectorBorder }}>
+            <p className="text-xs text-emerald-200 uppercase tracking-wider mb-1 opacity-70">Organização</p>
             <p className="font-semibold text-sm truncate text-white">{companyProfile.name}</p>
           </div>
 
           {/* Navigation Scroll Area */}
           <div className="flex-1 overflow-y-auto sidebar-scroll py-4">
             <div className="space-y-1">
-              {MENU_ITEMS.map((item) => (
-                <SidebarItem 
-                  key={item.id} 
-                  item={item} 
-                  activeModule={activeModule}
-                  expandedModules={expandedModules}
-                  activeSubItem={activeSubItem}
-                  onMainItemClick={handleMainItemClick}
-                  onSubItemClick={handleSubItemClick}
-                />
+              {currentMenuItems.map((item) => (
+                <div key={item.id} className="mb-1 select-none">
+                  <div
+                    onClick={() => handleMainItemClick(item)}
+                    className={`
+                      relative flex items-center px-4 py-3 cursor-pointer transition-all duration-200
+                      ${activeModule === item.id ? 'bg-white/10 text-white font-medium' : 'text-gray-300 hover:bg-white/5 hover:text-white'}
+                    `}
+                  >
+                    {activeModule === item.id && (
+                      <div 
+                        className="absolute left-0 top-0 bottom-0 w-1" 
+                        style={{ backgroundColor: activeSector === SectorId.FINANCEIRO ? '#34d399' : '#f472b6', boxShadow: `0 0 10px ${sectorShadow}` }}
+                      ></div>
+                    )}
+
+                    <div className="flex items-center flex-1 gap-3">
+                       <item.icon size={20} className={activeModule === item.id ? (activeSector === SectorId.FINANCEIRO ? 'text-emerald-400' : 'text-pink-400') : 'text-gray-400'} />
+                       <span className="text-sm tracking-wide">{item.label}</span>
+                    </div>
+                    
+                    {item.subItems && item.subItems.length > 0 && (
+                      <div className="text-gray-400">
+                        {expandedModules.has(item.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      </div>
+                    )}
+                  </div>
+
+                  {item.subItems && item.subItems.length > 0 && expandedModules.has(item.id) && (
+                    <div className="relative ml-4 pl-4 border-l border-white/10 space-y-1 py-1 animate-in slide-in-from-top-2 duration-200">
+                      {item.subItems.map((sub) => {
+                        const isSubActive = activeSubItem === sub.id && activeModule === item.id;
+                        return (
+                          <div
+                            key={sub.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSubItemClick(item.id, sub.id);
+                            }}
+                            className={`
+                              group flex items-center gap-3 px-3 py-2 text-sm rounded-md cursor-pointer transition-colors
+                              ${isSubActive ? 'text-white bg-white/10 font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}
+                            `}
+                          >
+                            <div className={`w-1.5 h-1.5 rounded-full transition-colors ${isSubActive ? (activeSector === SectorId.FINANCEIRO ? 'bg-emerald-400' : 'bg-pink-400') : 'bg-gray-600 group-hover:bg-emerald-400'}`}></div>
+                            <span>{sub.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-white/10 bg-[#022c22]">
-            <div className="text-center text-[10px] text-emerald-300/40 uppercase tracking-widest">
-              VMS Financeiro v1.0
+          <div className="p-4 border-t border-white/10" style={{ backgroundColor: sectorColor }}>
+            <div className="text-center text-[10px] uppercase tracking-widest opacity-40" style={{ color: activeSector === SectorId.FINANCEIRO ? '#6ee7b7' : '#f472b6' }}>
+              VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : 'RH'} v1.0
             </div>
           </div>
         </aside>
@@ -426,12 +483,12 @@ const App: React.FC = () => {
           </header>
 
           {/* Page Content */}
-          <main className="flex-1 overflow-y-auto bg-[#f0fdf4] relative">
+          <main className={`flex-1 overflow-y-auto relative ${activeSector === SectorId.FINANCEIRO ? 'bg-[#f0fdf4]' : 'bg-[#fdf2f8]'}`}>
             {isLoading && (
               <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-50 flex items-center justify-center">
-                <div className="bg-white p-6 rounded-2xl shadow-xl border border-emerald-100 flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
-                  <div className="w-12 h-12 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin"></div>
-                  <p className="text-emerald-900 font-medium text-sm">Sincronizando com a nuvem...</p>
+                <div className={`bg-white p-6 rounded-2xl shadow-xl border flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300 ${activeSector === SectorId.FINANCEIRO ? 'border-emerald-100' : 'border-pink-100'}`}>
+                  <div className={`w-12 h-12 border-4 rounded-full animate-spin ${activeSector === SectorId.FINANCEIRO ? 'border-emerald-100 border-t-emerald-600' : 'border-pink-100 border-t-pink-600'}`}></div>
+                  <p className={`font-medium text-sm ${activeSector === SectorId.FINANCEIRO ? 'text-emerald-900' : 'text-pink-900'}`}>Sincronizando com a nuvem...</p>
                 </div>
               </div>
             )}

@@ -122,20 +122,31 @@ const generateAccountingEntries = (transactions: any[]) => {
     }
 
     // 1. Initial Recognition (Accrual Basis)
-    const accrualEntry = {
-      id: entryId++,
-      transactionId: t.id,
-      date: t.date,
-      description: `Reconhecimento de ${t.type === 'income' ? 'Receita' : 'Despesa'} - ${t.description}`,
-      debit: t.type === 'income' ? '1.01.02 - Clientes a Receber' : `4.01.01 - Despesa com ${t.category}`,
-      credit: t.type === 'income' ? `3.01.01 - Receita de ${t.category}` : '2.01.01 - Fornecedores a Pagar',
-      value: t.value
-    };
-    entries.push(accrualEntry);
+    // Settlements don't generate new revenue/expense, they just move assets/liabilities
+    if (!t.linkedTransactionId) {
+      const accrualEntry = {
+        id: entryId++,
+        transactionId: t.id,
+        date: t.date,
+        description: `Reconhecimento de ${t.type === 'income' ? 'Receita' : 'Despesa'} - ${t.description}`,
+        debit: t.type === 'income' ? '1.01.02 - Clientes a Receber' : `4.01.01 - Despesa com ${t.category}`,
+        credit: t.type === 'income' ? `3.01.01 - Receita de ${t.category}` : '2.01.01 - Fornecedores a Pagar',
+        value: t.value
+      };
+      entries.push(accrualEntry);
+    }
 
     // 2. Payments/Receipts (Cash Basis)
     t.payments.forEach((p: any) => {
       if (p.status === 'completed') {
+        // If this payment was settled by another independent transaction, skip it here
+        // to avoid double counting the cash movement
+        const isSettledByOther = transactions.some(other => 
+          other.linkedTransactionId === t.id && other.linkedPaymentId === p.id
+        );
+        
+        if (isSettledByOther) return;
+
         const paymentEntry = {
           id: entryId++,
           transactionId: t.id,
@@ -156,11 +167,11 @@ const generateAccountingEntries = (transactions: any[]) => {
 const DREView = ({ transactions }: { transactions: any[] }) => {
   const dreData = useMemo(() => {
     const revenue = transactions
-      .filter(t => t.type === 'income')
+      .filter(t => t.type === 'income' && !t.linkedTransactionId)
       .reduce((sum, t) => sum + t.value, 0);
     
     const expenses = transactions
-      .filter(t => t.type === 'expense')
+      .filter(t => t.type === 'expense' && !t.linkedTransactionId)
       .reduce((sum, t) => sum + t.value, 0);
 
     const grossProfit = revenue; // Simplified
@@ -275,17 +286,37 @@ const BalanceSheetView = ({ transactions }: { transactions: any[] }) => {
     // Process all transactions to build current state
     transactions.forEach(t => {
       if (t.type === 'income') {
-        equity.earnings += t.value; // Revenue increases equity
+        if (!t.linkedTransactionId) {
+          equity.earnings += t.value; // Revenue increases equity
+        }
         // If paid, goes to cash. If pending, goes to receivables.
         const paidAmount = t.payments.filter((p: any) => p.status === 'completed').reduce((sum: number, p: any) => sum + p.value, 0);
-        assets.cash += paidAmount;
-        assets.receivables += (t.value - paidAmount);
+        
+        // If this transaction is a settlement, it shouldn't increase receivables
+        if (t.linkedTransactionId) {
+           assets.cash += paidAmount;
+           // We don't touch receivables here because the original transaction's payment will be marked as completed
+           // and its receivable will be reduced there.
+           // Wait, if we skip the payment entry in the original transaction, we must reduce receivables here.
+           assets.receivables -= paidAmount;
+        } else {
+           assets.cash += paidAmount;
+           assets.receivables += (t.value - paidAmount);
+        }
       } else if (t.type === 'expense') {
-        equity.earnings -= t.value; // Expense decreases equity
+        if (!t.linkedTransactionId) {
+          equity.earnings -= t.value; // Expense decreases equity
+        }
         // If paid, comes from cash. If pending, goes to payables.
         const paidAmount = t.payments.filter((p: any) => p.status === 'completed').reduce((sum: number, p: any) => sum + p.value, 0);
-        assets.cash -= paidAmount;
-        liabilities.payables += (t.value - paidAmount);
+        
+        if (t.linkedTransactionId) {
+           assets.cash -= paidAmount;
+           liabilities.payables -= paidAmount;
+        } else {
+           assets.cash -= paidAmount;
+           liabilities.payables += (t.value - paidAmount);
+        }
       }
       // Transfers are neutral for consolidated cash and equity earnings
     });

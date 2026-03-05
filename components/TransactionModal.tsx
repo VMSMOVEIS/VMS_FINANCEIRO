@@ -39,12 +39,12 @@ export const TransactionModal: React.FC = () => {
   const [searchModalTransactionType, setSearchModalTransactionType] = useState<'income' | 'expense'>('income');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pendingCompletion, setPendingCompletion] = useState(false);
+  const [targetPaymentId, setTargetPaymentId] = useState<string | null>(null);
+  const [targetTransactionId, setTargetTransactionId] = useState<number | null>(null);
 
   useEffect(() => {
     setTransactionTypes(getTransactionTypes());
   }, []);
-
-  const [targetPaymentId, setTargetPaymentId] = useState<string | null>(null);
 
   useEffect(() => {
     if (editingTransaction) {
@@ -92,6 +92,37 @@ export const TransactionModal: React.FC = () => {
          }
       }
     } else {
+      if (pendingCompletion && targetTransactionId && targetPaymentId) {
+        // Find the original transaction to get details for the independent launch
+        const original = transactions.find(t => t.id === targetTransactionId);
+        const payment = original?.payments.find(p => p.id === targetPaymentId);
+
+        if (original && payment) {
+          setFormData({
+            type: original.type,
+            date: new Date().toISOString().split('T')[0],
+            transactionTypeId: original.type === 'income' ? 'recebimento' : 'pagamento',
+            category: original.category || '',
+            documentType: original.documentType,
+            orderNumber: original.orderNumber || '',
+            customerName: original.customerName || '',
+            description: `Recebimento: ${original.description}`,
+            value: payment.value,
+            linkedTransactionId: original.id,
+            linkedPaymentId: payment.id,
+            payments: [{
+              id: String(Date.now()),
+              method: 'Pix',
+              value: payment.value,
+              dueDate: new Date().toISOString().split('T')[0],
+              destination: 'Caixa',
+              status: 'completed'
+            }]
+          });
+          return;
+        }
+      }
+
       setFormData({
         type: 'income',
         date: new Date().toISOString().split('T')[0],
@@ -187,7 +218,10 @@ export const TransactionModal: React.FC = () => {
 
         setPendingCompletion(true);
         setTargetPaymentId(item.paymentId); // Set the specific payment to complete
-        openModal(item.originalTransaction);
+        setTargetTransactionId(item.originalTransaction.id);
+        
+        // Open modal for a NEW independent transaction
+        openModal(); 
         setIsSearchModalOpen(false);
     } else if (searchModalType === 'advance') {
         const selectedTransactions = Array.isArray(selected) ? selected : [selected];
@@ -300,19 +334,21 @@ export const TransactionModal: React.FC = () => {
           status = 'pending';
       }
 
-      const transaction: Omit<Transaction, 'id'> = {
-        date: formData.date || '',
-        description: formData.description || '',
-        category: isTransfer ? null : (formData.category || null),
-        value: Number(formData.value) || 0,
-        type: formData.type as 'income' | 'expense' | 'transfer',
-        transactionTypeId: formData.transactionTypeId || '',
-        documentType: isTransfer ? 'Transferência' : (formData.documentType || 'Outros'),
-        orderNumber: isTransfer ? null : (formData.orderNumber || null),
-        customerName: isTransfer ? null : (formData.customerName || null),
-        payments: formData.payments || [],
-        status: status
-      };
+        const transaction: Omit<Transaction, 'id'> = {
+          date: formData.date || '',
+          description: formData.description || '',
+          category: isTransfer ? null : (formData.category || null),
+          value: Number(formData.value) || 0,
+          type: formData.type as 'income' | 'expense' | 'transfer',
+          transactionTypeId: formData.transactionTypeId || '',
+          documentType: isTransfer ? 'Transferência' : (formData.documentType || 'Outros'),
+          orderNumber: isTransfer ? null : (formData.orderNumber || null),
+          customerName: isTransfer ? null : (formData.customerName || null),
+          payments: formData.payments || [],
+          status: status,
+          linkedTransactionId: formData.linkedTransactionId,
+          linkedPaymentId: formData.linkedPaymentId
+        };
       
       if (editingTransaction) {
         await updateTransaction(editingTransaction.id, transaction);
@@ -320,7 +356,24 @@ export const TransactionModal: React.FC = () => {
         await addTransaction(transaction);
         
         // If this was a payment/receipt or advance for another transaction, settle it
-        if (linkedTransactionIds.length > 0) {
+        if (pendingCompletion && targetTransactionId && targetPaymentId) {
+            const original = transactions.find(t => t.id === targetTransactionId);
+            if (original) {
+                const updatedPayments = original.payments.map(p => 
+                    p.id === targetPaymentId ? { ...p, status: 'completed' as const } : p
+                );
+                const allCompleted = updatedPayments.every(p => p.status === 'completed');
+                await updateTransaction(original.id, {
+                    ...original,
+                    status: allCompleted ? 'completed' : 'partial',
+                    payments: updatedPayments
+                });
+            }
+            // Reset flags
+            setPendingCompletion(false);
+            setTargetPaymentId(null);
+            setTargetTransactionId(null);
+        } else if (linkedTransactionIds.length > 0) {
           for (const id of linkedTransactionIds) {
             const original = transactions.find(t => t.id === id);
             if (original) {
