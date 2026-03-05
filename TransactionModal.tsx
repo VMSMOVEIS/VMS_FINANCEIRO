@@ -1,208 +1,236 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Download, Edit, Trash2, FileText } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search, X, Check, AlertCircle } from 'lucide-react';
 import { useTransactions } from '../src/context/TransactionContext';
+import { Transaction, Payment } from '../types';
 
-interface AccountsReceivableProps {
-  initialTab?: 'geral' | 'adiantamentos';
+interface SearchTransactionModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  type: 'payment_receipt' | 'advance';
+  transactionType: 'income' | 'expense'; // The context of the current operation
+  onSelect: (result: any) => void;
+  onRegisterNew: () => void;
 }
 
-export const AccountsReceivable: React.FC<AccountsReceivableProps> = ({ initialTab = 'geral' }) => {
-  const { transactions, deleteTransaction, openModal } = useTransactions();
-  const [activeTab, setActiveTab] = useState<'geral' | 'adiantamentos'>(initialTab);
+interface SearchableItem {
+    id: string | number;
+    date: string;
+    description: string;
+    customerName: string;
+    value: number;
+    originalTransaction: Transaction;
+    paymentId?: string; // Only for payments
+    isPayment: boolean;
+}
 
-  useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
+export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
+  isOpen,
+  onClose,
+  type,
+  transactionType,
+  onSelect,
+  onRegisterNew
+}) => {
+  const { transactions } = useTransactions();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedIds, setSelectedIds] = useState<(string | number)[]>([]);
 
-  const receivables = transactions.flatMap(t => 
-    t.payments
-      .filter(p => {
-        if (activeTab === 'adiantamentos') {
-           return t.transactionTypeId === 'adiantamento_cliente';
-        }
-        // General: Income payments that are specifically marked for Accounts Receivable
-        return t.type === 'income' && t.transactionTypeId !== 'transferencia' && p.destination === 'Contas a Receber';
-      })
-      .map(p => ({
-        ...p,
-        transactionDescription: t.description,
-        transactionDate: t.date,
-        transactionId: t.id,
-        category: t.category,
-        customer: t.customerName || 'Cliente',
-        orderNumber: t.orderNumber || t.documentType
-      }))
-  );
+  const filteredItems = useMemo(() => {
+    let items: SearchableItem[] = [];
 
-  const handleDelete = async (id: number) => {
-    if (window.confirm('Tem certeza que deseja excluir este lançamento?')) {
-      await deleteTransaction(id);
+    if (type === 'payment_receipt') {
+        // Flatten transactions into pending payments
+        transactions.forEach(t => {
+            // Filter by type (Income/Expense) and exclude advances
+            if (t.type === transactionType && !t.transactionTypeId?.includes('adiantamento')) {
+                t.payments.forEach((p, index) => {
+                    if (p.status !== 'completed') {
+                        items.push({
+                            id: p.id,
+                            paymentId: p.id,
+                            date: p.dueDate,
+                            description: `${t.description} ${t.payments.length > 1 ? `(${index + 1}/${t.payments.length})` : ''}`,
+                            customerName: t.customerName || '-',
+                            value: p.value,
+                            originalTransaction: t,
+                            isPayment: true
+                        });
+                    }
+                });
+            }
+        });
+    } else if (type === 'advance') {
+        // List transactions that are advances and pending
+        transactions.forEach(t => {
+            let matchesType = false;
+            if (transactionType === 'income') {
+                matchesType = (t.transactionTypeId === 'adiantamento_cliente' || t.transactionTypeId?.includes('adiantamento')) && t.type === 'income';
+            } else {
+                matchesType = (t.transactionTypeId === 'adiantamento_fornecedor' || t.transactionTypeId?.includes('adiantamento')) && t.type === 'expense';
+            }
+
+            if (matchesType && t.status === 'pending') {
+                items.push({
+                    id: t.id,
+                    date: t.date,
+                    description: t.description,
+                    customerName: t.customerName || '-',
+                    value: t.value,
+                    originalTransaction: t,
+                    isPayment: false
+                });
+            }
+        });
+    }
+
+    // Filter by search term
+    const searchLower = searchTerm.toLowerCase();
+    return items.filter(item => 
+        item.description.toLowerCase().includes(searchLower) ||
+        item.customerName.toLowerCase().includes(searchLower) ||
+        item.value.toString().includes(searchLower)
+    );
+
+  }, [transactions, type, transactionType, searchTerm]);
+
+  const toggleSelection = (id: string | number) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleConfirm = () => {
+    const selected = filteredItems.filter(item => selectedIds.includes(item.id));
+    // If it's advance, we return array of transactions (mapped from items)
+    // If it's payment, we return the item itself (which contains paymentId)
+    if (type === 'advance') {
+        onSelect(selected.map(i => i.originalTransaction));
+    } else {
+        onSelect(selected[0]); // Single selection for payment
     }
   };
 
-  const handleEdit = (id: number) => {
-    const transaction = transactions.find(t => t.id === id);
-    if (transaction) openModal(transaction);
-  };
+  if (!isOpen) return null;
+
+  const title = type === 'payment_receipt' 
+    ? (transactionType === 'income' ? 'Buscar Contas a Receber' : 'Buscar Contas a Pagar')
+    : (transactionType === 'income' ? 'Buscar Adiantamento de Cliente' : 'Buscar Adiantamento a Fornecedor');
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Contas a Receber</h1>
-          <p className="text-gray-500">Acompanhe suas receitas e faturamentos</p>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h3 className="text-lg font-bold text-gray-800">{title}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <X size={20} />
+          </button>
         </div>
-        <button 
-          onClick={() => openModal({
-            type: 'income',
-            transactionTypeId: 'duplicata_receber',
-            date: new Date().toISOString().split('T')[0],
-            value: 0,
-            description: '',
-            payments: [],
-            category: '',
-            documentType: 'NF',
-            status: 'pending'
-          } as any)}
-          className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
-        >
-          <Plus size={18} />
-          <span>Adicionar Conta</span>
-        </button>
-      </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab('geral')}
-            className={`
-              whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'geral'
-                ? 'border-emerald-500 text-emerald-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-            `}
-          >
-            Visão Geral
-          </button>
-          <button
-            onClick={() => setActiveTab('adiantamentos')}
-            className={`
-              whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'adiantamentos'
-                ? 'border-emerald-500 text-emerald-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-            `}
-          >
-            Adiantamentos
-          </button>
-        </nav>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex items-center gap-2 flex-1 min-w-[300px]">
-          <div className="relative flex-1">
+        <div className="p-6 space-y-6">
+          {/* Search Bar */}
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
               type="text" 
-              placeholder="Buscar por cliente, nota fiscal ou valor..." 
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              placeholder="Buscar por nome, descrição ou valor..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+              autoFocus
             />
           </div>
-        </div>
-        <div className="flex gap-2">
-          <button className="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 flex items-center gap-2">
-            <Filter size={18} />
-            <span>Filtros</span>
-          </button>
-          <button className="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 flex items-center gap-2">
-            <Download size={18} />
-            <span>Exportar</span>
-          </button>
-        </div>
-      </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-3 w-10">
-                <input type="checkbox" className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
-              </th>
-              <th className="px-6 py-3">Cliente</th>
-              <th className="px-6 py-3">Nº Doc/Pedido</th>
-              <th className="px-6 py-3">Descrição</th>
-              <th className="px-6 py-3">Vencimento</th>
-              <th className="px-6 py-3">Valor</th>
-              <th className="px-6 py-3">Status</th>
-              <th className="px-6 py-3 text-right">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {receivables.length === 0 ? (
-               <tr>
-                 <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
-                   Nenhum registro encontrado.
-                 </td>
-               </tr>
+          {/* Results List */}
+          <div className="max-h-[300px] overflow-y-auto border border-gray-100 rounded-lg">
+            {filteredItems.length === 0 ? (
+              <div className="p-8 text-center text-gray-500 flex flex-col items-center gap-2">
+                <AlertCircle size={32} className="text-gray-300" />
+                <p>Nenhum registro encontrado.</p>
+              </div>
             ) : (
-              receivables.map((item) => (
-                <tr key={`${item.transactionId}-${item.id}`} className="hover:bg-gray-50 group">
-                  <td className="px-6 py-4">
-                    <input type="checkbox" className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
-                  </td>
-                  <td className="px-6 py-4 font-medium text-gray-900">{item.customer}</td>
-                  <td className="px-6 py-4 text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <FileText size={14} />
-                      {item.orderNumber || '-'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">
-                    <div>{item.transactionDescription}</div>
-                    <div className="text-xs text-gray-400">{item.category}</div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">{item.dueDate.split('-').reverse().join('/')}</td>
-                  <td className="px-6 py-4 font-medium text-emerald-600">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      item.status === 'completed' 
-                        ? 'bg-emerald-100 text-emerald-700' 
-                        : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {item.status === 'completed' ? 'Recebido' : 'A Receber'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button 
-                        onClick={() => handleEdit(item.transactionId)}
-                        className="p-1.5 hover:bg-blue-50 rounded text-gray-400 hover:text-blue-600 transition-colors"
-                        title="Editar"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(item.transactionId)}
-                        className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-600 transition-colors"
-                        title="Excluir"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50 text-gray-500 font-medium sticky top-0">
+                  <tr>
+                    {type === 'advance' && <th className="px-4 py-2 w-10"></th>}
+                    <th className="px-4 py-2">Vencimento</th>
+                    <th className="px-4 py-2">Nome</th>
+                    <th className="px-4 py-2">Descrição</th>
+                    <th className="px-4 py-2 text-right">Valor</th>
+                    {type === 'payment_receipt' && <th className="px-4 py-2 text-center">Ação</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredItems.map(item => (
+                    <tr 
+                      key={item.id} 
+                      className={`hover:bg-gray-50 transition-colors ${selectedIds.includes(item.id) ? 'bg-emerald-50' : ''}`}
+                      onClick={() => type === 'advance' && toggleSelection(item.id)}
+                    >
+                      {type === 'advance' && (
+                        <td className="px-4 py-3">
+                          <div className={`w-5 h-5 rounded border flex items-center justify-center ${
+                            selectedIds.includes(item.id) 
+                              ? 'bg-emerald-500 border-emerald-500 text-white' 
+                              : 'border-gray-300'
+                          }`}>
+                            {selectedIds.includes(item.id) && <Check size={12} />}
+                          </div>
+                        </td>
+                      )}
+                      <td className="px-4 py-3 text-gray-500">{item.date.split('-').reverse().join('/')}</td>
+                      <td className="px-4 py-3 font-medium text-gray-800">{item.customerName}</td>
+                      <td className="px-4 py-3 text-gray-600">
+                        <div>{item.description}</div>
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium text-gray-900">
+                        R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                      {type === 'payment_receipt' && (
+                        <td className="px-4 py-3 text-center">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelect(item);
+                            }}
+                            className="p-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
+                            title="Selecionar"
+                          >
+                            <Check size={16} />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
-          </tbody>
-        </table>
-        <div className="p-4 border-t border-gray-200 flex justify-between items-center text-sm text-gray-500">
-          <span>Mostrando {receivables.length} registro(s)</span>
-          <div className="flex gap-1">
-            <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50">Anterior</button>
-            <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50">Próximo</button>
+          </div>
+
+          {/* Footer Actions */}
+          <div className="flex justify-end gap-3 pt-2">
+            <button 
+              onClick={onClose}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors"
+            >
+              Cancelar
+            </button>
+            {type === 'advance' ? (
+              <button 
+                onClick={handleConfirm}
+                disabled={selectedIds.length === 0}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <Check size={16} />
+                Confirmar Seleção ({selectedIds.length})
+              </button>
+            ) : (
+              <button 
+                onClick={onRegisterNew}
+                className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-900 transition-colors shadow-sm"
+              >
+                Registrar Novo (Sem Vínculo)
+              </button>
+            )}
           </div>
         </div>
       </div>

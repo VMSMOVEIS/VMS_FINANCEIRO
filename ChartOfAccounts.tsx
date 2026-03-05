@@ -244,15 +244,25 @@ export const Transactions: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        t.status === 'completed' 
-                          ? 'bg-emerald-100 text-emerald-700' 
-                          : t.status === 'partial'
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {t.status === 'completed' ? 'Liquidado' : t.status === 'partial' ? 'Parcial' : 'Pendente'}
-                      </span>
+                      {t.transactionTypeId?.includes('adiantamento') ? (
+                         <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                           t.status === 'completed' 
+                             ? 'bg-emerald-100 text-emerald-700' 
+                             : 'bg-blue-100 text-blue-700'
+                         }`}>
+                           {t.status === 'completed' ? 'Realizado' : 'Aguardando compensação'}
+                         </span>
+                      ) : (
+                       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                         t.status === 'completed' 
+                           ? 'bg-emerald-100 text-emerald-700' 
+                           : t.status === 'partial'
+                           ? 'bg-blue-100 text-blue-700'
+                           : 'bg-yellow-100 text-yellow-700'
+                       }`}>
+                         {t.status === 'completed' ? 'Liquidado' : t.status === 'partial' ? 'Parcial' : 'Pendente'}
+                       </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

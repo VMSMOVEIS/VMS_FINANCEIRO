@@ -1,240 +1,215 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, ArrowUpCircle, ArrowDownCircle, X } from 'lucide-react';
-import { AccountPlan } from '../services/financialData';
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Filter, Download, Edit, Trash2, FileText } from 'lucide-react';
 import { useTransactions } from '../src/context/TransactionContext';
 
-export const ChartOfAccounts: React.FC = () => {
-  const { accountPlans, addAccountPlan, deleteAccountPlan, updateAccountPlan } = useTransactions();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [newAccount, setNewAccount] = useState<Partial<AccountPlan>>({
-    type: 'despesa',
-    code: '',
-    name: ''
-  });
+interface AccountsReceivableProps {
+  initialTab?: 'geral' | 'adiantamentos';
+}
 
-  const generateNextCode = (type: 'receita' | 'despesa') => {
-    const prefix = type === 'receita' ? '1' : '2';
-    const accounts = accountPlans.filter(a => a.type === type);
-    
-    if (accounts.length === 0) return `${prefix}.01`;
-    
-    const codes = accounts.map(a => {
-      const parts = a.code.split('.');
-      return parseInt(parts[1] || '0');
-    });
-    const maxCode = Math.max(...codes);
-    return `${prefix}.${String(maxCode + 1).padStart(2, '0')}`;
-  };
+export const AccountsReceivable: React.FC<AccountsReceivableProps> = ({ initialTab = 'geral' }) => {
+  const { transactions, deleteTransaction, openModal } = useTransactions();
+  const [activeTab, setActiveTab] = useState<'geral' | 'adiantamentos'>(initialTab);
 
-  const handleTypeChange = (type: 'receita' | 'despesa') => {
-    if (editingId) {
-        // If editing, we generally don't want to change the type/code logic automatically 
-        // unless we want to allow moving accounts between types, which implies code change.
-        // For simplicity, let's allow it but regenerate code.
-        const nextCode = generateNextCode(type);
-        setNewAccount({ ...newAccount, type, code: nextCode });
-    } else {
-        const nextCode = generateNextCode(type);
-        setNewAccount({ ...newAccount, type, code: nextCode });
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  const receivables = transactions.flatMap(t => 
+    t.payments
+      .filter(p => {
+        if (activeTab === 'adiantamentos') {
+           return t.transactionTypeId === 'adiantamento_cliente';
+        }
+        // General: Income payments that are specifically marked for Accounts Receivable
+        // OR transactions explicitly typed as 'duplicata_receber' (to keep them visible after payment)
+        return t.type === 'income' && t.transactionTypeId !== 'transferencia' && (p.destination === 'Contas a Receber' || t.transactionTypeId === 'duplicata_receber');
+      })
+      .map(p => ({
+        ...p,
+        transactionDescription: t.description,
+        transactionDate: t.date,
+        transactionId: t.id,
+        category: t.category,
+        customer: t.customerName || 'Cliente',
+        orderNumber: t.orderNumber || t.documentType
+      }))
+  );
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm('Tem certeza que deseja excluir este lançamento?')) {
+      await deleteTransaction(id);
     }
   };
 
-  const handleAddAccount = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newAccount.name && newAccount.code && newAccount.type) {
-      if (editingId) {
-        await updateAccountPlan(editingId, {
-            name: newAccount.name,
-            code: newAccount.code,
-            type: newAccount.type as 'receita' | 'despesa'
-        });
-      } else {
-        await addAccountPlan({
-            name: newAccount.name,
-            code: newAccount.code,
-            type: newAccount.type as 'receita' | 'despesa'
-        });
-      }
-      setIsModalOpen(false);
-      setEditingId(null);
-      setNewAccount({ type: 'despesa', code: '', name: '' });
-    }
-  };
-
-  const handleEdit = (account: AccountPlan) => {
-      setEditingId(account.id);
-      setNewAccount({
-          type: account.type,
-          code: account.code,
-          name: account.name
-      });
-      setIsModalOpen(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (confirm('Tem certeza que deseja remover esta conta?')) {
-      await deleteAccountPlan(id);
-    }
-  };
-
-  const renderAccountList = (type: 'receita' | 'despesa') => {
-    const accounts = accountPlans.filter(a => a.type === type);
-    
-    return (
-      <div className="divide-y divide-gray-100">
-        {accounts.map(account => (
-          <div key={account.id} className="p-4 flex justify-between items-center hover:bg-gray-50 group">
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">{account.code}</span>
-              <span className="font-bold text-gray-800">{account.name}</span>
-            </div>
-            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button 
-                onClick={() => handleEdit(account)}
-                className="p-1 text-gray-400 hover:text-blue-600 rounded"
-              >
-                <Edit2 size={16} />
-              </button>
-              <button 
-                onClick={() => handleDelete(account.id)}
-                className="p-1 text-gray-400 hover:text-red-600 rounded"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-          </div>
-        ))}
-        {accounts.length === 0 && (
-          <div className="p-8 text-center text-gray-400">Nenhuma conta de {type} cadastrada.</div>
-        )}
-      </div>
-    );
+  const handleEdit = (id: number) => {
+    const transaction = transactions.find(t => t.id === id);
+    if (transaction) openModal(transaction);
   };
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Plano de Contas</h1>
-          <p className="text-gray-500">Estruture as categorias financeiras da sua empresa</p>
+          <h1 className="text-2xl font-bold text-gray-800">Contas a Receber</h1>
+          <p className="text-gray-500">Acompanhe suas receitas e faturamentos</p>
         </div>
         <button 
-          onClick={() => {
-            setIsModalOpen(true);
-            setEditingId(null);
-            const nextCode = generateNextCode('despesa');
-            setNewAccount({ type: 'despesa', code: nextCode, name: '' });
-          }}
+          onClick={() => openModal({
+            type: 'income',
+            transactionTypeId: 'duplicata_receber',
+            date: new Date().toISOString().split('T')[0],
+            value: 0,
+            description: '',
+            payments: [],
+            category: '',
+            documentType: 'NF',
+            status: 'pending'
+          } as any)}
           className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
         >
           <Plus size={18} />
-          <span>Nova Conta</span>
+          <span>Adicionar Conta</span>
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Receitas Column */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-4 bg-emerald-50 border-b border-emerald-100 flex items-center gap-2">
-            <ArrowUpCircle className="text-emerald-600" size={20} />
-            <h3 className="font-bold text-emerald-800">Receitas</h3>
-          </div>
-          {renderAccountList('receita')}
-        </div>
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('geral')}
+            className={`
+              whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'geral'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            Visão Geral
+          </button>
+          <button
+            onClick={() => setActiveTab('adiantamentos')}
+            className={`
+              whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm
+              ${activeTab === 'adiantamentos'
+                ? 'border-emerald-500 text-emerald-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+            `}
+          >
+            Adiantamentos
+          </button>
+        </nav>
+      </div>
 
-        {/* Despesas Column */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-4 bg-red-50 border-b border-red-100 flex items-center gap-2">
-            <ArrowDownCircle className="text-red-600" size={20} />
-            <h3 className="font-bold text-red-800">Despesas</h3>
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center justify-between">
+        <div className="flex items-center gap-2 flex-1 min-w-[300px]">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Buscar por cliente, nota fiscal ou valor..." 
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
           </div>
-          {renderAccountList('despesa')}
+        </div>
+        <div className="flex gap-2">
+          <button className="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 flex items-center gap-2">
+            <Filter size={18} />
+            <span>Filtros</span>
+          </button>
+          <button className="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 flex items-center gap-2">
+            <Download size={18} />
+            <span>Exportar</span>
+          </button>
         </div>
       </div>
 
-      {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-              <h3 className="text-lg font-bold text-gray-800">{editingId ? 'Editar Conta' : 'Nova Conta'}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={20} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleAddAccount} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Natureza</label>
-                <div className="flex rounded-md shadow-sm">
-                  <button
-                    type="button"
-                    onClick={() => handleTypeChange('receita')}
-                    className={`flex-1 px-4 py-2 text-sm font-medium rounded-l-md border ${
-                      newAccount.type === 'receita' 
-                        ? 'bg-emerald-600 text-white border-emerald-600' 
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    Receita
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleTypeChange('despesa')}
-                    className={`flex-1 px-4 py-2 text-sm font-medium rounded-r-md border-t border-b border-r ${
-                      newAccount.type === 'despesa' 
-                        ? 'bg-red-600 text-white border-red-600' 
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    Despesa
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
-                <input 
-                  type="text" 
-                  required
-                  readOnly
-                  value={newAccount.code}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 text-sm font-mono cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Conta / Categoria</label>
-                <input 
-                  type="text" 
-                  required
-                  value={newAccount.name}
-                  onChange={(e) => setNewAccount({...newAccount, name: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-                  placeholder="Ex: Receita de Vendas"
-                />
-              </div>
-
-              <div className="pt-4 flex justify-end gap-3">
-                <button 
-                  type="button" 
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit" 
-                  className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 shadow-sm"
-                >
-                  {editingId ? 'Atualizar Conta' : 'Salvar Conta'}
-                </button>
-              </div>
-            </form>
+      {/* Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200">
+            <tr>
+              <th className="px-6 py-3 w-10">
+                <input type="checkbox" className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+              </th>
+              <th className="px-6 py-3">Cliente</th>
+              <th className="px-6 py-3">Nº Doc/Pedido</th>
+              <th className="px-6 py-3">Descrição</th>
+              <th className="px-6 py-3">Vencimento</th>
+              <th className="px-6 py-3">Valor</th>
+              <th className="px-6 py-3">Status</th>
+              <th className="px-6 py-3 text-right">Ações</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {receivables.length === 0 ? (
+               <tr>
+                 <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                   Nenhum registro encontrado.
+                 </td>
+               </tr>
+            ) : (
+              receivables.map((item) => (
+                <tr key={`${item.transactionId}-${item.id}`} className="hover:bg-gray-50 group">
+                  <td className="px-6 py-4">
+                    <input type="checkbox" className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
+                  </td>
+                  <td className="px-6 py-4 font-medium text-gray-900">{item.customer}</td>
+                  <td className="px-6 py-4 text-gray-500">
+                    <div className="flex items-center gap-1">
+                      <FileText size={14} />
+                      {item.orderNumber || '-'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">
+                    <div>{item.transactionDescription}</div>
+                    <div className="text-xs text-gray-400">{item.category}</div>
+                  </td>
+                  <td className="px-6 py-4 text-gray-500">{item.dueDate.split('-').reverse().join('/')}</td>
+                  <td className="px-6 py-4 font-medium text-emerald-600">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      item.status === 'completed' 
+                        ? 'bg-emerald-100 text-emerald-700' 
+                        : 'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {activeTab === 'adiantamentos' 
+                        ? (item.status === 'completed' ? 'Realizado' : 'Aguardando Compensação')
+                        : (item.status === 'completed' ? 'Recebido' : 'A Receber')
+                      }
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button 
+                        onClick={() => handleEdit(item.transactionId)}
+                        className="p-1.5 hover:bg-blue-50 rounded text-gray-400 hover:text-blue-600 transition-colors"
+                        title="Editar"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(item.transactionId)}
+                        className="p-1.5 hover:bg-red-50 rounded text-gray-400 hover:text-red-600 transition-colors"
+                        title="Excluir"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        <div className="p-4 border-t border-gray-200 flex justify-between items-center text-sm text-gray-500">
+          <span>Mostrando {receivables.length} registro(s)</span>
+          <div className="flex gap-1">
+            <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50">Anterior</button>
+            <button className="px-3 py-1 border border-gray-200 rounded hover:bg-gray-50">Próximo</button>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

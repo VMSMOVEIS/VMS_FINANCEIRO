@@ -63,7 +63,7 @@ export interface Transaction {
   description: string;
   category: string | null;
   value: number; // Total Value
-  type: 'income' | 'expense';
+  type: 'income' | 'expense' | 'transfer';
   transactionTypeId: string;
   documentType: string;
   orderNumber?: string;

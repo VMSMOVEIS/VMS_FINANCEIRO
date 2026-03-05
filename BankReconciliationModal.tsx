@@ -1,141 +1,770 @@
-import React from 'react';
-import { History, ArrowUpRight, ArrowDownLeft, Search, Filter, Download, Edit2, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Calendar, FileText, DollarSign, Briefcase, Wallet, Hash, User, Plus } from 'lucide-react';
+import { getAccountPlans, getTransactionTypes, AccountPlan, TransactionType } from '../services/financialData';
 import { useTransactions } from '../src/context/TransactionContext';
+import { Transaction, Payment } from '../types';
+import { SearchTransactionModal } from './SearchTransactionModal';
 
-interface OperationalHistoryProps {
-  type: 'sales' | 'purchases';
-}
+export const TransactionModal: React.FC = () => {
+  const { 
+    isModalOpen, 
+    openModal,
+    closeModal, 
+    editingTransaction, 
+    addTransaction, 
+    updateTransaction, 
+    transactions,
+    accounts, 
+    paymentMethods,
+    accountPlans
+  } = useTransactions();
 
-export const OperationalHistory: React.FC<OperationalHistoryProps> = ({ type }) => {
-  const { transactions, openModal, deleteTransaction } = useTransactions();
-  const isSales = type === 'sales';
+  const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
+  const [linkedTransactionIds, setLinkedTransactionIds] = useState<number[]>([]);
   
-  const handleEdit = (id: number) => {
-    const transaction = transactions.find(t => t.id === id);
-    if (transaction) openModal(transaction);
+  const [formData, setFormData] = useState<Partial<Transaction>>({
+    type: 'income',
+    date: new Date().toISOString().split('T')[0],
+    transactionTypeId: '',
+    category: '',
+    documentType: 'NF',
+    orderNumber: '',
+    customerName: '',
+    value: 0,
+    payments: []
+  });
+
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [searchModalType, setSearchModalType] = useState<'payment_receipt' | 'advance'>('payment_receipt');
+  const [searchModalTransactionType, setSearchModalTransactionType] = useState<'income' | 'expense'>('income');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingCompletion, setPendingCompletion] = useState(false);
+
+  useEffect(() => {
+    setTransactionTypes(getTransactionTypes());
+  }, []);
+
+  const [targetPaymentId, setTargetPaymentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (editingTransaction) {
+      // If we are pending completion (came from "Recebimento"/"Pagamento" selection),
+      // we want to auto-complete the transaction and its payments.
+      if (pendingCompletion) {
+        const completedPayments = editingTransaction.payments?.map(p => {
+            // If a specific payment was targeted, only complete that one
+            if (targetPaymentId) {
+                return p.id === targetPaymentId ? { ...p, status: 'completed' as const } : p;
+            }
+            // Otherwise complete all (legacy behavior or if no specific target)
+            return { ...p, status: 'completed' as const };
+        }) || [];
+
+        // Determine overall status
+        const allCompleted = completedPayments.every(p => p.status === 'completed');
+        
+        setFormData({
+            ...editingTransaction,
+            status: allCompleted ? 'completed' : 'partial',
+            payments: completedPayments
+        });
+        setPendingCompletion(false); // Reset flag
+        setTargetPaymentId(null); // Reset target
+      } else {
+        setFormData({ ...editingTransaction });
+      }
+      
+      setLinkedTransactionIds([]);
+
+      // If it's a new transaction (no ID) but has a type (e.g. from "Adicionar Conta"), initialize payments if needed
+      if (!editingTransaction.id && (editingTransaction.transactionTypeId === 'duplicata_receber' || editingTransaction.transactionTypeId === 'duplicata_pagar')) {
+         if (!editingTransaction.payments || editingTransaction.payments.length === 0) {
+            const typeId = editingTransaction.transactionTypeId;
+            const initialPayments: Payment[] = [{
+                id: Date.now().toString(),
+                method: 'A Definir',
+                value: editingTransaction.value || 0,
+                dueDate: editingTransaction.date || new Date().toISOString().split('T')[0],
+                destination: typeId === 'duplicata_receber' ? 'Contas a Receber' : 'Contas a Pagar',
+                status: 'pending'
+            }];
+            setFormData(prev => ({ ...prev, payments: initialPayments }));
+         }
+      }
+    } else {
+      setFormData({
+        type: 'income',
+        date: new Date().toISOString().split('T')[0],
+        transactionTypeId: '',
+        category: '',
+        documentType: 'NF',
+        orderNumber: '',
+        customerName: '',
+        value: 0,
+        payments: []
+      });
+      setLinkedTransactionIds([]);
+    }
+  }, [editingTransaction, isModalOpen]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value };
+      
+      // If date changes, update all payments' due dates to match
+      if (name === 'date') {
+        newData.payments = prev.payments?.map(p => ({
+          ...p,
+          dueDate: value
+        })) || [];
+      }
+      
+      return newData;
+    });
   };
 
-  const handleDelete = async (id: number) => {
-    if (window.confirm('Deseja realmente excluir este registro?')) {
-      await deleteTransaction(id);
+  const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const typeId = e.target.value;
+    const selectedType = transactionTypes.find(t => t.id === typeId);
+    
+    if (selectedType) {
+      const newType = selectedType.defaultType;
+      let initialPayments: Payment[] = [];
+
+      if (typeId === 'duplicata_receber' || typeId === 'duplicata_pagar') {
+        initialPayments = [{
+          id: Date.now().toString(),
+          method: 'A Definir',
+          value: formData.value || 0,
+          dueDate: formData.date || new Date().toISOString().split('T')[0],
+          destination: typeId === 'duplicata_receber' ? 'Contas a Receber' : 'Contas a Pagar',
+          status: 'pending'
+        }];
+      } else if (typeId === 'transferencia') {
+        initialPayments = [{
+          id: Date.now().toString(),
+          method: 'Transferência',
+          value: formData.value || 0,
+          dueDate: formData.date || new Date().toISOString().split('T')[0],
+          source: accounts[0]?.name || '',
+          bankId: accounts[0]?.id,
+          destination: accounts[1]?.name || '',
+          status: 'completed'
+        }];
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        transactionTypeId: typeId,
+        type: typeId === 'transferencia' ? 'transfer' : newType,
+        category: typeId === 'transferencia' ? 'Transferência' : '',
+        payments: initialPayments
+      }));
+
+      if (!editingTransaction) {
+        if (['pagamento', 'recebimento'].includes(typeId)) {
+          setSearchModalType('payment_receipt');
+          setSearchModalTransactionType(newType);
+          setIsSearchModalOpen(true);
+        } else if (['venda', 'compra'].includes(typeId)) {
+          setSearchModalType('advance');
+          setSearchModalTransactionType(newType);
+          setIsSearchModalOpen(true);
+        }
+      }
+    } else {
+      setFormData(prev => ({ ...prev, transactionTypeId: typeId }));
     }
   };
-  
-  const filteredData = transactions
-    .filter(t => isSales ? t.type === 'income' : t.type === 'expense')
-    .map(t => ({
-      id: t.id,
-      date: t.date,
-      orderNumber: t.orderNumber || '-',
-      description: t.description,
-      clientOrSupplier: isSales ? 'Cliente Exemplo' : 'Fornecedor Exemplo', // Placeholder
-      value: t.value,
-      type: isSales ? 'sale' : 'purchase',
-      status: t.status
+
+  const handleSearchModalSelect = (selected: any) => {
+    if (searchModalType === 'payment_receipt') {
+        // Single selection for payment/receipt
+        // 'selected' is now a SearchableItem which contains originalTransaction and paymentId
+        const item = selected;
+        if (!item || !item.originalTransaction) return;
+
+        setPendingCompletion(true);
+        setTargetPaymentId(item.paymentId); // Set the specific payment to complete
+        openModal(item.originalTransaction);
+        setIsSearchModalOpen(false);
+    } else if (searchModalType === 'advance') {
+        const selectedTransactions = Array.isArray(selected) ? selected : [selected];
+        if (selectedTransactions.length === 0) return;
+
+        const ids = selectedTransactions.map(t => t.id);
+        setLinkedTransactionIds(ids);
+
+        const advancePayments: Payment[] = selectedTransactions.map(t => ({
+            id: `adv-${t.id}-${Date.now()}`,
+            method: 'Adiantamento',
+            value: t.value,
+            dueDate: formData.date || '',
+            destination: 'Adiantamento Abatido',
+            status: 'completed'
+        }));
+
+        // Use the first transaction's details for pre-filling if not already set
+        const first = selectedTransactions[0];
+
+        setFormData(prev => ({
+            ...prev,
+            customerName: first.customerName || prev.customerName,
+            orderNumber: first.orderNumber || prev.orderNumber,
+            payments: [...(prev.payments || []).filter(p => p.method !== 'Adiantamento'), ...advancePayments]
+        }));
+        setIsSearchModalOpen(false);
+    }
+  };
+
+  const addPayment = (amount: number) => {
+    const defaultMethod = paymentMethods.find(pm => pm.type === 'pix');
+    const defaultAccount = accounts.find(acc => acc.id === defaultMethod?.defaultAccountId);
+
+    const payment: Payment = {
+      id: Date.now().toString(),
+      method: defaultMethod?.name || 'Pix', 
+      value: amount,
+      dueDate: formData.date || new Date().toISOString().split('T')[0],
+      destination: defaultAccount?.name || 'Caixa', 
+      status: 'completed' 
+    };
+
+    setFormData(prev => ({
+      ...prev,
+      payments: [...(prev.payments || []), payment]
     }));
+  };
+
+  const updatePayment = (index: number, field: keyof Payment, value: any) => {
+    setFormData(prev => {
+      const updatedPayments = [...(prev.payments || [])];
+      const payment = { ...updatedPayments[index], [field]: value };
+
+      if (field === 'method') {
+        if (value === 'A Definir' || value === 'Outros') {
+          payment.destination = formData.type === 'income' ? 'Contas a Receber' : 'Contas a Pagar';
+          payment.status = 'pending';
+        } else {
+          const selectedMethod = paymentMethods.find(pm => pm.name === value);
+          if (selectedMethod && selectedMethod.defaultAccountId) {
+            const account = accounts.find(a => a.id === selectedMethod.defaultAccountId);
+            if (account) {
+              payment.destination = account.name;
+            }
+          }
+          
+          if (selectedMethod) {
+               // If the payment is assigned to a specific account (not "Contas a Pagar/Receber"), 
+               // it should be considered completed/realized in that account's ledger.
+               // This applies to Credit Cards too (it's a realized debt/expense on the card account).
+               const isSpecificAccount = accounts.some(a => a.name === payment.destination);
+               
+               if (isSpecificAccount) {
+                   payment.status = 'completed';
+               } else if (['credit_card', 'boleto', 'other'].includes(selectedMethod.type)) {
+                   payment.status = 'pending';
+               } else {
+                   payment.status = 'completed';
+               }
+          }
+        }
+      }
+
+      updatedPayments[index] = payment;
+      return { ...prev, payments: updatedPayments };
+    });
+  };
+
+  const removePayment = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      payments: (prev.payments || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    try {
+      const allCompleted = formData.payments?.every(p => p.status === 'completed');
+      const allPending = formData.payments?.every(p => p.status === 'pending');
+      let status: 'completed' | 'pending' | 'partial' = 'partial';
+      if (allCompleted) status = 'completed';
+      if (allPending) status = 'pending';
+
+      // Force pending status for new advances so they show as "Aguardando compensação"
+      if (isAdvance && !editingTransaction) {
+          status = 'pending';
+      }
+
+      const transaction: Omit<Transaction, 'id'> = {
+        date: formData.date || '',
+        description: formData.description || '',
+        category: isTransfer ? null : (formData.category || null),
+        value: Number(formData.value) || 0,
+        type: formData.type as 'income' | 'expense' | 'transfer',
+        transactionTypeId: formData.transactionTypeId || '',
+        documentType: isTransfer ? 'Transferência' : (formData.documentType || 'Outros'),
+        orderNumber: isTransfer ? null : (formData.orderNumber || null),
+        customerName: isTransfer ? null : (formData.customerName || null),
+        payments: formData.payments || [],
+        status: status
+      };
+      
+      if (editingTransaction) {
+        await updateTransaction(editingTransaction.id, transaction);
+      } else {
+        await addTransaction(transaction);
+        
+        // If this was a payment/receipt or advance for another transaction, settle it
+        if (linkedTransactionIds.length > 0) {
+          for (const id of linkedTransactionIds) {
+            const original = transactions.find(t => t.id === id);
+            if (original) {
+              const updatedPayments = original.payments.map(p => ({ ...p, status: 'completed' as const }));
+              await updateTransaction(id, { 
+                ...original, 
+                status: 'completed', 
+                payments: updatedPayments 
+              });
+            }
+          }
+        }
+      }
+      closeModal();
+    } catch (error) {
+      console.error('Error submitting transaction:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isModalOpen) return null;
+
+  const totalPayments = formData.payments?.reduce((sum, p) => sum + p.value, 0) || 0;
+  const remainingValue = (formData.value || 0) - totalPayments;
+  const isTransfer = formData.transactionTypeId === 'transferencia';
+  const isDuplicata = formData.transactionTypeId?.includes('duplicata');
+  const isAdvance = formData.transactionTypeId?.includes('adiantamento');
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">
-            {isSales ? 'Histórico de Vendas' : 'Histórico de Compras'}
-          </h1>
-          <p className="text-gray-500">
-            {isSales ? 'Acompanhe todas as vendas realizadas' : 'Acompanhe todas as compras realizadas'}
-          </p>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 sticky top-0 z-10">
+          <h3 className="text-lg font-bold text-gray-800">
+            {editingTransaction ? 'Editar Lançamento' : 'Novo Lançamento'}
+          </h3>
+          <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <X size={20} />
+          </button>
         </div>
-      </div>
+        
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Lançamento</label>
+              <div className="relative">
+                <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <select 
+                  name="transactionTypeId"
+                  required
+                  value={formData.transactionTypeId || ''}
+                  onChange={handleTypeChange}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
+                >
+                  <option value="">Selecione...</option>
+                  {transactionTypes.map(type => (
+                    <option key={type.id} value={type.id}>{type.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Natureza</label>
+              <div className="flex rounded-md shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setFormData({...formData, type: 'income'})}
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-l-md border ${
+                    formData.type === 'income' 
+                      ? 'bg-emerald-600 text-white border-emerald-600' 
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Receita
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({...formData, type: 'expense'})}
+                  className={`flex-1 px-4 py-2 text-sm font-medium border-t border-b border-r ${
+                    formData.type === 'expense' 
+                      ? 'bg-red-600 text-white border-red-600' 
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Despesa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData(prev => ({
+                      ...prev, 
+                      type: 'transfer',
+                      transactionTypeId: 'transferencia',
+                      category: 'Transferência',
+                      payments: [{
+                        id: Date.now(),
+                        value: prev.value || 0,
+                        method: 'Transferência',
+                        dueDate: prev.date || new Date().toISOString().split('T')[0],
+                        status: 'completed',
+                        destination: '',
+                        source: ''
+                      }]
+                    }));
+                  }}
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-r-md border-t border-b border-r ${
+                    formData.type === 'transfer' 
+                      ? 'bg-blue-600 text-white border-blue-600' 
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Transferência
+                </button>
+              </div>
+            </div>
+          </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex items-center gap-2 flex-1 min-w-[300px]">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input 
+                  type="date" 
+                  name="date"
+                  required
+                  value={formData.date}
+                  onChange={handleInputChange}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                />
+              </div>
+            </div>
+            {!isTransfer && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo Doc.</label>
+                  <div className="relative">
+                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <select 
+                      name="documentType"
+                      value={formData.documentType || 'Outros'}
+                      onChange={handleInputChange}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
+                    >
+                      <option value="NF-e">Nota Fiscal (NF-e)</option>
+                      <option value="NFS-e">Nota de Serviço (NFS-e)</option>
+                      <option value="Recibo">Recibo</option>
+                      <option value="Pedido">Pedido de Venda/Compra</option>
+                      <option value="Contrato">Contrato</option>
+                      <option value="Boleto">Boleto Bancário</option>
+                      <option value="Outros">Outros</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nº Pedido {isAdvance ? '(Opcional)' : ''}</label>
+                  <div className="relative">
+                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input 
+                      type="text" 
+                      name="orderNumber"
+                      placeholder="Ex: 123"
+                      value={formData.orderNumber || ''}
+                      onChange={handleInputChange}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+            {!isTransfer && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {formData.type === 'income' ? 'Cliente' : 'Fornecedor'}
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                  <input 
+                    type="text" 
+                    name="customerName"
+                    placeholder={formData.type === 'income' ? 'Nome do Cliente' : 'Nome do Fornecedor'}
+                    value={formData.customerName || ''}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
             <input 
               type="text" 
-              placeholder={`Buscar por ${isSales ? 'cliente' : 'fornecedor'}, pedido ou valor...`}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              name="description"
+              required
+              placeholder="Ex: Venda de Mercadorias para Cliente X"
+              value={formData.description || ''}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
             />
           </div>
-        </div>
-        <div className="flex gap-2">
-          <button className="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 flex items-center gap-2">
-            <Filter size={18} />
-            <span>Filtros</span>
-          </button>
-          <button className="px-4 py-2 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 flex items-center gap-2">
-            <Download size={18} />
-            <span>Exportar</span>
-          </button>
-        </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Valor Total (R$)</label>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input 
+                  type="number" 
+                  name="value"
+                  required
+                  step="0.01"
+                  min="0"
+                  placeholder="0,00"
+                  value={formData.value || ''}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setFormData(prev => {
+                      const updates: any = { value: val };
+                      if (isTransfer && prev.payments && prev.payments.length > 0) {
+                        const updatedPayments = [...prev.payments];
+                        updatedPayments[0] = { ...updatedPayments[0], value: val };
+                        updates.payments = updatedPayments;
+                      }
+                      return { ...prev, ...updates };
+                    });
+                  }}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                />
+              </div>
+            </div>
+
+            {!isTransfer && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Plano de Contas</label>
+                <select 
+                  name="category"
+                  required
+                  value={formData.category || ''}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
+                >
+                  <option value="">Selecione...</option>
+                  {accountPlans
+                    .filter(acc => acc.type === (formData.type === 'income' ? 'receita' : 'despesa'))
+                    .map(acc => (
+                      <option key={acc.id} value={acc.name}>{acc.code} - {acc.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {!isTransfer && (
+            <div>
+               <label className="block text-sm font-medium text-gray-700 mb-1">Valor do Adiantamento</label>
+               <div className="relative">
+                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                 <input 
+                   type="text" 
+                   value={(formData.payments?.filter(p => p.method === 'Adiantamento').reduce((sum, p) => sum + p.value, 0) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                   readOnly
+                   className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 text-sm"
+                 />
+               </div>
+            </div>
+          )}
+
+          {isTransfer && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Conta Origem</label>
+                <select
+                  required
+                  value={formData.payments?.[0]?.source || ''}
+                  onChange={(e) => {
+                    const account = accounts.find(acc => acc.name === e.target.value);
+                    updatePayment(0, 'source', e.target.value);
+                    if (account) updatePayment(0, 'bankId', account.id);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                >
+                  <option value="">Selecione...</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.name}>{acc.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Conta Destino</label>
+                <select
+                  required
+                  value={formData.payments?.[0]?.destination || ''}
+                  onChange={(e) => updatePayment(0, 'destination', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                >
+                  <option value="">Selecione...</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.name}>{acc.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {!isTransfer ? (
+            <div className="border-t border-gray-200 pt-4">
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                  <Wallet size={18} className="text-emerald-600" />
+                  Pagamentos / Parcelas
+                </h4>
+                <div className="text-sm">
+                  <span className="text-gray-500">Restante: </span>
+                  <span className={`font-bold ${remainingValue !== 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                    R$ {remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                {formData.payments?.map((payment, index) => {
+                  if (payment.method === 'Adiantamento') return null;
+                  return (
+                  <div key={payment.id} className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-2">
+                      <label className="text-xs text-gray-500 block mb-1">Valor</label>
+                      <input
+                        type="number"
+                        value={payment.value}
+                        onChange={(e) => updatePayment(index, 'value', parseFloat(e.target.value))}
+                        className="w-full text-xs p-2 border rounded"
+                      />
+                    </div>
+
+                    <div className="col-span-3">
+                      <label className="text-xs text-gray-500 block mb-1">Forma</label>
+                      <select
+                        value={payment.method}
+                        onChange={(e) => updatePayment(index, 'method', e.target.value)}
+                        className="w-full text-xs p-2 border rounded"
+                        disabled={isDuplicata}
+                      >
+                        <option value="A Definir">A Definir</option>
+                        {paymentMethods.map(pm => {
+                          const account = accounts.find(a => a.id === pm.defaultAccountId);
+                          return (
+                            <option key={pm.id} value={pm.name}>
+                              {pm.name} {account ? `(${account.name})` : ''}
+                            </option>
+                          );
+                        })}
+                        <option value="Adiantamento">Adiantamento</option>
+                        <option value="Outros">Outros</option>
+                      </select>
+                    </div>
+
+                    <div className="col-span-2">
+                      <label className="text-xs text-gray-500 block mb-1">Vencimento</label>
+                      <input
+                        type="date"
+                        value={payment.dueDate}
+                        onChange={(e) => updatePayment(index, 'dueDate', e.target.value)}
+                        className="w-full text-xs p-2 border rounded"
+                      />
+                    </div>
+
+                    <div className="col-span-4">
+                       <label className="text-xs text-gray-500 block mb-1">Destino</label>
+                       <select
+                         value={payment.destination}
+                         onChange={(e) => updatePayment(index, 'destination', e.target.value)}
+                         className="w-full text-xs p-2 border rounded"
+                         disabled={isDuplicata}
+                       >
+                         <option value="">Selecione...</option>
+                         {accounts.map(acc => (
+                           <option key={acc.id} value={acc.name}>{acc.name}</option>
+                         ))}
+                         <option value="Contas a Receber">Contas a Receber</option>
+                         <option value="Contas a Pagar">Contas a Pagar</option>
+                         <option value="Fluxo de Caixa">Fluxo de Caixa</option>
+                       </select>
+                    </div>
+
+                    <div className="col-span-1 flex justify-center pb-1">
+                      <button 
+                        type="button"
+                        onClick={() => removePayment(index)}
+                        className="text-red-500 hover:bg-red-50 p-1 rounded"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )})}
+
+                {remainingValue > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => addPayment(remainingValue)}
+                    className="w-full py-2 border-2 border-dashed border-emerald-200 text-emerald-600 rounded-lg hover:bg-emerald-50 text-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    <Plus size={16} />
+                    Adicionar Pagamento de R$ {remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
+            <button 
+              type="button" 
+              onClick={closeModal}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button 
+              type="submit" 
+              disabled={Math.abs(remainingValue) > 0.01 || isSubmitting}
+              className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
+              {editingTransaction ? 'Salvar Alterações' : 'Salvar Lançamento'}
+            </button>
+          </div>
+        </form>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-3">Data</th>
-              <th className="px-6 py-3">Nº Pedido</th>
-              <th className="px-6 py-3">Descrição</th>
-              <th className="px-6 py-3">{isSales ? 'Cliente' : 'Fornecedor'}</th>
-              <th className="px-6 py-3">Valor</th>
-              <th className="px-6 py-3">Status</th>
-              <th className="px-6 py-3 text-right"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {filteredData.map((item) => (
-              <tr key={item.id} className="hover:bg-gray-50 group transition-colors">
-                <td className="px-6 py-4 text-gray-500">{item.date.split('-').reverse().join('/')}</td>
-                <td className="px-6 py-4 font-mono text-xs bg-gray-50 px-2 py-1 rounded w-fit">{item.orderNumber}</td>
-                <td className="px-6 py-4 font-medium text-gray-900">{item.description}</td>
-                <td className="px-6 py-4 text-gray-500">{item.clientOrSupplier}</td>
-                <td className={`px-6 py-4 font-bold ${isSales ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {isSales ? '+' : '-'} R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    item.status === 'completed' 
-                      ? 'bg-emerald-100 text-emerald-700' 
-                      : item.status === 'partial'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-yellow-100 text-yellow-700'
-                  }`}>
-                    {item.status === 'completed' ? 'Concluído' : item.status === 'partial' ? 'Parcial' : 'Pendente'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => handleEdit(item.id)}
-                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Editar"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(item.id)}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Excluir"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {filteredData.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
-                  Nenhum registro encontrado.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <SearchTransactionModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        type={searchModalType}
+        transactionType={searchModalTransactionType}
+        onSelect={handleSearchModalSelect}
+        onRegisterNew={() => {
+          setIsSearchModalOpen(false);
+          setLinkedTransactionIds([]);
+        }}
+      />
     </div>
   );
 };

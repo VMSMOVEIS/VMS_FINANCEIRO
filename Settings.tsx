@@ -81,7 +81,7 @@ export const CashFlow: React.FC = () => {
                     else return;
                 }
 
-                if (p.status === 'completed') {
+                if (p.status === 'completed' && p.method !== 'Adiantamento') {
                     if (isIncome) yearlyData[year].entrada += p.value;
                     else if (isExpense) yearlyData[year].saida += p.value;
                 }
@@ -113,7 +113,7 @@ export const CashFlow: React.FC = () => {
                 const tYear = new Date(t.date).getFullYear();
                 if (tYear > parseInt(year)) {
                      t.payments.forEach(p => {
-                        if (p.status !== 'completed') return;
+                        if (p.status !== 'completed' || p.method === 'Adiantamento') return;
                         if (selectedAccount !== 'all') {
                             const isDestination = p.destination === selectedAccount;
                             const isSource = p.source === selectedAccount;
@@ -192,7 +192,7 @@ export const CashFlow: React.FC = () => {
         }
 
         // Realized (Completed)
-        if (p.status === 'completed') {
+        if (p.status === 'completed' && p.method !== 'Adiantamento') {
           if (isIncome) {
             dailyData[date].entrada += p.value;
           } else if (isExpense) {
@@ -229,7 +229,7 @@ export const CashFlow: React.FC = () => {
         const tYear = new Date(t.date).getFullYear();
         if (tYear >= nextYear) {
              t.payments.forEach(p => {
-                if (p.status !== 'completed') return;
+                if (p.status !== 'completed' || p.method === 'Adiantamento') return;
                 if (selectedAccount !== 'all') {
                     const isDestination = p.destination === selectedAccount;
                     const isSource = p.source === selectedAccount;
@@ -318,7 +318,7 @@ export const CashFlow: React.FC = () => {
                     else return;
                 }
 
-                if (p.status === 'completed') {
+                if (p.status === 'completed' && p.method !== 'Adiantamento') {
                     if (isIncome) yearlyData[year].entrada += p.value;
                     else if (isExpense) yearlyData[year].saida += p.value;
                 }
@@ -342,7 +342,7 @@ export const CashFlow: React.FC = () => {
             const tYear = new Date(t.date).getFullYear();
             if (tYear > maxYear) {
                  t.payments.forEach(p => {
-                    if (p.status !== 'completed') return;
+                    if (p.status !== 'completed' || p.method === 'Adiantamento') return;
                     if (selectedAccount !== 'all') {
                         const isDestination = p.destination === selectedAccount;
                         const isSource = p.source === selectedAccount;
@@ -433,7 +433,7 @@ export const CashFlow: React.FC = () => {
         const tYear = new Date(t.date).getFullYear();
         if (tYear >= nextYear) {
              t.payments.forEach(p => {
-                if (p.status !== 'completed') return;
+                if (p.status !== 'completed' || p.method === 'Adiantamento') return;
                 if (selectedAccount !== 'all') {
                     const isDestination = p.destination === selectedAccount;
                     const isSource = p.source === selectedAccount;
@@ -459,7 +459,7 @@ export const CashFlow: React.FC = () => {
           const transYear = new Date(t.date).getFullYear();
           if (transYear !== selectedYear) return;
           t.payments.forEach(p => {
-             if (p.status !== 'completed') return;
+             if (p.status !== 'completed' || p.method === 'Adiantamento') return;
              if (selectedAccount !== 'all') {
                 const isDestination = p.destination === selectedAccount;
                 const isSource = p.source === selectedAccount;
@@ -505,7 +505,7 @@ export const CashFlow: React.FC = () => {
                     else return;
                   }
                   
-                  if (p.status === 'completed') {
+                  if (p.status === 'completed' && p.method !== 'Adiantamento') {
                     if (isIncome) data.entrada += p.value;
                     else if (isExpense) data.saida += p.value;
                   }
@@ -546,7 +546,7 @@ export const CashFlow: React.FC = () => {
       if (transYear !== selectedYear) return;
 
       t.payments.forEach(p => {
-        if (p.status !== 'completed') return;
+        if (p.status !== 'completed' || p.method === 'Adiantamento') return;
         
         if (selectedAccount !== 'all') {
           const isDestination = p.destination === selectedAccount;
@@ -590,7 +590,7 @@ export const CashFlow: React.FC = () => {
         const tYear = new Date(t.date).getFullYear();
         if (tYear >= nextYear) {
              t.payments.forEach(p => {
-                if (p.status !== 'completed') return;
+                if (p.status !== 'completed' || p.method === 'Adiantamento') return;
                 if (selectedAccount !== 'all') {
                     const isDestination = p.destination === selectedAccount;
                     const isSource = p.source === selectedAccount;
@@ -648,7 +648,7 @@ export const CashFlow: React.FC = () => {
           }
         }
 
-        if (p.status === 'completed') {
+        if (p.status === 'completed' && p.method !== 'Adiantamento') {
           if (isIncome) runningBalance += p.value;
           else if (isExpense) runningBalance -= p.value;
         }

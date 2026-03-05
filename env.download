@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Transaction, Account, PaymentMethod, UserProfile, CompanyProfile, Payment } from '../../types';
+import { Transaction, Account, PaymentMethod, UserProfile, CompanyProfile, Payment, NotificationSettings } from '../../types';
 import { supabase } from '../lib/supabase';
 import { AccountPlan } from '../../services/financialData';
 
@@ -10,6 +10,7 @@ interface TransactionContextType {
   accountPlans: AccountPlan[];
   userProfile: UserProfile;
   companyProfile: CompanyProfile;
+  notificationSettings: NotificationSettings;
   isModalOpen: boolean;
   editingTransaction: Transaction | null;
   isLoading: boolean;
@@ -29,6 +30,7 @@ interface TransactionContextType {
   deleteAccountPlan: (id: string) => Promise<void>;
   updateUserProfile: (profile: Partial<UserProfile>) => Promise<void>;
   updateCompanyProfile: (profile: Partial<CompanyProfile>) => Promise<void>;
+  updateNotificationSettings: (settings: Partial<NotificationSettings>) => Promise<void>;
   refreshData: () => Promise<void>;
 }
 
@@ -49,6 +51,12 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     email: 'contato@moveisedesign.com.br',
     phone: '(11) 3333-4444',
     address: 'Av. Paulista, 1000 - São Paulo, SP'
+  });
+
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+    dueDateAlert: true,
+    alertDaysBefore: 3,
+    emailAlerts: true
   });
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -77,7 +85,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         bank: a.bank,
         accountNumber: a.account_number,
         type: a.type,
-        balance: Number(a.balance)
+        balance: Number(a.balance),
+        color: a.color
       })));
 
       // Fetch Payment Methods
@@ -297,7 +306,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           bank: account.bank,
           account_number: account.accountNumber,
           type: account.type,
-          balance: account.balance
+          balance: account.balance,
+          color: account.color
         }]);
       if (error) throw error;
       await fetchData();
@@ -317,7 +327,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           bank: updatedAccount.bank,
           account_number: updatedAccount.accountNumber,
           type: updatedAccount.type,
-          balance: updatedAccount.balance
+          balance: updatedAccount.balance,
+          color: updatedAccount.color
         })
         .eq('id', id);
       if (error) throw error;
@@ -449,6 +460,11 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setCompanyProfile(prev => ({ ...prev, ...profile }));
   };
 
+  const updateNotificationSettings = async (settings: Partial<NotificationSettings>) => {
+    // In a real app, this would update the 'settings' table
+    setNotificationSettings(prev => ({ ...prev, ...settings }));
+  };
+
   return (
     <TransactionContext.Provider value={{ 
       transactions, 
@@ -457,6 +473,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       accountPlans,
       userProfile,
       companyProfile,
+      notificationSettings,
       isModalOpen,
       editingTransaction,
       isLoading,
@@ -476,6 +493,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       deleteAccountPlan,
       updateUserProfile,
       updateCompanyProfile,
+      updateNotificationSettings,
       refreshData: fetchData
     }}>
       {children}

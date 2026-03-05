@@ -1,157 +1,101 @@
-import React, { useState, useMemo } from 'react';
-import { Search, X, Check, AlertCircle } from 'lucide-react';
-import { useTransactions } from '../src/context/TransactionContext';
-import { Transaction } from '../types';
+import React from 'react';
+import { FileText, Calendar, AlertTriangle } from 'lucide-react';
 
-interface SearchTransactionModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  type: 'payment_receipt' | 'advance';
-  transactionType: 'income' | 'expense'; // The context of the current operation
-  onSelect: (transaction: Transaction) => void;
-  onRegisterNew: () => void;
-}
-
-export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
-  isOpen,
-  onClose,
-  type,
-  transactionType,
-  onSelect,
-  onRegisterNew
-}) => {
-  const { transactions } = useTransactions();
-  const [searchTerm, setSearchTerm] = useState('');
-
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter(t => {
-      // Filter logic based on modal type and transaction context
-      let matchesType = false;
-      let matchesStatus = true;
-
-      if (type === 'payment_receipt') {
-        // If we are doing a Payment (Expense), we look for Accounts Payable (Expense)
-        // If we are doing a Receipt (Income), we look for Accounts Receivable (Income)
-        matchesType = t.type === transactionType;
-        matchesStatus = t.status !== 'completed'; // Only show pending/partial for payments/receipts
-      } else if (type === 'advance') {
-        // If we are doing a Sale (Income), we look for Customer Advances (Income)
-        // If we are doing a Purchase (Expense), we look for Supplier Advances (Expense)
-        if (transactionType === 'income') {
-           matchesType = t.transactionTypeId === 'adiantamento_cliente';
-        } else {
-           matchesType = t.transactionTypeId === 'adiantamento_fornecedor';
-        }
-        // For advances, we usually want to use COMPLETED advances (money received/paid), 
-        // but we might also want to see pending ones. Let's show all.
-        matchesStatus = true;
-      }
-
-      if (!matchesType || !matchesStatus) return false;
-
-      // Search logic
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        t.description.toLowerCase().includes(searchLower) ||
-        (t.customerName && t.customerName.toLowerCase().includes(searchLower)) ||
-        (t.orderNumber && t.orderNumber.toLowerCase().includes(searchLower)) ||
-        t.value.toString().includes(searchLower)
-      );
-    });
-  }, [transactions, type, transactionType, searchTerm]);
-
-  if (!isOpen) return null;
-
-  const title = type === 'payment_receipt' 
-    ? (transactionType === 'income' ? 'Buscar Contas a Receber' : 'Buscar Contas a Pagar')
-    : (transactionType === 'income' ? 'Buscar Adiantamento de Cliente' : 'Buscar Adiantamento a Fornecedor');
-
+export const TaxManagement: React.FC = () => {
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-          <h3 className="text-lg font-bold text-gray-800">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-            <X size={20} />
-          </button>
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">Fiscal & Tributário</h1>
+          <p className="text-gray-500">Gestão de impostos e obrigações acessórias</p>
+        </div>
+        <button className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors">
+          Gerar Guia
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 bg-red-100 rounded-full text-red-600">
+              <AlertTriangle size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Vencimentos Próximos</p>
+              <p className="text-lg font-bold text-gray-900">3 Guias</p>
+            </div>
+          </div>
+          <div className="text-xs text-red-500 font-medium">Atenção: DAS vence amanhã</div>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Buscar por nome, pedido ou valor..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
-              autoFocus
-            />
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 bg-blue-100 rounded-full text-blue-600">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Notas Emitidas (Mês)</p>
+              <p className="text-lg font-bold text-gray-900">145 NF-e</p>
+            </div>
           </div>
-
-          {/* Results List */}
-          <div className="max-h-[300px] overflow-y-auto border border-gray-100 rounded-lg">
-            {filteredTransactions.length === 0 ? (
-              <div className="p-8 text-center text-gray-500 flex flex-col items-center gap-2">
-                <AlertCircle size={32} className="text-gray-300" />
-                <p>Nenhum registro encontrado.</p>
-              </div>
-            ) : (
-              <table className="w-full text-sm text-left">
-                <thead className="bg-gray-50 text-gray-500 font-medium sticky top-0">
-                  <tr>
-                    <th className="px-4 py-2">Data</th>
-                    <th className="px-4 py-2">Nome</th>
-                    <th className="px-4 py-2">Descrição</th>
-                    <th className="px-4 py-2 text-right">Valor</th>
-                    <th className="px-4 py-2 text-center">Ação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredTransactions.map(t => (
-                    <tr key={t.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 text-gray-500">{t.date.split('-').reverse().join('/')}</td>
-                      <td className="px-4 py-3 font-medium text-gray-800">{t.customerName || '-'}</td>
-                      <td className="px-4 py-3 text-gray-600">
-                        <div>{t.description}</div>
-                        {t.orderNumber && <div className="text-xs text-gray-400">Doc: {t.orderNumber}</div>}
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-gray-900">
-                        R$ {t.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button 
-                          onClick={() => onSelect(t)}
-                          className="p-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
-                          title="Selecionar"
-                        >
-                          <Check size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* Footer Actions */}
-          <div className="flex justify-end gap-3 pt-2">
-            <button 
-              onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors"
-            >
-              Cancelar
-            </button>
-            <button 
-              onClick={onRegisterNew}
-              className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-900 transition-colors shadow-sm"
-            >
-              Registrar Novo (Sem Vínculo)
-            </button>
-          </div>
+          <div className="text-xs text-gray-400">Total: R$ 450.000,00</div>
         </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="p-3 bg-purple-100 rounded-full text-purple-600">
+              <Calendar size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Competência Atual</p>
+              <p className="text-lg font-bold text-gray-900">Fev/2026</p>
+            </div>
+          </div>
+          <div className="text-xs text-gray-400">Fechamento em 5 dias</div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Obrigações Fiscais</h3>
+        <table className="w-full text-sm text-left">
+          <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-200">
+            <tr>
+              <th className="px-6 py-3">Tributo</th>
+              <th className="px-6 py-3">Competência</th>
+              <th className="px-6 py-3">Vencimento</th>
+              <th className="px-6 py-3">Valor</th>
+              <th className="px-6 py-3">Status</th>
+              <th className="px-6 py-3 text-right">Ações</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {[
+              { name: 'DAS - Simples Nacional', comp: '01/2026', due: '20/02/2026', val: 'R$ 12.500,00', status: 'Pago' },
+              { name: 'FGTS', comp: '01/2026', due: '07/02/2026', val: 'R$ 4.200,00', status: 'Pago' },
+              { name: 'INSS', comp: '01/2026', due: '20/02/2026', val: 'R$ 8.900,00', status: 'Pendente' },
+              { name: 'ISSQN', comp: '01/2026', due: '15/02/2026', val: 'R$ 1.500,00', status: 'Atrasado' },
+            ].map((item, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-6 py-4 font-medium text-gray-900">{item.name}</td>
+                <td className="px-6 py-4 text-gray-500">{item.comp}</td>
+                <td className="px-6 py-4 text-gray-500">{item.due}</td>
+                <td className="px-6 py-4 font-medium text-gray-900">{item.val}</td>
+                <td className="px-6 py-4">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    item.status === 'Pago' ? 'bg-emerald-100 text-emerald-700' :
+                    item.status === 'Pendente' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-red-100 text-red-700'
+                  }`}>
+                    {item.status}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <button className="text-emerald-600 hover:text-emerald-700 font-medium text-xs">Detalhes</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
