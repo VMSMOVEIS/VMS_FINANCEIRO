@@ -138,3 +138,70 @@ export interface ChatMessage {
   text: string;
   timestamp: Date;
 }
+
+export interface TimeEntry {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  entry1: string;
+  exit1: string;
+  entry2: string;
+  exit2: string;
+  totalHours: number;
+  status: 'normal' | 'extra' | 'missing';
+  observations?: string;
+}
+
+export interface EmployeeDocument {
+  id: string;
+  name: string;
+  type: string;
+  uploadDate: string;
+  url: string;
+}
+
+export interface EmployeeBenefit {
+  id: string;
+  name: string;
+  value: number;
+  type: 'fixed' | 'percentage';
+}
+
+export interface Employee {
+  id: string;
+  name: string;
+  role: string;
+  department: string;
+  workSchedule: string; // This can be the shift name/id
+  shiftId?: string;
+  email: string;
+  phone: string;
+  cpf: string;
+  rg?: string;
+  birthDate?: string;
+  gender?: 'M' | 'F' | 'Other';
+  maritalStatus?: string;
+  admissionDate: string;
+  salary: number;
+  status: 'active' | 'on_leave' | 'terminated';
+  address?: {
+    street: string;
+    number: string;
+    complement?: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+    zipCode: string;
+  };
+  bankInfo?: {
+    bank: string;
+    agency: string;
+    account: string;
+    type: 'corrente' | 'poupanca';
+    pixKey?: string;
+  };
+  education?: string;
+  benefits: EmployeeBenefit[];
+  documents: EmployeeDocument[];
+}

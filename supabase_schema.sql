@@ -1,115 +1,94 @@
--- Supabase Schema for VMS Financeiro
+-- Supabase Schema for Employee Management System
 
--- 1. Profiles (User and Company)
-CREATE TABLE IF NOT EXISTS profiles (
-  id UUID PRIMARY KEY DEFAULT auth.uid(),
-  full_name TEXT,
-  email TEXT UNIQUE,
-  role TEXT,
+-- 1. Shifts (Turnos)
+CREATE TABLE shifts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  description TEXT,
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  break_start TIME,
+  break_end TIME,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 2. Benefits Configuration (Configuração de Benefícios)
+CREATE TABLE benefits_config (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  description TEXT,
+  type TEXT NOT NULL CHECK (type IN ('fixed', 'percentage')),
+  value DECIMAL(10, 2) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 3. Employees (Colaboradores)
+CREATE TABLE employees (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  department TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
   phone TEXT,
-  avatar_url TEXT,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS companies (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  cnpj TEXT UNIQUE,
-  email TEXT,
-  phone TEXT,
-  address TEXT,
-  logo_url TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 2. Financial Structure
-CREATE TABLE IF NOT EXISTS accounts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  bank TEXT,
-  account_number TEXT,
-  type TEXT CHECK (type IN ('bank', 'cash', 'investment', 'other')),
-  balance DECIMAL(15, 2) DEFAULT 0.00,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS account_plans (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  code TEXT NOT NULL,
-  name TEXT NOT NULL,
-  type TEXT CHECK (type IN ('receita', 'despesa')),
-  parent_id UUID REFERENCES account_plans(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS payment_methods (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  type TEXT CHECK (type IN ('pix', 'cash', 'debit_card', 'credit_card', 'boleto', 'transfer', 'other', 'advance')),
-  default_account_id UUID REFERENCES accounts(id),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- 3. Transactions
-CREATE TABLE IF NOT EXISTS transactions (
-  id BIGSERIAL PRIMARY KEY,
-  date DATE NOT NULL DEFAULT CURRENT_DATE,
-  description TEXT NOT NULL,
-  category TEXT, -- Can be linked to account_plans
-  value DECIMAL(15, 2) NOT NULL,
-  type TEXT CHECK (type IN ('income', 'expense')),
-  transaction_type_id TEXT, -- 'venda', 'compra', etc.
-  document_type TEXT,
-  order_number TEXT,
-  customer_name TEXT,
-  status TEXT CHECK (status IN ('completed', 'pending', 'partial')),
+  cpf TEXT UNIQUE NOT NULL,
+  rg TEXT,
+  birth_date DATE,
+  gender TEXT,
+  marital_status TEXT,
+  education TEXT,
+  admission_date DATE NOT NULL,
+  salary DECIMAL(12, 2) NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'on_leave', 'terminated')),
+  work_schedule TEXT, -- Display string for schedule
+  shift_id UUID REFERENCES shifts(id),
+  
+  -- Address (JSONB for flexibility or separate columns)
+  address_street TEXT,
+  address_number TEXT,
+  address_complement TEXT,
+  address_neighborhood TEXT,
+  address_city TEXT,
+  address_state TEXT,
+  address_zip_code TEXT,
+  
+  -- Bank Info
+  bank_name TEXT,
+  bank_agency TEXT,
+  bank_account TEXT,
+  bank_account_type TEXT CHECK (bank_account_type IN ('corrente', 'poupanca')),
+  bank_pix_key TEXT,
+  
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS payments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  transaction_id BIGINT REFERENCES transactions(id) ON DELETE CASCADE,
-  method TEXT NOT NULL,
-  value DECIMAL(15, 2) NOT NULL,
-  due_date DATE NOT NULL,
-  bank_id UUID REFERENCES accounts(id),
-  destination TEXT,
-  source TEXT,
-  status TEXT CHECK (status IN ('completed', 'pending')),
-  reconciled BOOLEAN DEFAULT FALSE,
+-- 4. Employee Benefits (Relacionamento Colaborador x Benefícios)
+CREATE TABLE employee_benefits (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id UUID REFERENCES employees(id) ON DELETE CASCADE,
+  benefit_id UUID REFERENCES benefits_config(id) ON DELETE CASCADE,
+  custom_value DECIMAL(10, 2), -- Optional override
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 4. Audit Log / Operational History (Optional but good for "Operational History")
--- Usually derived from transactions, but can be explicit
-CREATE VIEW operational_history AS
-SELECT 
-  t.id,
-  t.date,
-  t.description,
-  t.customer_name,
-  t.value,
-  t.type,
-  t.transaction_type_id,
-  t.status
-FROM transactions t;
+-- 5. Employee Documents (Documentos)
+CREATE TABLE employee_documents (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  employee_id UUID REFERENCES employees(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,
+  url TEXT NOT NULL,
+  upload_date TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
--- 5. Row Level Security (RLS)
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
-ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE account_plans ENABLE ROW LEVEL SECURITY;
-ALTER TABLE payment_methods ENABLE ROW LEVEL SECURITY;
-ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+-- Enable Row Level Security (RLS)
+ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shifts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE benefits_config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE employee_benefits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE employee_documents ENABLE ROW LEVEL SECURITY;
 
--- Basic RLS Policies (Allow anonymous access for prototype/demo)
--- WARNING: In production, you should use auth.uid() to restrict access.
-CREATE POLICY "Allow all for accounts" ON accounts FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for account_plans" ON account_plans FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for payment_methods" ON payment_methods FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for transactions" ON transactions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for payments" ON payments FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for profiles" ON profiles FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all for companies" ON companies FOR ALL USING (true) WITH CHECK (true);
+-- Create policies (Example: Allow authenticated users to read everything)
+CREATE POLICY "Allow authenticated users to read employees" ON employees FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow authenticated users to insert employees" ON employees FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Allow authenticated users to update employees" ON employees FOR UPDATE TO authenticated USING (true);

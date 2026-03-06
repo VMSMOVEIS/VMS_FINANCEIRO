@@ -16,6 +16,10 @@ import { OperationalHistory } from './components/OperationalHistory';
 import { ChartOfAccounts } from './components/ChartOfAccounts';
 import { Accounting } from './components/Accounting';
 import { TransactionModal } from './components/TransactionModal';
+import { TimeTracking } from './components/TimeTracking';
+import { EmployeeManagement } from './components/EmployeeManagement';
+import { PayrollManagement } from './components/PayrollManagement';
+import { ProductionOrders } from './components/ProductionOrders';
 import { useTransactions } from './src/context/TransactionContext';
 import { DollarSign, LayoutDashboard, Briefcase, Factory, Package, ClipboardList, Wrench, CheckCircle2, ShoppingCart, Target, FileText, UserCheck, BarChart3 } from 'lucide-react';
 
@@ -156,35 +160,11 @@ const App: React.FC = () => {
           </div>
         );
       case ModuleId.RH_FUNCIONARIOS:
-        return (
-          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
-            <div className="bg-pink-100 p-8 rounded-full mb-6">
-              <Users size={64} className="text-pink-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Gestão de Funcionários</h2>
-            <p className="text-gray-500 max-w-md">Cadastro e gestão de colaboradores da empresa.</p>
-          </div>
-        );
+        return <EmployeeManagement activeSubItem={activeSubItem} />;
       case ModuleId.RH_FOLHA:
-        return (
-          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
-            <div className="bg-pink-100 p-8 rounded-full mb-6">
-              <Briefcase size={64} className="text-pink-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Folha de Pagamento</h2>
-            <p className="text-gray-500 max-w-md">Processamento de salários, encargos e benefícios.</p>
-          </div>
-        );
+        return <PayrollManagement activeSubItem={activeSubItem} />;
       case ModuleId.RH_PONTO:
-        return (
-          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
-            <div className="bg-pink-100 p-8 rounded-full mb-6">
-              <Clock size={64} className="text-pink-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Ponto Eletrônico</h2>
-            <p className="text-gray-500 max-w-md">Controle de jornada e banco de horas.</p>
-          </div>
-        );
+        return <TimeTracking />;
       case ModuleId.RH_RECRUTAMENTO:
         return (
           <div className="p-12 flex flex-col items-center justify-center h-full text-center">
@@ -208,15 +188,7 @@ const App: React.FC = () => {
           </div>
         );
       case ModuleId.PRODUCAO_ORDENS:
-        return (
-          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
-            <div className="bg-orange-100 p-8 rounded-full mb-6">
-              <ClipboardList size={64} className="text-orange-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Ordens de Produção</h2>
-            <p className="text-gray-500 max-w-md">Gestão e acompanhamento de ordens de fabricação.</p>
-          </div>
-        );
+        return <ProductionOrders activeSubItem={activeSubItem} />;
       case ModuleId.PRODUCAO_ESTOQUE:
         return (
           <div className="p-12 flex flex-col items-center justify-center h-full text-center">

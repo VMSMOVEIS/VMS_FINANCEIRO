@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { TransactionProvider } from './src/context/TransactionContext';
+import { EmployeeProvider } from './src/context/EmployeeContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -12,7 +13,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <TransactionProvider>
-      <App />
+      <EmployeeProvider>
+        <App />
+      </EmployeeProvider>
     </TransactionProvider>
   </React.StrictMode>
 );

@@ -137,7 +137,6 @@ export const RH_MENU_ITEMS: MenuItem[] = [
     icon: Users,
     subItems: [
       { id: 'func_lista', label: 'Lista de Colaboradores' },
-      { id: 'func_cad', label: 'Cadastro' },
       { id: 'func_doc', label: 'Documentação' },
     ]
   },
