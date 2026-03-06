@@ -135,7 +135,7 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
               placeholder="Buscar por nome, descrição ou valor..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               autoFocus
             />
           </div>
@@ -163,14 +163,14 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
                   {filteredItems.map(item => (
                     <tr 
                       key={item.id} 
-                      className={`hover:bg-gray-50 transition-colors ${selectedIds.includes(item.id) ? 'bg-emerald-50' : ''}`}
+                      className={`hover:bg-gray-50 transition-colors ${selectedIds.includes(item.id) ? 'bg-blue-50' : ''}`}
                       onClick={() => type === 'advance' && toggleSelection(item.id)}
                     >
                       {type === 'advance' && (
                         <td className="px-4 py-3">
                           <div className={`w-5 h-5 rounded border flex items-center justify-center ${
                             selectedIds.includes(item.id) 
-                              ? 'bg-emerald-500 border-emerald-500 text-white' 
+                              ? 'bg-blue-500 border-blue-500 text-white' 
                               : 'border-gray-300'
                           }`}>
                             {selectedIds.includes(item.id) && <Check size={12} />}
@@ -192,7 +192,7 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
                               e.stopPropagation();
                               onSelect(item);
                             }}
-                            className="p-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
+                            className="p-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
                             title="Selecionar"
                           >
                             <Check size={16} />
@@ -218,7 +218,7 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
               <button 
                 onClick={handleConfirm}
                 disabled={selectedIds.length === 0}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <Check size={16} />
                 Confirmar Seleção ({selectedIds.length})

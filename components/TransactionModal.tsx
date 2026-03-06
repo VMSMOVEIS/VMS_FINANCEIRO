@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Calendar, FileText, DollarSign, Briefcase, Wallet, Hash, User, Plus } from 'lucide-react';
 import { getAccountPlans, getTransactionTypes, AccountPlan, TransactionType } from '../services/financialData';
 import { useTransactions } from '../src/context/TransactionContext';
@@ -41,12 +41,21 @@ export const TransactionModal: React.FC = () => {
   const [pendingCompletion, setPendingCompletion] = useState(false);
   const [targetPaymentId, setTargetPaymentId] = useState<string | null>(null);
   const [targetTransactionId, setTargetTransactionId] = useState<number | null>(null);
+  const prevIsModalOpen = useRef(false);
 
   useEffect(() => {
     setTransactionTypes(getTransactionTypes());
   }, []);
 
   useEffect(() => {
+    if (!isModalOpen) {
+      prevIsModalOpen.current = false;
+      return;
+    }
+
+    const justOpened = !prevIsModalOpen.current;
+    prevIsModalOpen.current = true;
+
     if (editingTransaction) {
       // If we are pending completion (came from "Recebimento"/"Pagamento" selection),
       // we want to auto-complete the transaction and its payments.
@@ -98,6 +107,9 @@ export const TransactionModal: React.FC = () => {
         const payment = original?.payments.find(p => p.id === targetPaymentId);
 
         if (original && payment) {
+          const defaultMethod = paymentMethods.find(pm => pm.type === 'pix');
+          const defaultAccount = accounts.find(acc => acc.id === defaultMethod?.defaultAccountId);
+
           setFormData({
             type: original.type,
             date: new Date().toISOString().split('T')[0],
@@ -112,10 +124,10 @@ export const TransactionModal: React.FC = () => {
             linkedPaymentId: payment.id,
             payments: [{
               id: String(Date.now()),
-              method: 'Pix',
+              method: defaultMethod?.name || 'Pix',
               value: payment.value,
               dueDate: new Date().toISOString().split('T')[0],
-              destination: 'Caixa',
+              destination: defaultAccount?.name || 'Caixa',
               status: 'completed'
             }]
           });
@@ -124,18 +136,20 @@ export const TransactionModal: React.FC = () => {
         }
       }
 
-      setFormData({
-        type: 'income',
-        date: new Date().toISOString().split('T')[0],
-        transactionTypeId: '',
-        category: '',
-        documentType: 'NF',
-        orderNumber: '',
-        customerName: '',
-        value: 0,
-        payments: []
-      });
-      setLinkedTransactionIds([]);
+      if (justOpened && !pendingCompletion) {
+        setFormData({
+          type: 'income',
+          date: new Date().toISOString().split('T')[0],
+          transactionTypeId: '',
+          category: '',
+          documentType: 'NF',
+          orderNumber: '',
+          customerName: '',
+          value: 0,
+          payments: []
+        });
+        setLinkedTransactionIds([]);
+      }
     }
   }, [editingTransaction, isModalOpen, pendingCompletion, targetTransactionId, targetPaymentId, transactions]);
 
@@ -504,7 +518,7 @@ export const TransactionModal: React.FC = () => {
                   required
                   value={formData.date}
                   onChange={handleInputChange}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
               </div>
             </div>
@@ -604,7 +618,7 @@ export const TransactionModal: React.FC = () => {
                       return { ...prev, ...updates };
                     });
                   }}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
               </div>
             </div>
