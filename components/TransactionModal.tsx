@@ -42,6 +42,7 @@ export const TransactionModal: React.FC = () => {
   const [targetPaymentId, setTargetPaymentId] = useState<string | null>(null);
   const [targetTransactionId, setTargetTransactionId] = useState<number | null>(null);
   const prevIsModalOpen = useRef(false);
+  const hasPreFilled = useRef(false);
 
   useEffect(() => {
     setTransactionTypes(getTransactionTypes());
@@ -50,6 +51,7 @@ export const TransactionModal: React.FC = () => {
   useEffect(() => {
     if (!isModalOpen) {
       prevIsModalOpen.current = false;
+      hasPreFilled.current = false;
       return;
     }
 
@@ -59,7 +61,7 @@ export const TransactionModal: React.FC = () => {
     if (editingTransaction) {
       // If we are pending completion (came from "Recebimento"/"Pagamento" selection),
       // we want to auto-complete the transaction and its payments.
-      if (pendingCompletion) {
+      if (pendingCompletion && !hasPreFilled.current) {
         const completedPayments = editingTransaction.payments?.map(p => {
             // If a specific payment was targeted, only complete that one
             if (targetPaymentId) {
@@ -77,9 +79,8 @@ export const TransactionModal: React.FC = () => {
             status: allCompleted ? 'completed' : 'partial',
             payments: completedPayments
         });
-        setPendingCompletion(false); // Reset flag
-        setTargetPaymentId(null); // Reset target
-      } else {
+        hasPreFilled.current = true;
+      } else if (!hasPreFilled.current) {
         setFormData({ ...editingTransaction });
       }
       
@@ -101,7 +102,7 @@ export const TransactionModal: React.FC = () => {
          }
       }
     } else {
-      if (pendingCompletion && targetTransactionId && targetPaymentId) {
+      if (pendingCompletion && targetTransactionId && targetPaymentId && !hasPreFilled.current) {
         // Find the original transaction to get details for the independent launch
         const original = transactions.find(t => t.id === targetTransactionId);
         const payment = original?.payments.find(p => p.id === targetPaymentId);
@@ -131,7 +132,7 @@ export const TransactionModal: React.FC = () => {
               status: 'completed'
             }]
           });
-          setPendingCompletion(false); // Reset flag after pre-filling
+          hasPreFilled.current = true;
           return;
         }
       }
@@ -371,11 +372,11 @@ export const TransactionModal: React.FC = () => {
         await addTransaction(transaction);
         
         // If this was a payment/receipt or advance for another transaction, settle it
-        if (pendingCompletion && targetTransactionId && targetPaymentId) {
-            const original = transactions.find(t => t.id === targetTransactionId);
+        if (formData.linkedTransactionId && formData.linkedPaymentId) {
+            const original = transactions.find(t => t.id === formData.linkedTransactionId);
             if (original) {
                 const updatedPayments = original.payments.map(p => 
-                    p.id === targetPaymentId ? { ...p, status: 'completed' as const } : p
+                    p.id === formData.linkedPaymentId ? { ...p, status: 'completed' as const } : p
                 );
                 const allCompleted = updatedPayments.every(p => p.status === 'completed');
                 await updateTransaction(original.id, {

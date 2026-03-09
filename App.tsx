@@ -20,6 +20,10 @@ import { TimeTracking } from './components/TimeTracking';
 import { EmployeeManagement } from './components/EmployeeManagement';
 import { PayrollManagement } from './components/PayrollManagement';
 import { ProductionOrders } from './components/ProductionOrders';
+import SalesCRM from './components/SalesCRM';
+import SalesDashboard from './components/SalesDashboard';
+import SalesOrders from './components/SalesOrders';
+import SalesCustomers from './components/SalesCustomers';
 import { useTransactions } from './src/context/TransactionContext';
 import { DollarSign, LayoutDashboard, Briefcase, Factory, Package, ClipboardList, Wrench, CheckCircle2, ShoppingCart, Target, FileText, UserCheck, BarChart3 } from 'lucide-react';
 
@@ -212,46 +216,13 @@ const App: React.FC = () => {
 
       // Vendas Modules
       case ModuleId.VENDAS_DASHBOARD:
-        return (
-          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
-            <div className="bg-emerald-100 p-8 rounded-full mb-6">
-              <LayoutDashboard size={64} className="text-emerald-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Dashboard Vendas</h2>
-            <p className="text-gray-500 max-w-md">Visão geral do desempenho comercial e funil de vendas.</p>
-          </div>
-        );
+        return <SalesDashboard />;
       case ModuleId.VENDAS_CRM:
-        return (
-          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
-            <div className="bg-emerald-100 p-8 rounded-full mb-6">
-              <Target size={64} className="text-emerald-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">CRM / Funil</h2>
-            <p className="text-gray-500 max-w-md">Gestão de leads, oportunidades e negociações.</p>
-          </div>
-        );
+        return <SalesCRM />;
       case ModuleId.VENDAS_PEDIDOS:
-        return (
-          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
-            <div className="bg-emerald-100 p-8 rounded-full mb-6">
-              <ShoppingCart size={64} className="text-emerald-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Pedidos de Venda</h2>
-            <p className="text-gray-500 max-w-md">Acompanhamento e emissão de pedidos.</p>
-          </div>
-        );
+        return <SalesOrders />;
       case ModuleId.VENDAS_CLIENTES:
-        return (
-          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
-            <div className="bg-emerald-100 p-8 rounded-full mb-6">
-              <UserCheck size={64} className="text-emerald-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Gestão de Clientes</h2>
-            <p className="text-gray-500 max-w-md">Base de dados e relacionamento com clientes.</p>
-          </div>
-        );
-
+        return <SalesCustomers />;
       case ModuleId.DASHBOARD:
         return <FinancialDashboard />;
       case ModuleId.LANCAMENTOS:

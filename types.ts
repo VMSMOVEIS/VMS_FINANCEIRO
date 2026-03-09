@@ -205,3 +205,27 @@ export interface Employee {
   benefits: EmployeeBenefit[];
   documents: EmployeeDocument[];
 }
+
+export enum LeadStatus {
+  NEW = 'new',
+  QUALIFICATION = 'qualification',
+  PROPOSAL = 'proposal',
+  NEGOTIATION = 'negotiation',
+  WON = 'won',
+  LOST = 'lost'
+}
+
+export interface Lead {
+  id: string;
+  company: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  value: number;
+  status: LeadStatus;
+  lastContact: string;
+  source: string;
+  probability: number; // 0-100
+  notes?: string;
+  expectedCloseDate?: string;
+}
