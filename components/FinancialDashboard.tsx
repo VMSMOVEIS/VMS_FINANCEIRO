@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { DollarSign, TrendingUp, TrendingDown, Activity, AlertCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
-import { useTransactions } from '../src/context/TransactionContext';
+import { useTransactions } from '@/src/context/TransactionContext';
 
 export const FinancialDashboard: React.FC = () => {
   const { transactions, accounts } = useTransactions();

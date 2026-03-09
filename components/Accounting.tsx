@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { FileText, Book, Scale, Calculator, Calendar, Edit2, Trash2, PieChart, TrendingUp, FileBarChart, List, AlignLeft } from 'lucide-react';
-import { useTransactions } from '../src/context/TransactionContext';
+import { useTransactions } from '@/src/context/TransactionContext';
 
 interface AccountingProps {
   initialView?: string;
@@ -111,9 +111,9 @@ const generateAccountingEntries = (transactions: any[], accountPlans: any[]) => 
   };
 
   // Default accounts if not found
-  const planReceivables = findPlan('Contas a Receber') || { code: '1.1.02', name: 'Contas a Receber' };
+  const planReceivables = findPlan('Clientes') || findPlan('Contas a Receber') || { code: '1.1.02.01', name: 'Clientes' };
   const planPayables = findPlan('Fornecedores') || { code: '2.1.01', name: 'Fornecedores' };
-  const planCash = findPlan('Caixa e Equivalentes de Caixa') || { code: '1.1.01', name: 'Caixa e Equivalentes de Caixa' };
+  const planCash = findPlan('Caixa') || findPlan('Banco Conta Corrente') || findPlan('Caixa e Equivalentes de Caixa') || { code: '1.1.01.01', name: 'Caixa' };
 
   transactions.forEach(t => {
     // Handle Transfers
@@ -207,10 +207,6 @@ const generateAccountingEntries = (transactions: any[], accountPlans: any[]) => 
 
 const DREView = ({ transactions, accountPlans, entries }: { transactions: any[], accountPlans: any[], entries: any[] }) => {
   const dreData = useMemo(() => {
-    // Calculate balances for Revenue (3) and Expenses (4)
-    const revenueAccounts = accountPlans.filter(p => p.type === 'receita');
-    const expenseAccounts = accountPlans.filter(p => p.type === 'despesa');
-
     const balances: Record<string, number> = {};
     accountPlans.forEach(p => balances[p.code] = 0);
 
@@ -224,18 +220,29 @@ const DREView = ({ transactions, accountPlans, entries }: { transactions: any[],
       if (debitPlan?.type === 'despesa') balances[debitCode] += entry.value;
       if (creditPlan?.type === 'receita') balances[creditCode] += entry.value;
       
-      // Also handle returns/deductions if any (Debit in Revenue or Credit in Expense)
       if (debitPlan?.type === 'receita') balances[debitCode] -= entry.value;
       if (creditPlan?.type === 'despesa') balances[creditCode] -= entry.value;
     });
 
-    const totalRevenue = revenueAccounts.reduce((sum, p) => sum + (balances[p.code] || 0), 0);
-    const totalExpenses = expenseAccounts.reduce((sum, p) => sum + (balances[p.code] || 0), 0);
+    const getGroupBalance = (prefix: string) => {
+      return Object.entries(balances)
+        .filter(([code]) => code.startsWith(prefix))
+        .reduce((sum, [_, val]) => sum + val, 0);
+    };
+
+    const revenue = getGroupBalance('4');
+    const costs = getGroupBalance('5');
+    const expenses = getGroupBalance('6');
+    
+    const grossProfit = revenue - costs;
+    const netProfit = grossProfit - expenses;
     
     return { 
-      revenue: totalRevenue, 
-      expenses: totalExpenses, 
-      netProfit: totalRevenue - totalExpenses,
+      revenue, 
+      costs,
+      grossProfit,
+      expenses, 
+      netProfit,
       details: accountPlans
         .filter(p => (p.type === 'receita' || p.type === 'despesa') && balances[p.code] !== 0)
         .map(p => ({ ...p, balance: balances[p.code] }))
@@ -273,17 +280,17 @@ const DREView = ({ transactions, accountPlans, entries }: { transactions: any[],
               <td className="px-6 py-3 text-right text-emerald-700">100%</td>
             </tr>
             <tr>
-              <td className="px-6 py-2 pl-10 text-gray-600">(-) Deduções da Receita Bruta</td>
-              <td className="px-6 py-2 text-right text-red-600">(R$ 0,00)</td>
-              <td className="px-6 py-2 text-right text-gray-500">0%</td>
+              <td className="px-6 py-2 pl-10 text-gray-600">(-) Custos de Produção</td>
+              <td className="px-6 py-2 text-right text-red-600">(R$ {dreData.costs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</td>
+              <td className="px-6 py-2 text-right text-gray-500">{dreData.revenue ? ((dreData.costs / dreData.revenue) * 100).toFixed(1) : 0}%</td>
             </tr>
             <tr className="font-medium bg-gray-50/50">
-              <td className="px-6 py-3 text-gray-900">(=) RECEITA OPERACIONAL LÍQUIDA</td>
-              <td className="px-6 py-3 text-right text-gray-900">R$ {dreData.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-              <td className="px-6 py-3 text-right text-gray-500">100%</td>
+              <td className="px-6 py-3 text-gray-900">(=) LUCRO BRUTO</td>
+              <td className="px-6 py-3 text-right text-gray-900">R$ {dreData.grossProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              <td className="px-6 py-3 text-right text-gray-500">{dreData.revenue ? ((dreData.grossProfit / dreData.revenue) * 100).toFixed(1) : 0}%</td>
             </tr>
              <tr>
-              <td className="px-6 py-2 pl-10 text-gray-600">(-) Custos e Despesas</td>
+              <td className="px-6 py-2 pl-10 text-gray-600">(-) Despesas Operacionais</td>
               <td className="px-6 py-2 text-right text-red-600">(R$ {dreData.expenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</td>
               <td className="px-6 py-2 text-right text-gray-500">{dreData.revenue ? ((dreData.expenses / dreData.revenue) * 100).toFixed(1) : 0}%</td>
             </tr>
@@ -349,12 +356,13 @@ const BalanceSheetView = ({ transactions, accounts, accountPlans, entries }: { t
     const ativoNaoCirculante = getGroupBalance('1.2');
     const passivoCirculante = getGroupBalance('2.1');
     const passivoNaoCirculante = getGroupBalance('2.2');
-    const patrimonioLiquido = getGroupBalance('2.3');
+    const patrimonioLiquido = getGroupBalance('3');
 
-    // Retained Earnings (Revenue - Expenses)
-    const revenue = getGroupBalance('3');
-    const expenses = getGroupBalance('4');
-    const retainedEarnings = revenue - expenses;
+    // Retained Earnings (Revenue - Costs - Expenses)
+    const revenue = getGroupBalance('4');
+    const costs = getGroupBalance('5');
+    const expenses = getGroupBalance('6');
+    const retainedEarnings = revenue - costs - expenses;
 
     return { 
       ativoCirculante, 
@@ -694,11 +702,11 @@ const DFCView = ({ transactions, accounts, accountPlans, entries }: { transactio
         const otherCode = otherSide.split(' - ')[0];
         const value = isDebitCash ? entry.value : -entry.value;
 
-        if (otherCode.startsWith('3') || otherCode.startsWith('4') || otherCode.startsWith('1.1.02') || otherCode.startsWith('2.1.01')) {
+        if (otherCode.startsWith('4') || otherCode.startsWith('5') || otherCode.startsWith('6') || otherCode.startsWith('1.1.02') || otherCode.startsWith('2.1.01')) {
           netOperating += value;
         } else if (otherCode.startsWith('1.2')) {
           netInvesting += value;
-        } else if (otherCode.startsWith('2.2') || otherCode.startsWith('2.3')) {
+        } else if (otherCode.startsWith('2.1.04') || otherCode.startsWith('3')) {
           netFinancing += value;
         }
       }
@@ -789,8 +797,8 @@ const DMPLView = ({ transactions, accountPlans, entries }: { transactions: any[]
         .reduce((sum, [_, val]) => sum + val, 0);
     };
 
-    const capital = getGroupBalance('2.3.01');
-    const reserves = getGroupBalance('2.3.02');
+    const capital = getGroupBalance('3.1');
+    const reserves = getGroupBalance('3.4');
     
     const revenue = accountPlans
       .filter(p => p.type === 'receita')

@@ -1,16 +1,28 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Employee, EmployeeDocument } from '../../types';
+import { Employee, EmployeeDocument, JobRole } from '../../types';
 
 interface EmployeeContextType {
   employees: Employee[];
+  jobRoles: JobRole[];
   addEmployee: (employee: Omit<Employee, 'id' | 'documents'>) => void;
   updateEmployee: (id: string, employee: Partial<Employee>) => void;
   deleteEmployee: (id: string) => void;
   addDocument: (employeeId: string, document: Omit<EmployeeDocument, 'id' | 'uploadDate'>) => void;
   removeDocument: (employeeId: string, documentId: string) => void;
+  addJobRole: (role: Omit<JobRole, 'id'>) => void;
+  updateJobRole: (id: string, role: Partial<JobRole>) => void;
+  deleteJobRole: (id: string) => void;
+  fetchEmployeesByRole: (role: string) => Employee[];
 }
 
 const EmployeeContext = createContext<EmployeeContextType | undefined>(undefined);
+
+const INITIAL_ROLES: JobRole[] = [
+  { id: 'r1', name: 'Desenvolvedor Senior', department: 'TI' },
+  { id: 'r2', name: 'Analista de RH', department: 'RH' },
+  { id: 'r3', name: 'Gerente Comercial', department: 'Vendas' },
+  { id: 'r4', name: 'Vendedor', department: 'Vendas' },
+];
 
 const INITIAL_EMPLOYEES: Employee[] = [
   { 
@@ -112,9 +124,18 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return saved ? JSON.parse(saved) : INITIAL_EMPLOYEES;
   });
 
+  const [jobRoles, setJobRoles] = useState<JobRole[]>(() => {
+    const saved = localStorage.getItem('vms_job_roles');
+    return saved ? JSON.parse(saved) : INITIAL_ROLES;
+  });
+
   useEffect(() => {
     localStorage.setItem('vms_employees', JSON.stringify(employees));
   }, [employees]);
+
+  useEffect(() => {
+    localStorage.setItem('vms_job_roles', JSON.stringify(jobRoles));
+  }, [jobRoles]);
 
   const addEmployee = (employeeData: Omit<Employee, 'id' | 'documents'>) => {
     const newEmployee: Employee = {
@@ -154,14 +175,39 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     ));
   };
 
+  const addJobRole = (roleData: Omit<JobRole, 'id'>) => {
+    const newRole: JobRole = {
+      ...roleData,
+      id: Math.random().toString(36).substr(2, 9)
+    };
+    setJobRoles(prev => [...prev, newRole]);
+  };
+
+  const updateJobRole = (id: string, roleData: Partial<JobRole>) => {
+    setJobRoles(prev => prev.map(role => role.id === id ? { ...role, ...roleData } : role));
+  };
+
+  const deleteJobRole = (id: string) => {
+    setJobRoles(prev => prev.filter(role => role.id !== id));
+  };
+
+  const fetchEmployeesByRole = (role: string) => {
+    return employees.filter(e => e.role.toLowerCase() === role.toLowerCase() && e.status === 'active');
+  };
+
   return (
     <EmployeeContext.Provider value={{ 
       employees, 
+      jobRoles,
       addEmployee, 
       updateEmployee, 
       deleteEmployee, 
       addDocument, 
-      removeDocument 
+      removeDocument,
+      addJobRole,
+      updateJobRole,
+      deleteJobRole,
+      fetchEmployeesByRole
     }}>
       {children}
     </EmployeeContext.Provider>

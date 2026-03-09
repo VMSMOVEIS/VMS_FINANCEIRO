@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Download, Edit, Trash2, FileText } from 'lucide-react';
-import { useTransactions } from '../src/context/TransactionContext';
+import { useTransactions } from '@/src/context/TransactionContext';
 
 interface AccountsReceivableProps {
   initialTab?: 'geral' | 'adiantamentos';
@@ -9,6 +9,7 @@ interface AccountsReceivableProps {
 export const AccountsReceivable: React.FC<AccountsReceivableProps> = ({ initialTab = 'geral' }) => {
   const { transactions, deleteTransaction, openModal } = useTransactions();
   const [activeTab, setActiveTab] = useState<'geral' | 'adiantamentos'>(initialTab);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -33,7 +34,16 @@ export const AccountsReceivable: React.FC<AccountsReceivableProps> = ({ initialT
         customer: t.customerName || 'Cliente',
         orderNumber: t.orderNumber || t.documentType
       }))
-  );
+  ).filter(item => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      item.customer.toLowerCase().includes(search) ||
+      item.transactionDescription.toLowerCase().includes(search) ||
+      (item.orderNumber && item.orderNumber.toLowerCase().includes(search)) ||
+      item.value.toString().includes(search)
+    );
+  });
 
   const handleDelete = async (id: number) => {
     if (window.confirm('Tem certeza que deseja excluir este lançamento?')) {
@@ -109,6 +119,8 @@ export const AccountsReceivable: React.FC<AccountsReceivableProps> = ({ initialT
               type="text" 
               placeholder="Buscar por cliente, nota fiscal ou valor..." 
               className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </div>

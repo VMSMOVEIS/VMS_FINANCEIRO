@@ -12,7 +12,7 @@ import {
   DollarSign,
   Tag
 } from 'lucide-react';
-import { useTransactions } from '../src/context/TransactionContext';
+import { useTransactions } from '@/src/context/TransactionContext';
 
 export const Transactions: React.FC = () => {
   const { transactions, openModal, deleteTransaction } = useTransactions();

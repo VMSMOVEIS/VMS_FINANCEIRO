@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { History, ArrowUpRight, ArrowDownLeft, Search, Filter, Download, Edit2, Trash2 } from 'lucide-react';
 import { useTransactions } from '../src/context/TransactionContext';
 
@@ -8,6 +8,7 @@ interface OperationalHistoryProps {
 
 export const OperationalHistory: React.FC<OperationalHistoryProps> = ({ type }) => {
   const { transactions, openModal, deleteTransaction } = useTransactions();
+  const [searchTerm, setSearchTerm] = useState('');
   const isSales = type === 'sales';
   
   const handleEdit = (id: number) => {
@@ -32,7 +33,17 @@ export const OperationalHistory: React.FC<OperationalHistoryProps> = ({ type }) 
       value: t.value,
       type: isSales ? 'sale' : 'purchase',
       status: t.status
-    }));
+    }))
+    .filter(item => {
+      if (!searchTerm) return true;
+      const search = searchTerm.toLowerCase();
+      return (
+        item.clientOrSupplier.toLowerCase().includes(search) ||
+        item.description.toLowerCase().includes(search) ||
+        item.orderNumber.toLowerCase().includes(search) ||
+        item.value.toString().includes(search)
+      );
+    });
 
   return (
     <div className="p-6 space-y-6">
@@ -56,6 +67,8 @@ export const OperationalHistory: React.FC<OperationalHistoryProps> = ({ type }) 
               type="text" 
               placeholder={`Buscar por ${isSales ? 'cliente' : 'fornecedor'}, pedido ou valor...`}
               className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </div>

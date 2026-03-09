@@ -18,7 +18,9 @@ import {
   Upload,
   Briefcase,
   DollarSign,
-  UserCheck
+  UserCheck,
+  LayoutGrid,
+  List as ListIcon
 } from 'lucide-react';
 import { Employee, EmployeeDocument } from '../types';
 import { useEmployees } from '../src/context/EmployeeContext';
@@ -28,11 +30,12 @@ interface EmployeeManagementProps {
 }
 
 export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ activeSubItem }) => {
-  const { employees, addEmployee, updateEmployee, deleteEmployee, addDocument, removeDocument } = useEmployees();
+  const { employees, jobRoles, addEmployee, updateEmployee, deleteEmployee, addDocument, removeDocument } = useEmployees();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'details' | 'docs'>('list');
+  const [displayMode, setDisplayMode] = useState<'grid' | 'table'>('grid');
 
   const selectedEmployee = useMemo(() => 
     employees.find(e => e.id === selectedEmployeeId) || null
@@ -316,13 +319,31 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ activeSu
               <p className="text-gray-500 text-sm mt-1">Cadastro completo, documentação e histórico de colaboradores</p>
             </div>
 
-            <button 
-              onClick={() => {resetForm(); setIsModalOpen(true);}}
-              className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors text-sm font-medium shadow-sm"
-            >
-              <Plus size={18} />
-              Novo Colaborador
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200 mr-2">
+                <button 
+                  onClick={() => setDisplayMode('grid')}
+                  className={`p-2 rounded-lg transition-all ${displayMode === 'grid' ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                  title="Visualização em Cards"
+                >
+                  <LayoutGrid size={18} />
+                </button>
+                <button 
+                  onClick={() => setDisplayMode('table')}
+                  className={`p-2 rounded-lg transition-all ${displayMode === 'table' ? 'bg-white text-pink-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                  title="Visualização em Tabela"
+                >
+                  <ListIcon size={18} />
+                </button>
+              </div>
+              <button 
+                onClick={() => {resetForm(); setIsModalOpen(true);}}
+                className="flex items-center gap-2 px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors text-sm font-medium shadow-sm"
+              >
+                <Plus size={18} />
+                Novo Colaborador
+              </button>
+            </div>
           </div>
 
           {/* Filters */}
@@ -354,69 +375,138 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ activeSu
             </select>
           </div>
 
-          {/* Employee Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredEmployees.map((emp) => (
-              <div key={emp.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow group relative">
-                <div className="absolute top-4 right-4">
-                  <div className="relative group/menu">
-                    <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
-                      <MoreHorizontal size={20} />
+          {/* Employee Grid/Table */}
+          {displayMode === 'grid' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredEmployees.map((emp) => (
+                <div key={emp.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow group relative">
+                  <div className="absolute top-4 right-4">
+                    <div className="relative group/menu">
+                      <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors">
+                        <MoreHorizontal size={20} />
+                      </button>
+                      <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-2 hidden group-hover/menu:block z-10">
+                        <button onClick={() => handleEdit(emp)} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                          <Edit2 size={14} /> Editar
+                        </button>
+                        <button onClick={() => handleDelete(emp.id)} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                          <Trash2 size={14} /> Excluir
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-4 mb-6">
+                    <div className="w-16 h-16 rounded-2xl bg-pink-100 text-pink-600 flex items-center justify-center font-bold text-xl">
+                      {emp.name.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-lg leading-tight">{emp.name}</h3>
+                      <p className="text-pink-600 text-sm font-medium mt-0.5">{emp.role}</p>
+                      <div className="mt-2">
+                        {getStatusBadge(emp.status)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 mb-6">
+                    <div className="flex items-center gap-3 text-sm text-gray-500">
+                      <Briefcase size={16} className="text-gray-400" />
+                      <span>{emp.department}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-gray-500">
+                      <Mail size={16} className="text-gray-400" />
+                      <span className="truncate">{emp.email}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-gray-500">
+                      <Phone size={16} className="text-gray-400" />
+                      <span>{emp.phone}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <Calendar size={14} />
+                      Admissão: {new Date(emp.admissionDate).toLocaleDateString('pt-BR')}
+                    </div>
+                    <button 
+                      onClick={() => handleViewDetails(emp)}
+                      className="text-sm font-semibold text-pink-600 hover:text-pink-700 flex items-center gap-1"
+                    >
+                      Ver Detalhes
                     </button>
-                    <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-2 hidden group-hover/menu:block z-10">
-                      <button onClick={() => handleEdit(emp)} className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                        <Edit2 size={14} /> Editar
-                      </button>
-                      <button onClick={() => handleDelete(emp.id)} className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
-                        <Trash2 size={14} /> Excluir
-                      </button>
-                    </div>
                   </div>
                 </div>
-
-                <div className="flex items-start gap-4 mb-6">
-                  <div className="w-16 h-16 rounded-2xl bg-pink-100 text-pink-600 flex items-center justify-center font-bold text-xl">
-                    {emp.name.substring(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900 text-lg leading-tight">{emp.name}</h3>
-                    <p className="text-pink-600 text-sm font-medium mt-0.5">{emp.role}</p>
-                    <div className="mt-2">
-                      {getStatusBadge(emp.status)}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3 mb-6">
-                  <div className="flex items-center gap-3 text-sm text-gray-500">
-                    <Briefcase size={16} className="text-gray-400" />
-                    <span>{emp.department}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm text-gray-500">
-                    <Mail size={16} className="text-gray-400" />
-                    <span className="truncate">{emp.email}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-sm text-gray-500">
-                    <Phone size={16} className="text-gray-400" />
-                    <span>{emp.phone}</span>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-gray-50 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                    <Calendar size={14} />
-                    Admissão: {new Date(emp.admissionDate).toLocaleDateString('pt-BR')}
-                  </div>
-                  <button 
-                    onClick={() => handleViewDetails(emp)}
-                    className="text-sm font-semibold text-pink-600 hover:text-pink-700 flex items-center gap-1"
-                  >
-                    Ver Detalhes
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Colaborador</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Cargo / Depto</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Contato</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {filteredEmployees.map((emp) => (
+                    <tr key={emp.id} className="hover:bg-gray-50 transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center font-bold text-sm">
+                            {emp.name.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900">{emp.name}</p>
+                            <p className="text-xs text-gray-400">Admissão: {new Date(emp.admissionDate).toLocaleDateString('pt-BR')}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm font-medium text-gray-900">{emp.role}</p>
+                        <p className="text-xs text-gray-500">{emp.department}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        {getStatusBadge(emp.status)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <p className="text-sm text-gray-600">{emp.email}</p>
+                        <p className="text-xs text-gray-400">{emp.phone}</p>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={() => handleViewDetails(emp)}
+                            className="p-2 text-gray-400 hover:text-pink-600 hover:bg-pink-50 rounded-lg transition-all"
+                            title="Ver Detalhes"
+                          >
+                            <UserCheck size={18} />
+                          </button>
+                          <button 
+                            onClick={() => handleEdit(emp)}
+                            className="p-2 text-gray-400 hover:text-pink-600 hover:bg-pink-50 rounded-lg transition-all"
+                            title="Editar"
+                          >
+                            <Edit2 size={18} />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(emp.id)}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            title="Excluir"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       ) : (
         /* Details View */
@@ -677,6 +767,53 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ activeSu
                       placeholder="Ex: João da Silva" 
                     />
                   </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Cargo</label>
+                    <select 
+                      required
+                      value={formData.role}
+                      onChange={(e) => {
+                        const role = jobRoles.find(r => r.name === e.target.value);
+                        setFormData({
+                          ...formData, 
+                          role: e.target.value,
+                          department: role?.department || formData.department,
+                          salary: role?.baseSalary || formData.salary
+                        });
+                      }}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none bg-white"
+                    >
+                      <option value="">Selecione um Cargo</option>
+                      {jobRoles.map(role => (
+                        <option key={role.id} value={role.name}>{role.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Departamento</label>
+                    <select 
+                      value={formData.department}
+                      onChange={(e) => setFormData({...formData, department: e.target.value})}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none bg-white"
+                    >
+                      <option value="TI">TI</option>
+                      <option value="RH">RH</option>
+                      <option value="Vendas">Vendas</option>
+                      <option value="Financeiro">Financeiro</option>
+                      <option value="Produção">Produção</option>
+                      <option value="Comercial">Comercial</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Salário</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      value={formData.salary || ''}
+                      onChange={(e) => setFormData({...formData, salary: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0})}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none" 
+                    />
+                  </div>
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">CPF</label>
                     <input 
@@ -875,8 +1012,8 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ activeSu
                     <input 
                       type="number" 
                       required
-                      value={formData.salary}
-                      onChange={(e) => setFormData({...formData, salary: Number(e.target.value)})}
+                      value={formData.salary || ''}
+                      onChange={(e) => setFormData({...formData, salary: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0})}
                       className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none" 
                     />
                   </div>

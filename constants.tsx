@@ -1,4 +1,6 @@
 import { 
+  Zap,
+  FileSpreadsheet,
   LayoutDashboard, 
   ArrowDownCircle, 
   ArrowUpCircle, 
@@ -33,6 +35,7 @@ import {
 import { MenuItem, ModuleId } from './types';
 
 export const MENU_ITEMS: MenuItem[] = [
+// ... (rest of MENU_ITEMS)
   {
     id: ModuleId.DASHBOARD,
     label: 'Dashboard',
@@ -227,6 +230,11 @@ export const VENDAS_MENU_ITEMS: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
+    id: ModuleId.VENDAS_PDV,
+    label: 'PDV (Balcão)',
+    icon: Zap,
+  },
+  {
     id: ModuleId.VENDAS_CRM,
     label: 'CRM / Funil',
     icon: Target,
@@ -237,6 +245,11 @@ export const VENDAS_MENU_ITEMS: MenuItem[] = [
     icon: ShoppingCart,
   },
   {
+    id: ModuleId.VENDAS_ORCAMENTOS,
+    label: 'Orçamentos',
+    icon: FileSpreadsheet,
+  },
+  {
     id: ModuleId.VENDAS_PROPOSTAS,
     label: 'Propostas Comerciais',
     icon: FileText,
@@ -245,6 +258,11 @@ export const VENDAS_MENU_ITEMS: MenuItem[] = [
     id: ModuleId.VENDAS_CLIENTES,
     label: 'Gestão de Clientes',
     icon: UserCheck,
+  },
+  {
+    id: ModuleId.VENDAS_CATALOGO,
+    label: 'Catálogo & Preços',
+    icon: BookOpen,
   },
   {
     id: ModuleId.VENDAS_METAS,

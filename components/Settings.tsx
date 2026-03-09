@@ -325,8 +325,8 @@ export const Settings: React.FC = () => {
                             <input 
                               type="number" 
                               className="w-full border border-gray-300 rounded px-2 py-1 text-sm text-right"
-                              value={editingAccountForm.balance}
-                              onChange={e => setEditingAccountForm({...editingAccountForm, balance: Number(e.target.value)})}
+                              value={editingAccountForm.balance || editingAccountForm.balance === 0 ? editingAccountForm.balance : ''}
+                              onChange={e => setEditingAccountForm({...editingAccountForm, balance: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0})}
                               step="0.01"
                             />
                           </div>

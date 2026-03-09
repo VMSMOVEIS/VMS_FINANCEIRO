@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, ArrowUpCircle, ArrowDownCircle, X, Landmark, ShieldCheck, BarChart3, Wallet } from 'lucide-react';
 import { AccountPlan } from '../services/financialData';
-import { useTransactions } from '../src/context/TransactionContext';
+import { useTransactions } from '@/src/context/TransactionContext';
 
 export const ChartOfAccounts: React.FC = () => {
   const { accountPlans, addAccountPlan, deleteAccountPlan, updateAccountPlan, resetAccountPlans } = useTransactions();
@@ -17,8 +17,8 @@ export const ChartOfAccounts: React.FC = () => {
     const prefixMap = {
       ativo: '1',
       passivo: '2',
-      receita: '3',
-      despesa: '4'
+      receita: '4',
+      despesa: '5'
     };
     const prefix = prefixMap[type];
     const accounts = accountPlans.filter(a => a.type === type);
@@ -87,9 +87,9 @@ export const ChartOfAccounts: React.FC = () => {
     }
   };
 
-  const renderAccountList = (type: 'ativo' | 'passivo' | 'receita' | 'despesa') => {
+  const renderAccountList = (prefix: string) => {
     const accounts = accountPlans
-      .filter(a => a.type === type)
+      .filter(a => a.code.startsWith(prefix))
       .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
     
     return (
@@ -159,41 +159,59 @@ export const ChartOfAccounts: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-        {/* 1. ATIVOS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {/* 1. ATIVO */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
           <div className="p-4 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
             <Wallet className="text-blue-600" size={20} />
-            <h3 className="font-bold text-blue-800">1. Ativos</h3>
+            <h3 className="font-bold text-blue-800">1. Ativo</h3>
           </div>
-          {renderAccountList('ativo')}
+          {renderAccountList('1')}
         </div>
 
-        {/* 2. PASSIVOS */}
+        {/* 2. PASSIVO */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
           <div className="p-4 bg-purple-50 border-b border-purple-100 flex items-center gap-2">
             <ShieldCheck className="text-purple-600" size={20} />
-            <h3 className="font-bold text-purple-800">2. Passivos e PL</h3>
+            <h3 className="font-bold text-purple-800">2. Passivo</h3>
           </div>
-          {renderAccountList('passivo')}
+          {renderAccountList('2')}
         </div>
 
-        {/* 3. RECEITAS */}
+        {/* 3. PATRIMÔNIO LÍQUIDO */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+          <div className="p-4 bg-indigo-50 border-b border-indigo-100 flex items-center gap-2">
+            <Landmark className="text-indigo-600" size={20} />
+            <h3 className="font-bold text-indigo-800">3. Patrimônio Líquido</h3>
+          </div>
+          {renderAccountList('3')}
+        </div>
+
+        {/* 4. RECEITAS */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
           <div className="p-4 bg-emerald-50 border-b border-emerald-100 flex items-center gap-2">
             <ArrowUpCircle className="text-emerald-600" size={20} />
-            <h3 className="font-bold text-emerald-800">3. Receitas</h3>
+            <h3 className="font-bold text-emerald-800">4. Receitas</h3>
           </div>
-          {renderAccountList('receita')}
+          {renderAccountList('4')}
         </div>
 
-        {/* 4. DESPESAS */}
+        {/* 5. CUSTOS DE PRODUÇÃO */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+          <div className="p-4 bg-orange-50 border-b border-orange-100 flex items-center gap-2">
+            <BarChart3 className="text-orange-600" size={20} />
+            <h3 className="font-bold text-orange-800">5. Custos de Produção</h3>
+          </div>
+          {renderAccountList('5')}
+        </div>
+
+        {/* 6. DESPESAS OPERACIONAIS */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
           <div className="p-4 bg-red-50 border-b border-red-100 flex items-center gap-2">
             <ArrowDownCircle className="text-red-600" size={20} />
-            <h3 className="font-bold text-red-800">4. Despesas</h3>
+            <h3 className="font-bold text-red-800">6. Despesas Operacionais</h3>
           </div>
-          {renderAccountList('despesa')}
+          {renderAccountList('6')}
         </div>
       </div>
 
@@ -243,7 +261,7 @@ export const ChartOfAccounts: React.FC = () => {
                         : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                     }`}
                   >
-                    3. Receita
+                    4. Receita
                   </button>
                   <button
                     type="button"
@@ -254,7 +272,7 @@ export const ChartOfAccounts: React.FC = () => {
                         : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                     }`}
                   >
-                    4. Despesa
+                    5/6. Custo/Despesa
                   </button>
                 </div>
               </div>

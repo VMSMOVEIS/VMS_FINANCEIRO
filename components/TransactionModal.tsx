@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Calendar, FileText, DollarSign, Briefcase, Wallet, Hash, User, Plus } from 'lucide-react';
 import { getAccountPlans, getTransactionTypes, AccountPlan, TransactionType } from '../services/financialData';
-import { useTransactions } from '../src/context/TransactionContext';
+import { useTransactions } from '@/src/context/TransactionContext';
 import { Transaction, Payment } from '../types';
 import { SearchTransactionModal } from './SearchTransactionModal';
 
@@ -608,7 +608,7 @@ export const TransactionModal: React.FC = () => {
                   placeholder="0,00"
                   value={formData.value || ''}
                   onChange={(e) => {
-                    const val = parseFloat(e.target.value);
+                    const val = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
                     setFormData(prev => {
                       const updates: any = { value: val };
                       if (isTransfer && prev.payments && prev.payments.length > 0) {
@@ -728,8 +728,8 @@ export const TransactionModal: React.FC = () => {
                       <label className="text-xs text-gray-500 block mb-1">Valor</label>
                       <input
                         type="number"
-                        value={payment.value}
-                        onChange={(e) => updatePayment(index, 'value', parseFloat(e.target.value))}
+                        value={payment.value || ''}
+                        onChange={(e) => updatePayment(index, 'value', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
                         className="w-full text-xs p-2 border rounded"
                       />
                     </div>

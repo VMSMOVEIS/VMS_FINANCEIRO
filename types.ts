@@ -43,10 +43,13 @@ export enum ModuleId {
   
   // Vendas Modules
   VENDAS_DASHBOARD = 'vendas_dashboard',
+  VENDAS_PDV = 'vendas_pdv',
   VENDAS_CRM = 'vendas_crm',
   VENDAS_PEDIDOS = 'vendas_pedidos',
+  VENDAS_ORCAMENTOS = 'vendas_orçamentos',
   VENDAS_PROPOSTAS = 'vendas_propostas',
   VENDAS_CLIENTES = 'vendas_clientes',
+  VENDAS_CATALOGO = 'vendas_catalogo',
   VENDAS_METAS = 'vendas_metas',
   VENDAS_CONFIG = 'vendas_config'
 }
@@ -132,6 +135,18 @@ export interface NotificationSettings {
   emailAlerts: boolean;
 }
 
+export interface Tax {
+  id: string;
+  name: string;
+  type: 'das' | 'iss' | 'icms' | 'pis' | 'cofins' | 'inss' | 'fgts' | 'other';
+  competence: string; // MM/YYYY
+  dueDate: string;
+  value: number;
+  status: 'paid' | 'pending' | 'overdue';
+  description?: string;
+  year?: number;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'model';
@@ -204,6 +219,14 @@ export interface Employee {
   education?: string;
   benefits: EmployeeBenefit[];
   documents: EmployeeDocument[];
+}
+
+export interface JobRole {
+  id: string;
+  name: string;
+  description?: string;
+  department?: string;
+  baseSalary?: number;
 }
 
 export enum LeadStatus {
