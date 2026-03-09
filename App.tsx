@@ -69,8 +69,8 @@ const App: React.FC = () => {
         const diffTime = dueDate.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-        // Show if within alert range OR overdue (up to 30 days)
-        if (diffDays <= notificationSettings.alertDaysBefore && diffDays >= -30) {
+        // Show if within alert range OR overdue
+        if (diffDays <= notificationSettings.alertDaysBefore) {
           alerts.push({
             id: `${transaction.id}-${payment.dueDate}`,
             transactionId: transaction.id,
@@ -490,34 +490,47 @@ const App: React.FC = () => {
                           <p className="text-sm">Nenhuma notificação</p>
                         </div>
                       ) : (
-                        notifications.map((notification) => (
-                          <div 
-                            key={notification.id}
-                            onClick={() => handleNotificationClick(notification)}
-                            className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className={`p-2 rounded-full ${notification.type === 'expense' ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                                <Calendar size={16} />
+                        <>
+                          {notifications.slice(0, 10).map((notification) => (
+                            <div 
+                              key={notification.id}
+                              onClick={() => handleNotificationClick(notification)}
+                              className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className={`p-2 rounded-full ${notification.type === 'expense' ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                  <Calendar size={16} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">{notification.description}</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">
+                                    {notification.title} • {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(notification.value)}
+                                  </p>
+                                  <p className={`text-xs mt-1 font-medium ${notification.daysUntil < 0 ? 'text-red-600' : notification.daysUntil === 0 ? 'text-orange-600' : 'text-emerald-600'}`}>
+                                    {notification.daysUntil < 0 
+                                      ? `Venceu há ${Math.abs(notification.daysUntil)} dias`
+                                      : notification.daysUntil === 0
+                                        ? 'Vence hoje'
+                                        : `Vence em ${notification.daysUntil} dias`
+                                    }
+                                  </p>
+                                </div>
+                                <ArrowRight size={14} className="text-gray-300 mt-1" />
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">{notification.description}</p>
-                                <p className="text-xs text-gray-500 mt-0.5">
-                                  {notification.title} • {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(notification.value)}
-                                </p>
-                                <p className={`text-xs mt-1 font-medium ${notification.daysUntil < 0 ? 'text-red-600' : notification.daysUntil === 0 ? 'text-orange-600' : 'text-emerald-600'}`}>
-                                  {notification.daysUntil < 0 
-                                    ? `Venceu há ${Math.abs(notification.daysUntil)} dias`
-                                    : notification.daysUntil === 0
-                                      ? 'Vence hoje'
-                                      : `Vence em ${notification.daysUntil} dias`
-                                  }
-                                </p>
-                              </div>
-                              <ArrowRight size={14} className="text-gray-300 mt-1" />
                             </div>
-                          </div>
-                        ))
+                          ))}
+                          {notifications.length > 10 && (
+                            <button 
+                              onClick={() => {
+                                setActiveModule(ModuleId.CONTAS_PAGAR);
+                                setNotificationsOpen(false);
+                              }}
+                              className="w-full py-3 text-sm text-blue-600 font-medium hover:bg-gray-50 transition-colors"
+                            >
+                              Ver todos os títulos ({notifications.length})
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>

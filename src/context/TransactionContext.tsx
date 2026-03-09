@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Transaction, Account, PaymentMethod, UserProfile, CompanyProfile, Payment, NotificationSettings } from '../../types';
 import { supabase } from '../lib/supabase';
-import { AccountPlan } from '../../services/financialData';
+import { AccountPlan, defaultAccountPlans } from '../../services/financialData';
 
 interface TransactionContextType {
   transactions: Transaction[];
   accounts: Account[];
+  accountsWithBalances: (Account & { currentBalance: number })[];
   paymentMethods: PaymentMethod[];
   accountPlans: AccountPlan[];
   userProfile: UserProfile;
@@ -28,6 +29,7 @@ interface TransactionContextType {
   addAccountPlan: (plan: Omit<AccountPlan, 'id'>) => Promise<void>;
   updateAccountPlan: (id: string, plan: Partial<AccountPlan>) => Promise<void>;
   deleteAccountPlan: (id: string) => Promise<void>;
+  resetAccountPlans: () => Promise<void>;
   updateUserProfile: (profile: Partial<UserProfile>) => Promise<void>;
   updateCompanyProfile: (profile: Partial<CompanyProfile>) => Promise<void>;
   updateNotificationSettings: (settings: Partial<NotificationSettings>) => Promise<void>;
@@ -110,7 +112,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         id: p.id,
         code: p.code,
         name: p.name,
-        type: p.type as 'receita' | 'despesa'
+        type: p.type as any
       })));
 
       // Fetch Transactions with Payments
@@ -450,6 +452,37 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
 
+  const resetAccountPlans = async () => {
+    if (!supabase) return;
+    if (!confirm('Isso irá remover TODOS os planos de contas atuais e restaurar o padrão profissional. Deseja continuar?')) return;
+    
+    try {
+      setIsLoading(true);
+      // 1. Delete all existing plans
+      const { error: deleteError } = await supabase
+        .from('account_plans')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+      
+      if (deleteError) throw deleteError;
+
+      // 2. Insert defaults
+      const { error: insertError } = await supabase
+        .from('account_plans')
+        .insert(defaultAccountPlans);
+      
+      if (insertError) throw insertError;
+
+      await fetchData();
+      alert('Plano de contas profissional restaurado com sucesso!');
+    } catch (error: any) {
+      console.error('Error resetting account plans:', error);
+      alert(`Erro ao restaurar plano de contas: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const updateUserProfile = async (profile: Partial<UserProfile>) => {
     // In a real app, this would update the 'profiles' table
     setUserProfile(prev => ({ ...prev, ...profile }));
@@ -491,10 +524,38 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       addAccountPlan,
       updateAccountPlan,
       deleteAccountPlan,
+      resetAccountPlans,
       updateUserProfile,
       updateCompanyProfile,
       updateNotificationSettings,
-      refreshData: fetchData
+      refreshData: fetchData,
+      accountsWithBalances: accounts.map(account => {
+        let currentBalance = account.balance;
+        transactions.forEach(t => {
+          t.payments.forEach(p => {
+            if (p.status !== 'completed' || p.method === 'Adiantamento') return;
+            
+            // Income: Add to destination account
+            if (t.type === 'income' && p.destination === account.name) {
+              currentBalance += p.value;
+            }
+            // Expense: Subtract from source account
+            else if (t.type === 'expense' && p.source === account.name) {
+              currentBalance -= p.value;
+            }
+            // Transfer: Subtract from source, add to destination
+            else if (t.type === 'transfer') {
+              if (p.source === account.name) {
+                currentBalance -= p.value;
+              }
+              if (p.destination === account.name) {
+                currentBalance += p.value;
+              }
+            }
+          });
+        });
+        return { ...account, currentBalance };
+      })
     }}>
       {children}
     </TransactionContext.Provider>

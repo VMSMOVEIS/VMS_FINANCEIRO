@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, User, Lock, Bell, CreditCard, Building, Landmark, Plus, Trash2, Save, Edit2, X, Check } from 'lucide-react';
 import { useTransactions } from '../src/context/TransactionContext';
 import { Account, PaymentMethod, UserProfile, CompanyProfile } from '../types';
+import { formatCPF, formatCNPJ, formatPhone, formatCEP } from '../src/lib/formatters';
 
 export const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('bancos');
@@ -202,7 +203,7 @@ export const Settings: React.FC = () => {
                     type="tel" 
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-emerald-500 focus:border-emerald-500" 
                     value={profileForm.phone}
-                    onChange={e => setProfileForm({...profileForm, phone: e.target.value})}
+                    onChange={e => setProfileForm({...profileForm, phone: formatPhone(e.target.value)})}
                   />
                 </div>
               </div>
@@ -237,7 +238,7 @@ export const Settings: React.FC = () => {
                     type="text" 
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-emerald-500 focus:border-emerald-500" 
                     value={companyForm.cnpj}
-                    onChange={e => setCompanyForm({...companyForm, cnpj: e.target.value})}
+                    onChange={e => setCompanyForm({...companyForm, cnpj: formatCNPJ(e.target.value)})}
                   />
                 </div>
                 <div>
@@ -255,7 +256,7 @@ export const Settings: React.FC = () => {
                     type="tel" 
                     className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-emerald-500 focus:border-emerald-500" 
                     value={companyForm.phone}
-                    onChange={e => setCompanyForm({...companyForm, phone: e.target.value})}
+                    onChange={e => setCompanyForm({...companyForm, phone: formatPhone(e.target.value)})}
                   />
                 </div>
                 <div className="md:col-span-2">

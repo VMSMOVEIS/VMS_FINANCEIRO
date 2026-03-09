@@ -3,52 +3,7 @@ import { Landmark, ArrowUpRight, ArrowDownLeft, Wallet, Building2 } from 'lucide
 import { useTransactions } from '../src/context/TransactionContext';
 
 export const Treasury: React.FC = () => {
-  const { transactions, accounts } = useTransactions();
-
-  const accountBalances = useMemo(() => {
-    const balances: Record<string, number> = {};
-
-    // Initialize with base balances
-    accounts.forEach(acc => {
-      balances[acc.name] = acc.balance || 0;
-    });
-
-    transactions.forEach(t => {
-      t.payments.forEach(p => {
-        if (p.status === 'completed') {
-          // If this payment was settled by another independent transaction, skip it here
-          // to avoid double counting the cash movement
-          const isSettledByOther = transactions.some(other => 
-            other.linkedTransactionId === t.id && other.linkedPaymentId === p.id
-          );
-          
-          if (isSettledByOther) return;
-
-          if (t.type === 'transfer') {
-            // For transfers, subtract from source and add to destination
-            if (p.source && balances[p.source] !== undefined) {
-              balances[p.source] -= p.value;
-            }
-            if (p.destination && balances[p.destination] !== undefined) {
-              balances[p.destination] += p.value;
-            }
-          } else if (t.type === 'income') {
-             // For income, add to destination
-             if (p.destination && balances[p.destination] !== undefined) {
-               balances[p.destination] += p.value;
-             }
-          } else if (t.type === 'expense') {
-             // For expense, subtract from destination (which is the paying account)
-             if (p.destination && balances[p.destination] !== undefined) {
-               balances[p.destination] -= p.value;
-             }
-          }
-        }
-      });
-    });
-
-    return balances;
-  }, [transactions, accounts]);
+  const { transactions, accountsWithBalances } = useTransactions();
 
   // Filter for completed payments to show as recent movements
   const recentMovements = transactions
@@ -86,8 +41,8 @@ export const Treasury: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {accounts.map((account) => {
-          const balance = accountBalances[account.name] || 0;
+        {accountsWithBalances.map((account) => {
+          const balance = account.currentBalance;
           const color = account.color || '#10B981'; // Default emerald if no color
           
           return (

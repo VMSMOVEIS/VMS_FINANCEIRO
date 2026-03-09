@@ -1,43 +1,52 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, ArrowUpCircle, ArrowDownCircle, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, ArrowUpCircle, ArrowDownCircle, X, Landmark, ShieldCheck, BarChart3, Wallet } from 'lucide-react';
 import { AccountPlan } from '../services/financialData';
 import { useTransactions } from '../src/context/TransactionContext';
 
 export const ChartOfAccounts: React.FC = () => {
-  const { accountPlans, addAccountPlan, deleteAccountPlan, updateAccountPlan } = useTransactions();
+  const { accountPlans, addAccountPlan, deleteAccountPlan, updateAccountPlan, resetAccountPlans } = useTransactions();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newAccount, setNewAccount] = useState<Partial<AccountPlan>>({
-    type: 'despesa',
+    type: 'ativo',
     code: '',
     name: ''
   });
 
-  const generateNextCode = (type: 'receita' | 'despesa') => {
-    const prefix = type === 'receita' ? '1' : '2';
+  const generateNextCode = (type: 'ativo' | 'passivo' | 'receita' | 'despesa') => {
+    const prefixMap = {
+      ativo: '1',
+      passivo: '2',
+      receita: '3',
+      despesa: '4'
+    };
+    const prefix = prefixMap[type];
     const accounts = accountPlans.filter(a => a.type === type);
     
-    if (accounts.length === 0) return `${prefix}.01`;
+    if (accounts.length === 0) return `${prefix}`;
     
-    const codes = accounts.map(a => {
-      const parts = a.code.split('.');
-      return parseInt(parts[1] || '0');
-    });
-    const maxCode = Math.max(...codes);
-    return `${prefix}.${String(maxCode + 1).padStart(2, '0')}`;
+    // For professional plans, we often have levels. 
+    // This is a simplified auto-generator for the next top-level or sub-level item.
+    // If there are accounts like 1, 1.1, 1.1.01, we find the next one.
+    const codes = accounts.map(a => a.code);
+    
+    // Logic: find max at the current level. 
+    // For simplicity, let's just increment the last number of the longest code found for that type
+    // or just return a placeholder if it's too complex.
+    // Professional users usually enter their own codes, but we'll provide a suggestion.
+    const maxCode = codes.sort().reverse()[0] || prefix;
+    const parts = maxCode.split('.');
+    const lastPart = parseInt(parts[parts.length - 1]);
+    
+    if (isNaN(lastPart)) return `${prefix}.1`;
+    
+    parts[parts.length - 1] = (lastPart + 1).toString();
+    return parts.join('.');
   };
 
-  const handleTypeChange = (type: 'receita' | 'despesa') => {
-    if (editingId) {
-        // If editing, we generally don't want to change the type/code logic automatically 
-        // unless we want to allow moving accounts between types, which implies code change.
-        // For simplicity, let's allow it but regenerate code.
-        const nextCode = generateNextCode(type);
-        setNewAccount({ ...newAccount, type, code: nextCode });
-    } else {
-        const nextCode = generateNextCode(type);
-        setNewAccount({ ...newAccount, type, code: nextCode });
-    }
+  const handleTypeChange = (type: 'ativo' | 'passivo' | 'receita' | 'despesa') => {
+    const nextCode = generateNextCode(type);
+    setNewAccount({ ...newAccount, type, code: nextCode });
   };
 
   const handleAddAccount = async (e: React.FormEvent) => {
@@ -47,18 +56,18 @@ export const ChartOfAccounts: React.FC = () => {
         await updateAccountPlan(editingId, {
             name: newAccount.name,
             code: newAccount.code,
-            type: newAccount.type as 'receita' | 'despesa'
+            type: newAccount.type as any
         });
       } else {
         await addAccountPlan({
             name: newAccount.name,
             code: newAccount.code,
-            type: newAccount.type as 'receita' | 'despesa'
+            type: newAccount.type as any
         });
       }
       setIsModalOpen(false);
       setEditingId(null);
-      setNewAccount({ type: 'despesa', code: '', name: '' });
+      setNewAccount({ type: 'ativo', code: '', name: '' });
     }
   };
 
@@ -78,35 +87,44 @@ export const ChartOfAccounts: React.FC = () => {
     }
   };
 
-  const renderAccountList = (type: 'receita' | 'despesa') => {
-    const accounts = accountPlans.filter(a => a.type === type);
+  const renderAccountList = (type: 'ativo' | 'passivo' | 'receita' | 'despesa') => {
+    const accounts = accountPlans
+      .filter(a => a.type === type)
+      .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
     
     return (
-      <div className="divide-y divide-gray-100">
-        {accounts.map(account => (
-          <div key={account.id} className="p-4 flex justify-between items-center hover:bg-gray-50 group">
-            <div className="flex items-center gap-3">
-              <span className="font-mono text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">{account.code}</span>
-              <span className="font-bold text-gray-800">{account.name}</span>
+      <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
+        {accounts.map(account => {
+          const isHeader = account.code.split('.').length <= 2;
+          return (
+            <div key={account.id} className={`p-3 flex justify-between items-center hover:bg-gray-50 group ${isHeader ? 'bg-gray-50/50' : ''}`}>
+              <div className="flex items-center gap-3">
+                <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded ${isHeader ? 'bg-gray-200 text-gray-700 font-bold' : 'bg-gray-100 text-gray-500'}`}>
+                  {account.code}
+                </span>
+                <span className={`${isHeader ? 'font-bold text-gray-900' : 'text-gray-700 text-sm ml-2'}`}>
+                  {account.name}
+                </span>
+              </div>
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button 
+                  onClick={() => handleEdit(account)}
+                  className="p-1 text-gray-400 hover:text-blue-600 rounded transition-colors"
+                >
+                  <Edit2 size={14} />
+                </button>
+                <button 
+                  onClick={() => handleDelete(account.id)}
+                  className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
             </div>
-            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button 
-                onClick={() => handleEdit(account)}
-                className="p-1 text-gray-400 hover:text-blue-600 rounded"
-              >
-                <Edit2 size={16} />
-              </button>
-              <button 
-                onClick={() => handleDelete(account.id)}
-                className="p-1 text-gray-400 hover:text-red-600 rounded"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {accounts.length === 0 && (
-          <div className="p-8 text-center text-gray-400">Nenhuma conta de {type} cadastrada.</div>
+          <div className="p-8 text-center text-gray-400 text-sm italic">Nenhuma conta cadastrada.</div>
         )}
       </div>
     );
@@ -119,35 +137,61 @@ export const ChartOfAccounts: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-800">Plano de Contas</h1>
           <p className="text-gray-500">Estruture as categorias financeiras da sua empresa</p>
         </div>
-        <button 
-          onClick={() => {
-            setIsModalOpen(true);
-            setEditingId(null);
-            const nextCode = generateNextCode('despesa');
-            setNewAccount({ type: 'despesa', code: nextCode, name: '' });
-          }}
-          className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
-        >
-          <Plus size={18} />
-          <span>Nova Conta</span>
-        </button>
+        <div className="flex gap-3">
+          <button 
+            onClick={resetAccountPlans}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            Restaurar Padrão Profissional
+          </button>
+          <button 
+            onClick={() => {
+              setIsModalOpen(true);
+              setEditingId(null);
+              const nextCode = generateNextCode('ativo');
+              setNewAccount({ type: 'ativo', code: nextCode, name: '' });
+            }}
+            className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
+          >
+            <Plus size={18} />
+            <span>Nova Conta</span>
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Receitas Column */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        {/* 1. ATIVOS */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+          <div className="p-4 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
+            <Wallet className="text-blue-600" size={20} />
+            <h3 className="font-bold text-blue-800">1. Ativos</h3>
+          </div>
+          {renderAccountList('ativo')}
+        </div>
+
+        {/* 2. PASSIVOS */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+          <div className="p-4 bg-purple-50 border-b border-purple-100 flex items-center gap-2">
+            <ShieldCheck className="text-purple-600" size={20} />
+            <h3 className="font-bold text-purple-800">2. Passivos e PL</h3>
+          </div>
+          {renderAccountList('passivo')}
+        </div>
+
+        {/* 3. RECEITAS */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
           <div className="p-4 bg-emerald-50 border-b border-emerald-100 flex items-center gap-2">
             <ArrowUpCircle className="text-emerald-600" size={20} />
-            <h3 className="font-bold text-emerald-800">Receitas</h3>
+            <h3 className="font-bold text-emerald-800">3. Receitas</h3>
           </div>
           {renderAccountList('receita')}
         </div>
 
-        {/* Despesas Column */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        {/* 4. DESPESAS */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
           <div className="p-4 bg-red-50 border-b border-red-100 flex items-center gap-2">
             <ArrowDownCircle className="text-red-600" size={20} />
-            <h3 className="font-bold text-red-800">Despesas</h3>
+            <h3 className="font-bold text-red-800">4. Despesas</h3>
           </div>
           {renderAccountList('despesa')}
         </div>
@@ -166,54 +210,78 @@ export const ChartOfAccounts: React.FC = () => {
             
             <form onSubmit={handleAddAccount} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Natureza</label>
-                <div className="flex rounded-md shadow-sm">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Natureza Contábil</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleTypeChange('ativo')}
+                    className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all ${
+                      newAccount.type === 'ativo' 
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-md' 
+                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    1. Ativo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTypeChange('passivo')}
+                    className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all ${
+                      newAccount.type === 'passivo' 
+                        ? 'bg-purple-600 text-white border-purple-600 shadow-md' 
+                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    2. Passivo/PL
+                  </button>
                   <button
                     type="button"
                     onClick={() => handleTypeChange('receita')}
-                    className={`flex-1 px-4 py-2 text-sm font-medium rounded-l-md border ${
+                    className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all ${
                       newAccount.type === 'receita' 
-                        ? 'bg-emerald-600 text-white border-emerald-600' 
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' 
+                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                     }`}
                   >
-                    Receita
+                    3. Receita
                   </button>
                   <button
                     type="button"
                     onClick={() => handleTypeChange('despesa')}
-                    className={`flex-1 px-4 py-2 text-sm font-medium rounded-r-md border-t border-b border-r ${
+                    className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all ${
                       newAccount.type === 'despesa' 
-                        ? 'bg-red-600 text-white border-red-600' 
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        ? 'bg-red-600 text-white border-red-600 shadow-md' 
+                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                     }`}
                   >
-                    Despesa
+                    4. Despesa
                   </button>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
-                <input 
-                  type="text" 
-                  required
-                  readOnly
-                  value={newAccount.code}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 text-sm font-mono cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Conta / Categoria</label>
-                <input 
-                  type="text" 
-                  required
-                  value={newAccount.name}
-                  onChange={(e) => setNewAccount({...newAccount, name: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-                  placeholder="Ex: Receita de Vendas"
-                />
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={newAccount.code}
+                    onChange={(e) => setNewAccount({...newAccount, code: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm font-mono"
+                    placeholder="Ex: 1.1.01"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Conta</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={newAccount.name}
+                    onChange={(e) => setNewAccount({...newAccount, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                    placeholder="Ex: Banco Conta Movimento"
+                  />
+                </div>
               </div>
 
               <div className="pt-4 flex justify-end gap-3">

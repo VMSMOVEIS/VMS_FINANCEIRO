@@ -8,7 +8,7 @@ interface AccountingProps {
 
 export const Accounting: React.FC<AccountingProps> = ({ initialView = 'contab_dre' }) => {
   const [activeTab, setActiveTab] = useState(initialView);
-  const { transactions } = useTransactions();
+  const { transactions, accounts } = useTransactions();
 
   // Sync activeTab when initialView changes (e.g. from sidebar navigation)
   React.useEffect(() => {
@@ -22,7 +22,7 @@ export const Accounting: React.FC<AccountingProps> = ({ initialView = 'contab_dr
       case 'contab_dre':
         return <DREView transactions={transactions} />;
       case 'contab_balanco':
-        return <BalanceSheetView transactions={transactions} />;
+        return <BalanceSheetView transactions={transactions} accounts={accounts} />;
       case 'contab_balancete':
         return <TrialBalanceView transactions={transactions} />;
       case 'contab_diario':
@@ -30,7 +30,7 @@ export const Accounting: React.FC<AccountingProps> = ({ initialView = 'contab_dr
       case 'contab_razao':
         return <LedgerView transactions={transactions} />;
       case 'contab_dfc':
-        return <DFCView transactions={transactions} />;
+        return <DFCView transactions={transactions} accounts={accounts} />;
       case 'contab_dmpl':
         return <DMPLView transactions={transactions} />;
       case 'contab_dva':
@@ -111,8 +111,8 @@ const generateAccountingEntries = (transactions: any[]) => {
             transactionId: t.id,
             date: p.dueDate || t.date,
             description: `Transferência - ${t.description}`,
-            debit: `1.01.01 - ${p.destination}`,
-            credit: `1.01.01 - ${p.source}`,
+            debit: `1.1.01 - ${p.destination}`,
+            credit: `1.1.01 - ${p.source}`,
             value: p.value
           };
           entries.push(transferEntry);
@@ -129,8 +129,8 @@ const generateAccountingEntries = (transactions: any[]) => {
         transactionId: t.id,
         date: t.date,
         description: `Reconhecimento de ${t.type === 'income' ? 'Receita' : 'Despesa'} - ${t.description}`,
-        debit: t.type === 'income' ? '1.01.02 - Clientes a Receber' : `4.01.01 - Despesa com ${t.category}`,
-        credit: t.type === 'income' ? `3.01.01 - Receita de ${t.category}` : '2.01.01 - Fornecedores a Pagar',
+        debit: t.type === 'income' ? '1.1.02 - Contas a Receber' : `4.2.02 - Despesas Administrativas (${t.category})`,
+        credit: t.type === 'income' ? `3.1.01 - Receita de Vendas (${t.category})` : '2.1.01 - Fornecedores',
         value: t.value
       };
       entries.push(accrualEntry);
@@ -152,8 +152,8 @@ const generateAccountingEntries = (transactions: any[]) => {
           transactionId: t.id,
           date: p.dueDate || t.date,
           description: `${t.type === 'income' ? 'Recebimento' : 'Pagamento'} - ${t.description}`,
-          debit: t.type === 'income' ? '1.01.01 - Caixa/Banco' : '2.01.01 - Fornecedores a Pagar',
-          credit: t.type === 'income' ? '1.01.02 - Clientes a Receber' : '1.01.01 - Caixa/Banco',
+          debit: t.type === 'income' ? '1.1.01 - Caixa/Banco' : '2.1.01 - Fornecedores',
+          credit: t.type === 'income' ? '1.1.02 - Contas a Receber' : '1.1.01 - Caixa/Banco',
           value: p.value
         };
         entries.push(paymentEntry);
@@ -244,13 +244,14 @@ const DREView = ({ transactions }: { transactions: any[] }) => {
   );
 };
 
-const BalanceSheetView = ({ transactions }: { transactions: any[] }) => {
+const BalanceSheetView = ({ transactions, accounts }: { transactions: any[], accounts: any[] }) => {
   const balances = useMemo(() => {
+    const totalInitialBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
     const entries = generateAccountingEntries(transactions);
     const accountBalances: Record<string, number> = {
-      '1.01.01 - Caixa/Banco': 0,
-      '1.01.02 - Clientes a Receber': 0,
-      '2.01.01 - Fornecedores a Pagar': 0,
+      '1.1.01 - Caixa/Banco': 0,
+      '1.1.02 - Contas a Receber': 0,
+      '2.1.01 - Fornecedores': 0,
       'Capital Social': 100000, // Mock initial capital
     };
 
@@ -321,11 +322,11 @@ const BalanceSheetView = ({ transactions }: { transactions: any[] }) => {
       // Transfers are neutral for consolidated cash and equity earnings
     });
 
-    // Add initial mock cash to prevent negative balance in demo
-    assets.cash += 50000; 
+    // Add real initial balance from accounts
+    assets.cash += totalInitialBalance; 
 
     return { assets, liabilities, equity };
-  }, [transactions]);
+  }, [transactions, accounts]);
 
   const totalAssets = balances.assets.cash + balances.assets.receivables + balances.assets.fixed;
   const totalLiabilities = balances.liabilities.payables + balances.liabilities.taxes;
@@ -610,8 +611,9 @@ const LedgerView = ({ transactions }: { transactions: any[] }) => {
   );
 };
 
-const DFCView = ({ transactions }: { transactions: any[] }) => {
+const DFCView = ({ transactions, accounts }: { transactions: any[], accounts: any[] }) => {
   const dfcData = useMemo(() => {
+    const totalInitialBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
     // Operating Activities: Net Income + Non-cash items + Changes in Working Capital
     // Simplified: Cash In - Cash Out from Operating activities
     const operatingIn = transactions
@@ -642,11 +644,11 @@ const DFCView = ({ transactions }: { transactions: any[] }) => {
 
     const netFinancing = financingIn - financingOut;
 
-    const initialCash = 50000; // Mock initial cash
+    const initialCash = totalInitialBalance;
     const finalCash = initialCash + netOperating + netInvesting + netFinancing;
 
     return { netOperating, netInvesting, netFinancing, initialCash, finalCash };
-  }, [transactions]);
+  }, [transactions, accounts]);
 
   return (
     <div className="p-8">

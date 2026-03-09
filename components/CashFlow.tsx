@@ -49,12 +49,63 @@ export const CashFlow: React.FC = () => {
   });
 
   const chartData = useMemo(() => {
+    // Calculate Initial Balance based on selected account(s)
+    let initialBalance = 0;
+    if (selectedAccount === 'all') {
+      initialBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+    } else {
+      const acc = accounts.find(a => a.name === selectedAccount || a.id === selectedAccount);
+      initialBalance = acc ? acc.balance : 0;
+    }
+    
+    // Calculate running balance for ALL time to get correct starting point for the selected year
+    const allSortedTransactions = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    let runningBalance = initialBalance;
+    let projectedBalance = initialBalance;
+    
+    const yearStartBalance: Record<number, number> = {};
+    const yearProjectedStartBalance: Record<number, number> = {};
+    
+    // Pre-calculate balances for each day
+    const balanceByDay: Record<string, { saldo: number; projetado: number }> = {};
+    
+    allSortedTransactions.forEach(t => {
+        t.payments.forEach(p => {
+            if (selectedAccount !== 'all') {
+                const isDestination = p.destination === selectedAccount;
+                const isSource = p.source === selectedAccount;
+                if (!isDestination && !isSource) return;
+            }
+            
+            let isIncome = t.type === 'income';
+            let isExpense = t.type === 'expense';
+            if (t.transactionTypeId === 'transferencia') {
+                if (selectedAccount === 'all') return;
+                if (p.source === selectedAccount) { isIncome = false; isExpense = true; }
+                else if (p.destination === selectedAccount) { isIncome = true; isExpense = false; }
+                else return;
+            }
+
+            if (p.status === 'completed' && p.method !== 'Adiantamento') {
+                if (isIncome) runningBalance += p.value;
+                else if (isExpense) runningBalance -= p.value;
+            }
+            
+            if (isIncome) projectedBalance += p.value;
+            else if (isExpense) projectedBalance -= p.value;
+            
+            balanceByDay[p.dueDate] = { saldo: runningBalance, projetado: projectedBalance };
+        });
+    });
+
     if (viewMode === 'annual') {
         const yearlyData: Record<string, { 
             entrada: number; 
             saida: number; 
             entradaProjetada: number; 
-            saidaProjetada: number 
+            saidaProjetada: number;
+            lastDate: string;
         }> = {};
 
         transactions.forEach(t => {
@@ -68,8 +119,10 @@ export const CashFlow: React.FC = () => {
                 }
 
                 if (!yearlyData[year]) {
-                    yearlyData[year] = { entrada: 0, saida: 0, entradaProjetada: 0, saidaProjetada: 0 };
+                    yearlyData[year] = { entrada: 0, saida: 0, entradaProjetada: 0, saidaProjetada: 0, lastDate: '' };
                 }
+                
+                if (p.dueDate > yearlyData[year].lastDate) yearlyData[year].lastDate = p.dueDate;
 
                 let isIncome = t.type === 'income';
                 let isExpense = t.type === 'expense';
@@ -93,55 +146,17 @@ export const CashFlow: React.FC = () => {
 
         const sortedYears = Object.keys(yearlyData).sort();
         
-        // Calculate initial balance (current balance)
-        let finalBalance = 0;
-        if (selectedAccount === 'all') {
-            finalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
-        } else {
-            const acc = accounts.find(a => a.name === selectedAccount || a.id === selectedAccount);
-            finalBalance = acc ? acc.balance : 0;
-        }
-
         return sortedYears.map(year => {
             const data = yearlyData[year];
-            
-            // Calculate balance at end of this year
-            // = Current Balance - (All completed flows AFTER this year)
-            let balanceAtYearEnd = finalBalance;
-            
-            transactions.forEach(t => {
-                const tYear = new Date(t.date).getFullYear();
-                if (tYear > parseInt(year)) {
-                     t.payments.forEach(p => {
-                        if (p.status !== 'completed' || p.method === 'Adiantamento') return;
-                        if (selectedAccount !== 'all') {
-                            const isDestination = p.destination === selectedAccount;
-                            const isSource = p.source === selectedAccount;
-                            if (!isDestination && !isSource) return;
-                        }
-                        
-                        let isIncome = t.type === 'income';
-                        let isExpense = t.type === 'expense';
-                        if (t.transactionTypeId === 'transferencia') {
-                            if (selectedAccount === 'all') return;
-                            if (p.source === selectedAccount) { isIncome = false; isExpense = true; }
-                            else if (p.destination === selectedAccount) { isIncome = true; isExpense = false; }
-                            else return;
-                        }
-
-                        if (isIncome) balanceAtYearEnd -= p.value;
-                        else if (isExpense) balanceAtYearEnd += p.value;
-                     });
-                }
-            });
+            const dayBalance = balanceByDay[data.lastDate] || { saldo: initialBalance, projetado: initialBalance };
 
             return {
                 name: year,
                 fullDate: year,
                 entrada: data.entrada,
                 saida: data.saida,
-                saldo: balanceAtYearEnd,
-                projetado: balanceAtYearEnd + (data.entradaProjetada - data.entrada) - (data.saidaProjetada - data.saida)
+                saldo: dayBalance.saldo,
+                projetado: dayBalance.projetado
             };
         });
     }
@@ -175,97 +190,30 @@ export const CashFlow: React.FC = () => {
 
         // Handle Transfer logic
         if (t.transactionTypeId === 'transferencia') {
-          if (selectedAccount === 'all') {
-            // In consolidated view, transfers are neutral
-            return;
-          }
-          if (p.source === selectedAccount) {
-            isIncome = false;
-            isExpense = true;
-          } else if (p.destination === selectedAccount) {
-            isIncome = true;
-            isExpense = false;
-          } else {
-            // If the selected account is neither source nor destination, ignore
-            return;
-          }
+          if (selectedAccount === 'all') return;
+          if (p.source === selectedAccount) { isIncome = false; isExpense = true; }
+          else if (p.destination === selectedAccount) { isIncome = true; isExpense = false; }
+          else return;
         }
 
         // Realized (Completed)
         if (p.status === 'completed' && p.method !== 'Adiantamento') {
-          if (isIncome) {
-            dailyData[date].entrada += p.value;
-          } else if (isExpense) {
-            dailyData[date].saida += p.value;
-          }
+          if (isIncome) dailyData[date].entrada += p.value;
+          else if (isExpense) dailyData[date].saida += p.value;
         }
 
         // Projected (Completed + Pending)
-        if (isIncome) {
-          dailyData[date].entradaProjetada += p.value;
-        } else if (isExpense) {
-          dailyData[date].saidaProjetada += p.value;
-        }
+        if (isIncome) dailyData[date].entradaProjetada += p.value;
+        else if (isExpense) dailyData[date].saidaProjetada += p.value;
       });
     });
 
     // Sort dates and calculate cumulative balance
     const sortedDates = Object.keys(dailyData).sort();
     
-    // Calculate Initial Balance based on selected account(s)
-    let currentBalance = 0;
-    if (selectedAccount === 'all') {
-      currentBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
-    } else {
-      const acc = accounts.find(a => a.name === selectedAccount || a.id === selectedAccount);
-      currentBalance = acc ? acc.balance : 0;
-    }
-    
-    // Calculate balance at end of selected year
-    let balanceAtYearEnd = currentBalance;
-    const nextYear = selectedYear + 1;
-    
-    transactions.forEach(t => {
-        const tYear = new Date(t.date).getFullYear();
-        if (tYear >= nextYear) {
-             t.payments.forEach(p => {
-                if (p.status !== 'completed' || p.method === 'Adiantamento') return;
-                if (selectedAccount !== 'all') {
-                    const isDestination = p.destination === selectedAccount;
-                    const isSource = p.source === selectedAccount;
-                    if (!isDestination && !isSource) return;
-                }
-                
-                let isIncome = t.type === 'income';
-                let isExpense = t.type === 'expense';
-                if (t.transactionTypeId === 'transferencia') {
-                    if (selectedAccount === 'all') return;
-                    if (p.source === selectedAccount) { isIncome = false; isExpense = true; }
-                    else if (p.destination === selectedAccount) { isIncome = true; isExpense = false; }
-                    else return;
-                }
-
-                if (isIncome) balanceAtYearEnd -= p.value;
-                else if (isExpense) balanceAtYearEnd += p.value;
-             });
-        }
-    });
-
-    // Calculate net flow for the year
-    let netFlowYear = 0;
-    Object.values(dailyData).forEach(d => {
-        netFlowYear += (d.entrada - d.saida);
-    });
-    
-    let startBalance = balanceAtYearEnd - netFlowYear;
-    let runningBalance = startBalance;
-    let projectedBalance = startBalance;
-
     return sortedDates.map(date => {
       const dayData = dailyData[date];
-      
-      runningBalance += (dayData.entrada - dayData.saida);
-      projectedBalance += (dayData.entradaProjetada - dayData.saidaProjetada);
+      const dayBalance = balanceByDay[date] || { saldo: initialBalance, projetado: initialBalance };
       
       const [year, month, day] = date.split('-');
       const formattedDate = `${day}/${month}`;
@@ -275,8 +223,8 @@ export const CashFlow: React.FC = () => {
         fullDate: date,
         entrada: dayData.entrada,
         saida: dayData.saida,
-        saldo: runningBalance,
-        projetado: projectedBalance
+        saldo: dayBalance.saldo,
+        projetado: dayBalance.projetado
       };
     });
   }, [transactions, selectedAccount, accounts, selectedYear, viewMode]);
@@ -535,89 +483,22 @@ export const CashFlow: React.FC = () => {
 
     const entries: any[] = [];
     
-    // Sort transactions by date first
-    const sortedTransactions = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    // 1. Calculate the sum of all completed transactions to find the "Starting Balance"
-    // relative to the current balance in the accounts.
-    let totalFlow = 0;
-    sortedTransactions.forEach(t => {
-      const transYear = new Date(t.date).getFullYear();
-      if (transYear !== selectedYear) return;
-
-      t.payments.forEach(p => {
-        if (p.status !== 'completed' || p.method === 'Adiantamento') return;
-        
-        if (selectedAccount !== 'all') {
-          const isDestination = p.destination === selectedAccount;
-          const isSource = p.source === selectedAccount;
-          if (!isDestination && !isSource) return;
-        }
-
-        let isIncome = t.type === 'income';
-        let isExpense = t.type === 'expense';
-        if (t.transactionTypeId === 'transferencia') {
-          if (selectedAccount === 'all') return;
-          if (p.source === selectedAccount) { isIncome = false; isExpense = true; }
-          else if (p.destination === selectedAccount) { isIncome = true; isExpense = false; }
-          else return;
-        }
-
-        if (isIncome) totalFlow += p.value;
-        else if (isExpense) totalFlow -= p.value;
-      });
-    });
-
-    // Current Balance from accounts
-    let currentAccountBalance = 0;
+    // Calculate Initial Balance based on selected account(s)
+    let initialBalance = 0;
     if (selectedAccount === 'all') {
-      currentAccountBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+      initialBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
     } else {
       const acc = accounts.find(a => a.name === selectedAccount || a.id === selectedAccount);
-      currentAccountBalance = acc ? acc.balance : 0;
+      initialBalance = acc ? acc.balance : 0;
     }
 
-    // Starting balance = Current - Total Flow
-    // Wait, this logic assumes "Current Balance" is the balance at the end of the selected year?
-    // No, Current Balance is NOW.
-    // So we need to subtract flows from NOW back to the start of the selected year.
-    
-    // Let's reuse the logic from chartData to find startBalance of the year.
-    let balanceAtYearEnd = currentAccountBalance;
-    const nextYear = selectedYear + 1;
-    
-    transactions.forEach(t => {
-        const tYear = new Date(t.date).getFullYear();
-        if (tYear >= nextYear) {
-             t.payments.forEach(p => {
-                if (p.status !== 'completed' || p.method === 'Adiantamento') return;
-                if (selectedAccount !== 'all') {
-                    const isDestination = p.destination === selectedAccount;
-                    const isSource = p.source === selectedAccount;
-                    if (!isDestination && !isSource) return;
-                }
-                let isIncome = t.type === 'income';
-                let isExpense = t.type === 'expense';
-                if (t.transactionTypeId === 'transferencia') {
-                    if (selectedAccount === 'all') return;
-                    if (p.source === selectedAccount) { isIncome = false; isExpense = true; }
-                    else if (p.destination === selectedAccount) { isIncome = true; isExpense = false; }
-                    else return;
-                }
-                if (isIncome) balanceAtYearEnd -= p.value;
-                else if (isExpense) balanceAtYearEnd += p.value;
-             });
-        }
-    });
-    
-    // Calculate net flow for the year (already done in totalFlow above? No, totalFlow above was just summing up flow in the year)
-    // totalFlow calculated above IS the net flow for the selected year.
-    
-    let runningBalance = balanceAtYearEnd - totalFlow;
+    // Sort ALL transactions by date first to calculate running balance correctly
+    const allSortedTransactions = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    sortedTransactions.forEach(t => {
+    let runningBalance = initialBalance;
+
+    allSortedTransactions.forEach(t => {
       const transYear = new Date(t.date).getFullYear();
-      if (transYear !== selectedYear) return;
 
       t.payments.forEach(p => {
         // Filter by account if selected
@@ -632,9 +513,6 @@ export const CashFlow: React.FC = () => {
 
         if (t.transactionTypeId === 'transferencia') {
           if (selectedAccount === 'all') {
-            // In consolidated view, we still want to show the transfer in the table
-            // but it's neither income nor expense for the total flow.
-            // However, the user wants it to appear as "Transferência".
             isIncome = false;
             isExpense = false;
           } else if (p.source === selectedAccount) {
@@ -653,18 +531,21 @@ export const CashFlow: React.FC = () => {
           else if (isExpense) runningBalance -= p.value;
         }
 
-        entries.push({
-          id: `${t.id}-${p.id}`,
-          date: p.dueDate,
-          description: t.description,
-          document: t.orderNumber || '-',
-          type: t.type,
-          value: p.value,
-          status: p.status,
-          balance: runningBalance,
-          customer: t.customerName || '-',
-          bank: t.transactionTypeId === 'transferencia' ? `${p.source} → ${p.destination}` : (p.destination || '-')
-        });
+        // Only add to entries if it's in the selected year
+        if (transYear === selectedYear) {
+          entries.push({
+            id: `${t.id}-${p.id}`,
+            date: p.dueDate,
+            description: t.description,
+            document: t.orderNumber || '-',
+            type: t.type,
+            value: p.value,
+            status: p.status,
+            balance: runningBalance,
+            customer: t.customerName || '-',
+            bank: t.transactionTypeId === 'transferencia' ? `${p.source} → ${p.destination}` : (p.destination || '-')
+          });
+        }
       });
     });
 

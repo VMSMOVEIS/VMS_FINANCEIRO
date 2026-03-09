@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useTransactions } from '../src/context/TransactionContext';
 
 export const FinancialDashboard: React.FC = () => {
-  const { transactions } = useTransactions();
+  const { transactions, accounts } = useTransactions();
   const [filterType, setFilterType] = useState('this-month');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
   const [customRange, setCustomRange] = useState({ start: '', end: '' });
@@ -133,11 +133,16 @@ export const FinancialDashboard: React.FC = () => {
   const cashFlowData = useMemo(() => {
     const dailyBalances: Record<string, number> = {};
     
-    // Sort transactions by date
-    const sortedTransactions = [...filteredTransactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    // Calculate total initial balance from all accounts
+    const totalInitialBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
 
-    let runningBalance = 0;
-    sortedTransactions.forEach(t => {
+    // Sort ALL transactions by date to calculate running balance correctly from the beginning
+    const allSortedTransactions = [...transactions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    let runningBalance = totalInitialBalance;
+    const balanceHistory: Record<string, number> = {};
+
+    allSortedTransactions.forEach(t => {
         // Only count completed payments for cash flow
         const completedAmount = t.payments
             .filter(p => {
@@ -159,24 +164,21 @@ export const FinancialDashboard: React.FC = () => {
             } else {
                 runningBalance -= completedAmount;
             }
-            // Update the balance for this day (overwriting previous updates for the same day to get end-of-day balance)
-            // Note: This logic simplifies "running balance" to be per transaction date. 
-            // Ideally, we'd iterate through all days in a range.
-            dailyBalances[t.date] = runningBalance;
+            balanceHistory[t.date] = runningBalance;
         }
     });
 
-    // Convert to array and take last 7 entries
-    return Object.entries(dailyBalances)
-        .map(([date, valor]) => ({
-            name: new Date(date).toLocaleDateString('pt-BR', { weekday: 'short' }),
-            fullDate: date,
-            valor
-        }))
-        .sort((a, b) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime())
-        .slice(-7);
+    // Now filter for the last 7 days with activity from the filteredTransactions
+    const activeDates = [...new Set(filteredTransactions.map(t => t.date))].sort();
+    const last7Dates = activeDates.slice(-7);
 
-  }, [filteredTransactions]);
+    return last7Dates.map(date => ({
+        name: new Date(date).toLocaleDateString('pt-BR', { weekday: 'short' }),
+        fullDate: date,
+        valor: balanceHistory[date] || runningBalance // Fallback to last known balance
+    }));
+
+  }, [transactions, filteredTransactions, accounts]);
 
   // --- Recent Transactions ---
   const recentTransactions = useMemo(() => {
@@ -348,7 +350,7 @@ export const FinancialDashboard: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} />
                 <YAxis axisLine={false} tickLine={false} />
-                <Tooltip />
+                <Tooltip formatter={(value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)} />
                 <Legend />
                 <Bar dataKey="receita" fill="#10b981" radius={[4, 4, 0, 0]} name="Receita" />
                 <Bar dataKey="despesa" fill="#ef4444" radius={[4, 4, 0, 0]} name="Despesa" />
@@ -365,7 +367,7 @@ export const FinancialDashboard: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} />
                 <YAxis axisLine={false} tickLine={false} />
-                <Tooltip />
+                <Tooltip formatter={(value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)} />
                 <Line type="monotone" dataKey="valor" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} name="Saldo" />
               </LineChart>
             </ResponsiveContainer>

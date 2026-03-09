@@ -17,6 +17,7 @@ interface SearchableItem {
     date: string;
     description: string;
     customerName: string;
+    orderNumber: string;
     value: number;
     originalTransaction: Transaction;
     paymentId?: string; // Only for payments
@@ -51,6 +52,7 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
                             date: p.dueDate,
                             description: `${t.description} ${t.payments.length > 1 ? `(${index + 1}/${t.payments.length})` : ''}`,
                             customerName: t.customerName || '-',
+                            orderNumber: t.orderNumber || t.documentType || '-',
                             value: p.value,
                             originalTransaction: t,
                             isPayment: true
@@ -75,6 +77,7 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
                     date: t.date,
                     description: t.description,
                     customerName: t.customerName || '-',
+                    orderNumber: t.orderNumber || t.documentType || '-',
                     value: t.value,
                     originalTransaction: t,
                     isPayment: false
@@ -88,6 +91,7 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
     return items.filter(item => 
         item.description.toLowerCase().includes(searchLower) ||
         item.customerName.toLowerCase().includes(searchLower) ||
+        item.orderNumber.toLowerCase().includes(searchLower) ||
         item.value.toString().includes(searchLower)
     );
 
@@ -153,6 +157,7 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
                   <tr>
                     {type === 'advance' && <th className="px-4 py-2 w-10"></th>}
                     <th className="px-4 py-2">Vencimento</th>
+                    <th className="px-4 py-2">Nº Doc</th>
                     <th className="px-4 py-2">Nome</th>
                     <th className="px-4 py-2">Descrição</th>
                     <th className="px-4 py-2 text-right">Valor</th>
@@ -178,6 +183,7 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
                         </td>
                       )}
                       <td className="px-4 py-3 text-gray-500">{item.date.split('-').reverse().join('/')}</td>
+                      <td className="px-4 py-3 text-gray-500">{item.orderNumber}</td>
                       <td className="px-4 py-3 font-medium text-gray-800">{item.customerName}</td>
                       <td className="px-4 py-3 text-gray-600">
                         <div>{item.description}</div>
