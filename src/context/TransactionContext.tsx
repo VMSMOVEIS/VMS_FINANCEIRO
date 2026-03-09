@@ -182,6 +182,11 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const addTransaction = async (transaction: Omit<Transaction, 'id'>) => {
     if (!supabase) return;
     try {
+      // Auto-create account plan if category is new
+      if (transaction.category) {
+        await ensureAccountPlanExists(transaction.category, transaction.type);
+      }
+
       const { data: transData, error: transError } = await supabase
         .from('transactions')
         .insert([{
@@ -301,6 +306,9 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const addAccount = async (account: Omit<Account, 'id'>) => {
     if (!supabase) return;
     try {
+      // Auto-create account plan for the bank account
+      await ensureAccountPlanExists(account.name, 'transfer');
+
       const { error } = await supabase
         .from('accounts')
         .insert([{
@@ -480,6 +488,86 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       alert(`Erro ao restaurar plano de contas: ${error.message}`);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const autoCategorize = (name: string, type: 'income' | 'expense' | 'transfer'): { parentCode: string, accountType: 'ativo' | 'passivo' | 'receita' | 'despesa' } => {
+    const n = name.toLowerCase();
+    
+    // Liabilities (Passivos)
+    if (n.includes('empréstimo') || n.includes('financiamento')) {
+      if (n.includes('longo prazo') || n.includes('lp')) return { parentCode: '2.2.01', accountType: 'passivo' };
+      return { parentCode: '2.1', accountType: 'passivo' }; // Will create 2.1.XX (Short term)
+    }
+    if (n.includes('fornecedor') || n.includes('pagar') || n.includes('duplicata')) return { parentCode: '2.1.01', accountType: 'passivo' };
+    if (n.includes('trabalhista') || n.includes('fgts') || n.includes('inss') || n.includes('salário') || n.includes('folha')) return { parentCode: '2.1.02', accountType: 'passivo' };
+    if (n.includes('imposto') || n.includes('tributo') || n.includes('recolher') || n.includes('icms') || n.includes('iss') || n.includes('simples')) return { parentCode: '2.1.03', accountType: 'passivo' };
+    
+    // Assets (Ativos)
+    if (n.includes('máquina') || n.includes('veículo') || n.includes('imóvel') || n.includes('equipamento') || n.includes('imobilizado') || n.includes('computador')) return { parentCode: '1.2.01', accountType: 'ativo' };
+    if (n.includes('software') || n.includes('marca') || n.includes('patente') || n.includes('intangível')) return { parentCode: '1.2.02', accountType: 'ativo' };
+    if (n.includes('receber') || n.includes('cliente') || n.includes('duplicata')) return { parentCode: '1.1.02', accountType: 'ativo' };
+    if (n.includes('estoque') || n.includes('mercadoria') || n.includes('matéria-prima')) return { parentCode: '1.1.03', accountType: 'ativo' };
+    if (n.includes('caixa') || n.includes('banco') || n.includes('pix') || n.includes('dinheiro') || n.includes('itau') || n.includes('bradesco') || n.includes('nubank') || n.includes('santander') || n.includes('inter') || n.includes('safra')) return { parentCode: '1.1.01', accountType: 'ativo' };
+
+    // Equity (PL)
+    if (n.includes('capital') || n.includes('sócio') || n.includes('quotista')) return { parentCode: '2.3.01', accountType: 'passivo' };
+    if (n.includes('reserva') || n.includes('lucro') || n.includes('prejuízo')) return { parentCode: '2.3.02', accountType: 'passivo' };
+
+    // Revenues (Receitas)
+    if (type === 'income') {
+      if (n.includes('venda') || n.includes('serviço') || n.includes('honorário')) return { parentCode: '3.1', accountType: 'receita' };
+      if (n.includes('juros') || n.includes('rendimento') || n.includes('aluguel') || n.includes('financeira')) return { parentCode: '3.2', accountType: 'receita' };
+      return { parentCode: '3.1', accountType: 'receita' };
+    }
+    
+    // Expenses (Despesas)
+    if (type === 'expense' || type === 'transfer') {
+      if (n.includes('salário') || n.includes('pessoal') || n.includes('pro-labore') || n.includes('férias') || n.includes('13º')) return { parentCode: '4.2.01', accountType: 'despesa' };
+      if (n.includes('imposto') || n.includes('tributo') || n.includes('taxa') || n.includes('iptu') || n.includes('ipva')) return { parentCode: '4.2.03', accountType: 'despesa' };
+      if (n.includes('juros') || n.includes('bancária') || n.includes('financeira') || n.includes('iof')) return { parentCode: '4.2.04', accountType: 'despesa' };
+      if (n.includes('aluguel') || n.includes('luz') || n.includes('água') || n.includes('internet') || n.includes('limpeza') || n.includes('manutenção') || n.includes('condomínio')) return { parentCode: '4.2.02', accountType: 'despesa' };
+      if (n.includes('custo') || n.includes('cmv') || n.includes('frete')) return { parentCode: '4.1', accountType: 'despesa' };
+      return { parentCode: '4.2.02', accountType: 'despesa' };
+    }
+    
+    return { parentCode: '4.2.02', accountType: 'despesa' };
+  };
+
+  const generateNextCodeForParent = (parentCode: string) => {
+    const children = accountPlans.filter(p => p.code.startsWith(parentCode + '.') && p.code.split('.').length === parentCode.split('.').length + 1);
+    if (children.length === 0) return `${parentCode}.01`;
+    
+    const lastCode = children.map(c => {
+      const parts = c.code.split('.');
+      return parseInt(parts[parts.length - 1] || '0');
+    }).sort((a, b) => b - a)[0];
+    
+    return `${parentCode}.${(lastCode + 1).toString().padStart(2, '0')}`;
+  };
+
+  const ensureAccountPlanExists = async (name: string, type: 'income' | 'expense' | 'transfer') => {
+    if (!name || !supabase) return;
+    
+    const existing = accountPlans.find(p => p.name.toLowerCase() === name.toLowerCase());
+    if (existing) return;
+
+    const { parentCode, accountType } = autoCategorize(name, type);
+    const nextCode = generateNextCodeForParent(parentCode);
+    
+    try {
+      await supabase
+        .from('account_plans')
+        .insert([{
+          code: nextCode,
+          name: name,
+          type: accountType
+        }]);
+      // We don't call fetchData here to avoid multiple reloads if adding many items, 
+      // but for single items it's fine.
+      await fetchData();
+    } catch (error) {
+      console.error('Error auto-creating account plan:', error);
     }
   };
 

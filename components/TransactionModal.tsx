@@ -626,21 +626,28 @@ export const TransactionModal: React.FC = () => {
 
             {!isTransfer && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Plano de Contas</label>
-                <select 
+                <label className="block text-sm font-medium text-gray-700 mb-1">Plano de Contas (Sugerido ou Novo)</label>
+                <input 
+                  list="account-plans-list"
                   name="category"
                   required
+                  autoComplete="off"
                   value={formData.category || ''}
                   onChange={handleInputChange}
+                  placeholder="Digite ou selecione uma categoria..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-                >
-                  <option value="">Selecione...</option>
+                />
+                <datalist id="account-plans-list">
                   {accountPlans
-                    .filter(acc => acc.type === (formData.type === 'income' ? 'receita' : 'despesa'))
+                    .filter(acc => {
+                      if (formData.type === 'income') return acc.type === 'receita' || acc.type === 'ativo';
+                      if (formData.type === 'expense') return acc.type === 'despesa' || acc.type === 'passivo';
+                      return true;
+                    })
                     .map(acc => (
                       <option key={acc.id} value={acc.name}>{acc.code} - {acc.name}</option>
                   ))}
-                </select>
+                </datalist>
               </div>
             )}
           </div>
