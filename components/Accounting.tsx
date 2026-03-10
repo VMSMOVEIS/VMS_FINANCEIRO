@@ -8,6 +8,8 @@ interface AccountingProps {
 
 export const Accounting: React.FC<AccountingProps> = ({ initialView = 'contab_dre' }) => {
   const [activeTab, setActiveTab] = useState(initialView);
+  const [reportLevel, setReportLevel] = useState<'grupo' | 'subgrupo' | 'sintetica' | 'analitica'>('analitica');
+  const [showZeroBalances, setShowZeroBalances] = useState(false);
   const { transactions, accounts, accountPlans } = useTransactions();
 
   // Sync activeTab when initialView changes (e.g. from sidebar navigation)
@@ -20,31 +22,33 @@ export const Accounting: React.FC<AccountingProps> = ({ initialView = 'contab_dr
   const entries = useMemo(() => generateAccountingEntries(transactions, accountPlans), [transactions, accountPlans]);
 
   const renderContent = () => {
+    const commonProps = { transactions, accountPlans, entries, reportLevel, showZeroBalances };
+    
     switch (activeTab) {
       case 'contab_dre':
-        return <DREView transactions={transactions} accountPlans={accountPlans} entries={entries} />;
+        return <DREView {...commonProps} />;
       case 'contab_balanco':
-        return <BalanceSheetView transactions={transactions} accounts={accounts} accountPlans={accountPlans} entries={entries} />;
+        return <BalanceSheetView {...commonProps} accounts={accounts} />;
       case 'contab_balancete':
-        return <TrialBalanceView entries={entries} accountPlans={accountPlans} />;
+        return <TrialBalanceView {...commonProps} />;
       case 'contab_diario':
         return <JournalView transactions={transactions} entries={entries} />;
       case 'contab_razao':
         return <LedgerView entries={entries} />;
       case 'contab_dfc':
-        return <DFCView transactions={transactions} accounts={accounts} accountPlans={accountPlans} entries={entries} />;
+        return <DFCView {...commonProps} accounts={accounts} />;
       case 'contab_dmpl':
-        return <DMPLView transactions={transactions} accountPlans={accountPlans} entries={entries} />;
+        return <DMPLView {...commonProps} />;
       case 'contab_dva':
-        return <DVAView transactions={transactions} accountPlans={accountPlans} entries={entries} />;
+        return <DVAView {...commonProps} />;
       case 'contab_notas':
         return <NotesView />;
       case 'contab_dlpa':
-        return <DLPAView transactions={transactions} accountPlans={accountPlans} entries={entries} />;
+        return <DLPAView {...commonProps} />;
       case 'contab_dra':
-        return <DRAView transactions={transactions} accountPlans={accountPlans} entries={entries} />;
+        return <DRAView {...commonProps} />;
       default:
-        return <DREView transactions={transactions} accountPlans={accountPlans} entries={entries} />;
+        return <DREView {...commonProps} />;
     }
   };
 
@@ -71,6 +75,47 @@ export const Accounting: React.FC<AccountingProps> = ({ initialView = 'contab_dr
           <TabButton id="contab_dlpa" label="DLPA" icon={List} active={activeTab === 'contab_dlpa'} onClick={setActiveTab} />
           <TabButton id="contab_dra" label="DRA" icon={AlignLeft} active={activeTab === 'contab_dra'} onClick={setActiveTab} />
           <TabButton id="contab_notas" label="Notas Explicativas" icon={FileText} active={activeTab === 'contab_notas'} onClick={setActiveTab} />
+        </div>
+      </div>
+
+      {/* Report Controls */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-wrap items-center gap-6">
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-medium text-gray-700">Nível de Detalhe:</label>
+          <select 
+            value={reportLevel}
+            onChange={(e) => setReportLevel(e.target.value as any)}
+            className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          >
+            <option value="grupo">Grupo (1)</option>
+            <option value="subgrupo">Subgrupo (1.1)</option>
+            <option value="sintetica">Sintética (1.1.01)</option>
+            <option value="analitica">Analítica (1.1.01.01)</option>
+          </select>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input 
+              type="checkbox" 
+              checked={showZeroBalances}
+              onChange={(e) => setShowZeroBalances(e.target.checked)}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Mostrar contas com saldo zero</span>
+          </label>
+        </div>
+
+        <div className="flex-1"></div>
+
+        <div className="flex gap-2">
+          <select className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+            <option>Exercício 2026</option>
+            <option>Exercício 2025</option>
+          </select>
+          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
+            Exportar PDF
+          </button>
         </div>
       </div>
 
@@ -205,7 +250,7 @@ const generateAccountingEntries = (transactions: any[], accountPlans: any[]) => 
   return entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
-const DREView = ({ transactions, accountPlans, entries }: { transactions: any[], accountPlans: any[], entries: any[] }) => {
+const DREView = ({ transactions, accountPlans, entries, reportLevel, showZeroBalances }: { transactions: any[], accountPlans: any[], entries: any[], reportLevel: string, showZeroBalances: boolean }) => {
   const dreData = useMemo(() => {
     const balances: Record<string, number> = {};
     accountPlans.forEach(p => balances[p.code] = 0);
@@ -236,6 +281,21 @@ const DREView = ({ transactions, accountPlans, entries }: { transactions: any[],
     
     const grossProfit = revenue - costs;
     const netProfit = grossProfit - expenses;
+
+    // Filter and aggregate details based on reportLevel
+    const levelMap: Record<string, number> = { 'grupo': 1, 'subgrupo': 2, 'sintetica': 3, 'analitica': 4 };
+    const maxParts = levelMap[reportLevel] || 4;
+
+    const filteredDetails = accountPlans
+      .filter(p => (p.type === 'receita' || p.type === 'despesa'))
+      .filter(p => p.code.split('.').length <= maxParts)
+      .map(p => {
+        const balance = Object.entries(balances)
+          .filter(([code]) => code.startsWith(p.code))
+          .reduce((sum, [_, val]) => sum + val, 0);
+        return { ...p, balance };
+      })
+      .filter(p => showZeroBalances || Math.abs(p.balance) > 0.01);
     
     return { 
       revenue, 
@@ -243,77 +303,68 @@ const DREView = ({ transactions, accountPlans, entries }: { transactions: any[],
       grossProfit,
       expenses, 
       netProfit,
-      details: accountPlans
-        .filter(p => (p.type === 'receita' || p.type === 'despesa') && balances[p.code] !== 0)
-        .map(p => ({ ...p, balance: balances[p.code] }))
+      details: filteredDetails
     };
-  }, [entries, accountPlans]);
+  }, [entries, accountPlans, reportLevel, showZeroBalances]);
 
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-gray-900">Demonstração do Resultado do Exercício</h3>
-        <div className="flex gap-2">
-          <select className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm">
-            <option>2026</option>
-            <option>2025</option>
-          </select>
-          <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700">
-            Gerar Relatório
-          </button>
-        </div>
       </div>
       
       <div className="border border-gray-200 rounded-lg overflow-hidden">
         <table className="w-full text-sm text-left">
           <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
             <tr>
+              <th className="px-6 py-3">Código</th>
               <th className="px-6 py-3">Descrição</th>
               <th className="px-6 py-3 text-right">Valor</th>
               <th className="px-6 py-3 text-right">%</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            <tr className="bg-emerald-50/30 font-medium">
-              <td className="px-6 py-3 text-emerald-900">RECEITA OPERACIONAL BRUTA</td>
-              <td className="px-6 py-3 text-right text-emerald-700">R$ {dreData.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-              <td className="px-6 py-3 text-right text-emerald-700">100%</td>
-            </tr>
-            <tr>
-              <td className="px-6 py-2 pl-10 text-gray-600">(-) Custos de Produção</td>
-              <td className="px-6 py-2 text-right text-red-600">(R$ {dreData.costs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</td>
-              <td className="px-6 py-2 text-right text-gray-500">{dreData.revenue ? ((dreData.costs / dreData.revenue) * 100).toFixed(1) : 0}%</td>
-            </tr>
-            <tr className="font-medium bg-gray-50/50">
-              <td className="px-6 py-3 text-gray-900">(=) LUCRO BRUTO</td>
-              <td className="px-6 py-3 text-right text-gray-900">R$ {dreData.grossProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-              <td className="px-6 py-3 text-right text-gray-500">{dreData.revenue ? ((dreData.grossProfit / dreData.revenue) * 100).toFixed(1) : 0}%</td>
-            </tr>
-             <tr>
-              <td className="px-6 py-2 pl-10 text-gray-600">(-) Despesas Operacionais</td>
-              <td className="px-6 py-2 text-right text-red-600">(R$ {dreData.expenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})</td>
-              <td className="px-6 py-2 text-right text-gray-500">{dreData.revenue ? ((dreData.expenses / dreData.revenue) * 100).toFixed(1) : 0}%</td>
-            </tr>
-             <tr className="font-bold bg-gray-100">
-              <td className="px-6 py-3 text-gray-900">(=) LUCRO/PREJUÍZO LÍQUIDO</td>
-              <td className={`px-6 py-3 text-right ${dreData.netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+            {dreData.details.map((item, idx) => {
+              const parts = item.code.split('.').length;
+              const isGroup = parts === 1;
+              const isSubgroup = parts === 2;
+              const isRevenue = item.type === 'receita';
+              
+              return (
+                <tr key={idx} className={`${isGroup ? 'bg-gray-50 font-bold' : isSubgroup ? 'font-semibold' : ''} hover:bg-gray-50/50`}>
+                  <td className="px-6 py-2 font-mono text-xs text-gray-500">{item.code}</td>
+                  <td className={`px-6 py-2 ${parts > 1 ? `pl-${(parts - 1) * 4}` : ''}`}>
+                    {item.name}
+                  </td>
+                  <td className={`px-6 py-2 text-right ${!isRevenue && !isGroup && !isSubgroup ? 'text-red-600' : 'text-gray-900'}`}>
+                    {(!isRevenue && !isGroup && !isSubgroup ? '(' : '')}
+                    R$ {Math.abs(item.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    {(!isRevenue && !isGroup && !isSubgroup ? ')' : '')}
+                  </td>
+                  <td className="px-6 py-2 text-right text-gray-500">
+                    {dreData.revenue ? ((Math.abs(item.balance) / dreData.revenue) * 100).toFixed(1) : 0}%
+                  </td>
+                </tr>
+              );
+            })}
+            
+            <tr className="font-bold bg-blue-50 border-t-2 border-blue-100">
+              <td className="px-6 py-4" colSpan={2}>(=) LUCRO/PREJUÍZO LÍQUIDO</td>
+              <td className={`px-6 py-4 text-right ${dreData.netProfit >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
                 R$ {dreData.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </td>
-              <td className="px-6 py-3 text-right text-gray-500">
+              <td className="px-6 py-4 text-right text-gray-500">
                 {dreData.revenue ? ((dreData.netProfit / dreData.revenue) * 100).toFixed(1) : 0}%
               </td>
             </tr>
           </tbody>
         </table>
-        <div className="p-8 text-center text-gray-400 italic">
-          Dados calculados com base nos lançamentos registrados.
-        </div>
       </div>
     </div>
   );
 };
 
-const BalanceSheetView = ({ transactions, accounts, accountPlans, entries }: { transactions: any[], accounts: any[], accountPlans: any[], entries: any[] }) => {
+const BalanceSheetView = ({ transactions, accounts, accountPlans, entries, reportLevel, showZeroBalances }: { transactions: any[], accounts: any[], accountPlans: any[], entries: any[], reportLevel: string, showZeroBalances: boolean }) => {
   const balances = useMemo(() => {
     const accountBalances: Record<string, number> = {};
     accountPlans.forEach(p => accountBalances[p.code] = 0);
@@ -345,168 +396,164 @@ const BalanceSheetView = ({ transactions, accounts, accountPlans, entries }: { t
       }
     });
 
-    // Group by hierarchy
+    // Retained Earnings (Revenue - Costs - Expenses)
     const getGroupBalance = (prefix: string) => {
       return Object.entries(accountBalances)
         .filter(([code]) => code.startsWith(prefix))
         .reduce((sum, [_, val]) => sum + val, 0);
     };
-
-    const ativoCirculante = getGroupBalance('1.1');
-    const ativoNaoCirculante = getGroupBalance('1.2');
-    const passivoCirculante = getGroupBalance('2.1');
-    const passivoNaoCirculante = getGroupBalance('2.2');
-    const patrimonioLiquido = getGroupBalance('3');
-
-    // Retained Earnings (Revenue - Costs - Expenses)
     const revenue = getGroupBalance('4');
     const costs = getGroupBalance('5');
     const expenses = getGroupBalance('6');
     const retainedEarnings = revenue - costs - expenses;
 
-    return { 
-      ativoCirculante, 
-      ativoNaoCirculante, 
-      passivoCirculante, 
-      passivoNaoCirculante, 
-      patrimonioLiquido,
-      retainedEarnings,
-      details: accountPlans
-        .filter(p => (p.type === 'ativo' || p.type === 'passivo') && accountBalances[p.code] !== 0)
-        .map(p => ({ ...p, balance: accountBalances[p.code] }))
-    };
-  }, [entries, accountPlans, accounts]);
+    // Filter and aggregate details based on reportLevel
+    const levelMap: Record<string, number> = { 'grupo': 1, 'subgrupo': 2, 'sintetica': 3, 'analitica': 4 };
+    const maxParts = levelMap[reportLevel] || 4;
 
-  const totalAssets = balances.ativoCirculante + balances.ativoNaoCirculante;
-  const totalLiabilities = balances.passivoCirculante + balances.passivoNaoCirculante;
-  const totalEquity = balances.patrimonioLiquido + balances.retainedEarnings;
+    const filteredDetails = accountPlans
+      .filter(p => (p.type === 'ativo' || p.type === 'passivo'))
+      .filter(p => p.code.split('.').length <= maxParts)
+      .map(p => {
+        const balance = Object.entries(accountBalances)
+          .filter(([code]) => code.startsWith(p.code))
+          .reduce((sum, [_, val]) => sum + val, 0);
+        return { ...p, balance };
+      })
+      .filter(p => showZeroBalances || Math.abs(p.balance) > 0.01);
+
+    return { 
+      retainedEarnings,
+      details: filteredDetails
+    };
+  }, [entries, accountPlans, accounts, reportLevel, showZeroBalances]);
+
+  const totalAssets = balances.details.filter(p => p.type === 'ativo' && p.code.split('.').length === 1).reduce((sum, p) => sum + p.balance, 0);
+  const totalLiabilities = balances.details.filter(p => p.type === 'passivo' && p.code.split('.').length === 1 && p.code !== '3').reduce((sum, p) => sum + p.balance, 0);
+  const totalEquity = balances.details.filter(p => p.code === '3').reduce((sum, p) => sum + p.balance, 0) + balances.retainedEarnings;
 
   return (
     <div className="p-8">
       <h3 className="text-lg font-semibold text-gray-900 mb-6">Balanço Patrimonial</h3>
-      <div className="grid grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Assets */}
-        <div className="border border-gray-200 rounded-lg p-4">
-          <h4 className="font-bold text-gray-800 border-b border-gray-200 pb-2 mb-4">ATIVO</h4>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="font-medium">ATIVO CIRCULANTE</span>
-              <span className="font-bold">R$ {balances.ativoCirculante.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            </div>
-            {balances.details.filter(p => p.code.startsWith('1.1')).map(p => (
-              <div key={p.id} className="pl-4 flex justify-between text-sm text-gray-600">
-                <span>{p.code} - {p.name}</span>
-                <span>R$ {p.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-            ))}
-            
-            <div className="flex justify-between text-sm mt-4">
-              <span className="font-medium">ATIVO NÃO CIRCULANTE</span>
-              <span className="font-bold">R$ {balances.ativoNaoCirculante.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            </div>
-            {balances.details.filter(p => p.code.startsWith('1.2')).map(p => (
-              <div key={p.id} className="pl-4 flex justify-between text-sm text-gray-600">
-                <span>{p.code} - {p.name}</span>
-                <span>R$ {p.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-            ))}
-            
-            <div className="flex justify-between text-sm font-bold bg-gray-50 p-2 rounded mt-4 border-t border-gray-200">
-              <span>TOTAL DO ATIVO</span>
-              <span>R$ {totalAssets.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            </div>
-          </div>
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-blue-50 text-blue-800 font-bold border-b border-blue-100">
+              <tr>
+                <th className="px-4 py-3">ATIVO</th>
+                <th className="px-4 py-3 text-right">Valor</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {balances.details.filter(p => p.type === 'ativo').map((p, idx) => {
+                const parts = p.code.split('.').length;
+                return (
+                  <tr key={idx} className={`${parts === 1 ? 'bg-gray-50 font-bold' : parts === 2 ? 'font-semibold' : ''}`}>
+                    <td className={`px-4 py-2 ${parts > 1 ? `pl-${(parts - 1) * 4}` : ''}`}>
+                      <span className="font-mono text-xs text-gray-400 mr-2">{p.code}</span>
+                      {p.name}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      R$ {p.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr className="bg-blue-600 text-white font-bold">
+                <td className="px-4 py-3">TOTAL DO ATIVO</td>
+                <td className="px-4 py-3 text-right">R$ {totalAssets.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         {/* Liabilities & Equity */}
-        <div className="border border-gray-200 rounded-lg p-4">
-          <h4 className="font-bold text-gray-800 border-b border-gray-200 pb-2 mb-4">PASSIVO E PL</h4>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="font-medium">PASSIVO CIRCULANTE</span>
-              <span className="font-bold">R$ {balances.passivoCirculante.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            </div>
-            {balances.details.filter(p => p.code.startsWith('2.1')).map(p => (
-              <div key={p.id} className="pl-4 flex justify-between text-sm text-gray-600">
-                <span>{p.code} - {p.name}</span>
-                <span>R$ {p.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-            ))}
-
-            <div className="flex justify-between text-sm mt-4">
-              <span className="font-medium">PASSIVO NÃO CIRCULANTE</span>
-              <span className="font-bold">R$ {balances.passivoNaoCirculante.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            </div>
-            {balances.details.filter(p => p.code.startsWith('2.2')).map(p => (
-              <div key={p.id} className="pl-4 flex justify-between text-sm text-gray-600">
-                <span>{p.code} - {p.name}</span>
-                <span>R$ {p.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-            ))}
-
-            <div className="flex justify-between text-sm mt-4">
-              <span className="font-medium">PATRIMÔNIO LÍQUIDO</span>
-              <span className="font-bold">R$ {totalEquity.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            </div>
-            {balances.details.filter(p => p.code.startsWith('2.3')).map(p => (
-              <div key={p.id} className="pl-4 flex justify-between text-sm text-gray-600">
-                <span>{p.code} - {p.name}</span>
-                <span>R$ {p.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-            ))}
-            <div className="pl-4 flex justify-between text-sm text-gray-600">
-              <span>Lucros/Prejuízos Acumulados</span>
-              <span className={balances.retainedEarnings >= 0 ? 'text-emerald-600' : 'text-red-600'}>
-                R$ {balances.retainedEarnings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </span>
-            </div>
-
-            <div className="flex justify-between text-sm font-bold bg-gray-50 p-2 rounded mt-4 border-t border-gray-200">
-              <span>TOTAL DO PASSIVO + PL</span>
-              <span>R$ {(totalLiabilities + totalEquity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            </div>
-          </div>
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-purple-50 text-purple-800 font-bold border-b border-purple-100">
+              <tr>
+                <th className="px-4 py-3">PASSIVO E PL</th>
+                <th className="px-4 py-3 text-right">Valor</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {balances.details.filter(p => p.type === 'passivo').map((p, idx) => {
+                const parts = p.code.split('.').length;
+                return (
+                  <tr key={idx} className={`${parts === 1 ? 'bg-gray-50 font-bold' : parts === 2 ? 'font-semibold' : ''}`}>
+                    <td className={`px-4 py-2 ${parts > 1 ? `pl-${(parts - 1) * 4}` : ''}`}>
+                      <span className="font-mono text-xs text-gray-400 mr-2">{p.code}</span>
+                      {p.name}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      R$ {p.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr className="font-medium">
+                <td className="px-4 py-2 pl-8">
+                  <span className="font-mono text-xs text-gray-400 mr-2">3.2</span>
+                  Lucros/Prejuízos Acumulados
+                </td>
+                <td className={`px-4 py-2 text-right ${balances.retainedEarnings >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  R$ {balances.retainedEarnings.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </td>
+              </tr>
+              <tr className="bg-purple-600 text-white font-bold">
+                <td className="px-4 py-3">TOTAL DO PASSIVO + PL</td>
+                <td className="px-4 py-3 text-right">R$ {(totalLiabilities + totalEquity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   );
 };
 
-const TrialBalanceView = ({ entries, accountPlans }: { entries: any[], accountPlans: any[] }) => {
+const TrialBalanceView = ({ entries, accountPlans, reportLevel, showZeroBalances }: { entries: any[], accountPlans: any[], reportLevel: string, showZeroBalances: boolean }) => {
   const trialBalance = useMemo(() => {
-    const accounts: Record<string, { debit: number, credit: number }> = {};
+    const accountBalances: Record<string, { debit: number, credit: number }> = {};
+    accountPlans.forEach(p => accountBalances[p.code] = { debit: 0, credit: 0 });
 
     entries.forEach(entry => {
-      if (!accounts[entry.debit]) accounts[entry.debit] = { debit: 0, credit: 0 };
-      if (!accounts[entry.credit]) accounts[entry.credit] = { debit: 0, credit: 0 };
+      const debitCode = entry.debit.split(' - ')[0];
+      const creditCode = entry.credit.split(' - ')[0];
       
-      accounts[entry.debit].debit += entry.value;
-      accounts[entry.credit].credit += entry.value;
+      if (accountBalances[debitCode]) accountBalances[debitCode].debit += entry.value;
+      if (accountBalances[creditCode]) accountBalances[creditCode].credit += entry.value;
     });
 
-    return Object.entries(accounts).map(([name, values]) => {
-      const code = name.split(' - ')[0];
-      const plan = accountPlans.find(p => p.code === code);
-      let balance = 0;
-      if (plan) {
-        if (plan.type === 'ativo' || plan.type === 'despesa') balance = values.debit - values.credit;
-        else balance = values.credit - values.debit;
-      }
-      
-      return {
-        name,
-        debit: values.debit,
-        credit: values.credit,
-        balance: balance,
-        type: plan?.type
-      };
-    }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [entries, accountPlans]);
+    const levelMap: Record<string, number> = { 'grupo': 1, 'subgrupo': 2, 'sintetica': 3, 'analitica': 4 };
+    const maxParts = levelMap[reportLevel] || 4;
 
-  const totals = trialBalance.reduce((acc, curr) => ({
-    debit: acc.debit + curr.debit,
-    credit: acc.credit + curr.credit
-  }), { debit: 0, credit: 0 });
+    return accountPlans
+      .filter(p => p.code.split('.').length <= maxParts)
+      .map(p => {
+        const relevantBalances = Object.entries(accountBalances)
+          .filter(([code]) => code.startsWith(p.code));
+        
+        const debit = relevantBalances.reduce((sum, [_, val]) => sum + val.debit, 0);
+        const credit = relevantBalances.reduce((sum, [_, val]) => sum + val.credit, 0);
+        
+        let balance = 0;
+        if (p.type === 'ativo' || p.type === 'despesa') balance = debit - credit;
+        else balance = credit - debit;
+
+        return {
+          code: p.code,
+          name: p.name,
+          debit,
+          credit,
+          balance,
+          type: p.type
+        };
+      })
+      .filter(p => showZeroBalances || Math.abs(p.balance) > 0.01)
+      .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+  }, [entries, accountPlans, reportLevel, showZeroBalances]);
 
   return (
     <div className="p-8">
@@ -515,6 +562,7 @@ const TrialBalanceView = ({ entries, accountPlans }: { entries: any[], accountPl
         <table className="w-full text-sm text-left">
           <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
             <tr>
+              <th className="px-6 py-3">Código</th>
               <th className="px-6 py-3">Conta Contábil</th>
               <th className="px-6 py-3 text-right">Débito</th>
               <th className="px-6 py-3 text-right">Crédito</th>
@@ -522,23 +570,21 @@ const TrialBalanceView = ({ entries, accountPlans }: { entries: any[], accountPl
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {trialBalance.map((item, idx) => (
-              <tr key={idx} className="hover:bg-gray-50">
-                <td className="px-6 py-3 text-gray-800 font-medium">{item.name}</td>
-                <td className="px-6 py-3 text-right text-blue-600">R$ {item.debit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td className="px-6 py-3 text-right text-red-600">R$ {item.credit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td className={`px-6 py-3 text-right font-bold ${item.balance >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                  R$ {Math.abs(item.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  {item.balance > 0 ? ' D' : item.balance < 0 ? ' C' : ''}
-                </td>
-              </tr>
-            ))}
-            <tr className="bg-gray-100 font-bold">
-              <td className="px-6 py-4 text-gray-900">TOTAIS</td>
-              <td className="px-6 py-4 text-right text-blue-700">R$ {totals.debit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-              <td className="px-6 py-4 text-right text-red-700">R$ {totals.credit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-              <td className="px-6 py-4 text-right text-emerald-700">R$ 0,00</td>
-            </tr>
+            {trialBalance.map((item, idx) => {
+              const parts = item.code.split('.').length;
+              return (
+                <tr key={idx} className={`${parts === 1 ? 'bg-gray-50 font-bold' : parts === 2 ? 'font-semibold' : ''} hover:bg-gray-50`}>
+                  <td className="px-6 py-2 font-mono text-xs text-gray-500">{item.code}</td>
+                  <td className={`px-6 py-2 ${parts > 1 ? `pl-${(parts - 1) * 4}` : ''}`}>{item.name}</td>
+                  <td className="px-6 py-2 text-right text-blue-600">R$ {item.debit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td className="px-6 py-2 text-right text-red-600">R$ {item.credit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td className={`px-6 py-2 text-right font-bold ${item.balance >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                    R$ {Math.abs(item.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    {item.balance > 0 ? ' D' : item.balance < 0 ? ' C' : ''}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -679,7 +725,7 @@ const LedgerView = ({ entries }: { entries: any[] }) => {
   );
 };
 
-const DFCView = ({ transactions, accounts, accountPlans, entries }: { transactions: any[], accounts: any[], accountPlans: any[], entries: any[] }) => {
+const DFCView = ({ transactions, accounts, accountPlans, entries, reportLevel, showZeroBalances }: { transactions: any[], accounts: any[], accountPlans: any[], entries: any[], reportLevel: string, showZeroBalances: boolean }) => {
   const dfcData = useMemo(() => {
     const totalInitialBalance = accounts.reduce((sum, acc) => sum + (acc.balance || 0), 0);
     
@@ -769,7 +815,7 @@ const DFCView = ({ transactions, accounts, accountPlans, entries }: { transactio
   );
 };
 
-const DMPLView = ({ transactions, accountPlans, entries }: { transactions: any[], accountPlans: any[], entries: any[] }) => {
+const DMPLView = ({ transactions, accountPlans, entries, reportLevel, showZeroBalances }: { transactions: any[], accountPlans: any[], entries: any[], reportLevel: string, showZeroBalances: boolean }) => {
   const dmplData = useMemo(() => {
     const getGroupBalance = (prefix: string) => {
       const balances: Record<string, number> = {};
@@ -876,7 +922,7 @@ const DMPLView = ({ transactions, accountPlans, entries }: { transactions: any[]
   );
 };
 
-const DVAView = ({ transactions, accountPlans, entries }: { transactions: any[], accountPlans: any[], entries: any[] }) => {
+const DVAView = ({ transactions, accountPlans, entries, reportLevel, showZeroBalances }: { transactions: any[], accountPlans: any[], entries: any[], reportLevel: string, showZeroBalances: boolean }) => {
   const dvaData = useMemo(() => {
     const getBalance = (type: string) => {
       return entries.reduce((sum, entry) => {
@@ -1002,7 +1048,7 @@ const NotesView = () => (
   </div>
 );
 
-const DLPAView = ({ transactions, accountPlans, entries }: { transactions: any[], accountPlans: any[], entries: any[] }) => {
+const DLPAView = ({ transactions, accountPlans, entries, reportLevel, showZeroBalances }: { transactions: any[], accountPlans: any[], entries: any[], reportLevel: string, showZeroBalances: boolean }) => {
   const dlpaData = useMemo(() => {
     const previousBalance = 0;
     
@@ -1081,7 +1127,7 @@ const DLPAView = ({ transactions, accountPlans, entries }: { transactions: any[]
   );
 };
 
-const DRAView = ({ transactions, accountPlans, entries }: { transactions: any[], accountPlans: any[], entries: any[] }) => {
+const DRAView = ({ transactions, accountPlans, entries, reportLevel, showZeroBalances }: { transactions: any[], accountPlans: any[], entries: any[], reportLevel: string, showZeroBalances: boolean }) => {
   const draData = useMemo(() => {
     const revenue = accountPlans
       .filter(p => p.type === 'receita')

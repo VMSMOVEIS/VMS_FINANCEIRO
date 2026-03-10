@@ -673,6 +673,10 @@ export const TransactionModal: React.FC = () => {
                     <datalist id="account-plans-list">
                       {accountPlans
                         .filter(acc => {
+                          // Only show analytical accounts (level 'analitica' or code parts length === 4)
+                          const isAnalytic = acc.level === 'analitica' || acc.code.split('.').length === 4;
+                          if (!isAnalytic) return false;
+
                           if (formData.type === 'income') return acc.type === 'receita' || acc.type === 'ativo';
                           if (formData.type === 'expense') return acc.type === 'despesa' || acc.type === 'passivo';
                           return true;
