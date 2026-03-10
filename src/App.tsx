@@ -28,6 +28,9 @@ import SalesCustomers from '../components/SalesCustomers';
 import { SalesPDV } from '../components/SalesPDV';
 import { SalesCatalog } from '../components/SalesCatalog';
 import { SalesQuotes } from '../components/SalesQuotes';
+import { SalesSettings } from '../components/SalesSettings';
+import { ProductionSettings } from '../components/ProductionSettings';
+import { ProductionInventory } from '../components/ProductionInventory';
 import { useTransactions } from '@/src/context/TransactionContext';
 import { DollarSign, LayoutDashboard, Briefcase, Factory, Package, ClipboardList, Wrench, CheckCircle2, ShoppingCart, Target, FileText, UserCheck, BarChart3 } from 'lucide-react';
 
@@ -40,6 +43,13 @@ const App: React.FC = () => {
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set()); 
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isNotificationsOpen, setNotificationsOpen] = useState(false);
+  const [isPublicCatalog, setIsPublicCatalog] = useState(false);
+
+  useEffect(() => {
+    if (window.location.pathname === '/catalogo-publico') {
+      setIsPublicCatalog(true);
+    }
+  }, []);
   const notificationRef = useRef<HTMLDivElement>(null);
 
   // Close notifications when clicking outside
@@ -197,15 +207,7 @@ const App: React.FC = () => {
       case ModuleId.PRODUCAO_ORDENS:
         return <ProductionOrders activeSubItem={activeSubItem} />;
       case ModuleId.PRODUCAO_ESTOQUE:
-        return (
-          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
-            <div className="bg-orange-100 p-8 rounded-full mb-6">
-              <Package size={64} className="text-orange-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Estoque de Matéria-Prima</h2>
-            <p className="text-gray-500 max-w-md">Controle de insumos e materiais para produção.</p>
-          </div>
-        );
+        return <ProductionInventory activeSubItem={activeSubItem} />;
       case ModuleId.PRODUCAO_MAQUINAS:
         return (
           <div className="p-12 flex flex-col items-center justify-center h-full text-center">
@@ -232,6 +234,10 @@ const App: React.FC = () => {
         return <SalesCustomers />;
       case ModuleId.VENDAS_CATALOGO:
         return <SalesCatalog />;
+      case ModuleId.VENDAS_CONFIG:
+        return <SalesSettings />;
+      case ModuleId.PRODUCAO_CONFIG:
+        return <ProductionSettings />;
       case ModuleId.DASHBOARD:
         return <FinancialDashboard />;
       case ModuleId.LANCAMENTOS:
@@ -278,6 +284,30 @@ const App: React.FC = () => {
   const sectorIconColor = activeSector === SectorId.FINANCEIRO ? 'text-blue-400' : activeSector === SectorId.RH ? 'text-pink-400' : activeSector === SectorId.PRODUCAO ? 'text-orange-400' : 'text-emerald-400';
   const sectorShadow = activeSector === SectorId.FINANCEIRO ? 'rgba(59,130,246,0.5)' : activeSector === SectorId.RH ? 'rgba(244,114,182,0.5)' : activeSector === SectorId.PRODUCAO ? 'rgba(251,146,60,0.5)' : 'rgba(52,211,153,0.5)';
   const sectorIndicator = activeSector === SectorId.FINANCEIRO ? '#3b82f6' : activeSector === SectorId.RH ? '#f472b6' : activeSector === SectorId.PRODUCAO ? '#f59e0b' : '#10b981';
+
+  if (isPublicCatalog) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 sticky top-0 z-50">
+          <div className="font-bold text-xl tracking-tighter flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-lg bg-gradient-to-br from-emerald-400 to-teal-600">
+              <ShoppingCart size={18} className="text-white" />
+            </div>
+            <span className="font-bold tracking-tight">{companyProfile.name} - Catálogo</span>
+          </div>
+          <div className="text-sm text-gray-500 hidden sm:block">
+            Visualização Pública
+          </div>
+        </header>
+        <main className="max-w-7xl mx-auto">
+          <SalesCatalog isPublic={true} />
+        </main>
+        <footer className="py-8 text-center text-gray-400 text-xs border-t border-gray-100 mt-12">
+          &copy; {new Date().getFullYear()} {companyProfile.name}. Todos os direitos reservados.
+        </footer>
+      </div>
+    );
+  }
 
   return (
       <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">

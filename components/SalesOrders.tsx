@@ -15,8 +15,12 @@ import {
   Truck,
   ArrowRight,
   Download,
-  Printer
+  Printer,
+  X,
+  UserCheck
 } from 'lucide-react';
+import { useSales } from '../src/context/SalesContext';
+import { Sale } from '../types';
 
 const MOCK_ORDERS = [
   {
@@ -62,12 +66,46 @@ const MOCK_ORDERS = [
 ];
 
 const SalesOrders: React.FC = () => {
+  const { sales, addSale } = useSales();
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newOrder, setNewOrder] = useState<Partial<Sale>>({
+    customer: '',
+    value: 0,
+    salesperson: '',
+    status: 'pending',
+    paymentStatus: 'pending'
+  });
 
-  const filteredOrders = MOCK_ORDERS.filter(order => 
+  const filteredOrders = sales.filter(order => 
     order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.customer.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleAddOrder = () => {
+    if (newOrder.customer && newOrder.value) {
+      const order: Sale = {
+        id: `PV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        customer: newOrder.customer!,
+        date: new Date().toISOString(),
+        value: Number(newOrder.value),
+        status: newOrder.status || 'pending',
+        items: 1,
+        salesperson: newOrder.salesperson || 'Não informado',
+        paymentStatus: newOrder.paymentStatus || 'pending',
+        origin: 'order'
+      };
+      addSale(order);
+      setShowAddModal(false);
+      setNewOrder({
+        customer: '',
+        value: 0,
+        salesperson: '',
+        status: 'pending',
+        paymentStatus: 'pending'
+      });
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -79,6 +117,8 @@ const SalesOrders: React.FC = () => {
         return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200"><Truck size={12} /> Enviado</span>;
       case 'pending':
         return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200"><AlertCircle size={12} /> Pendente</span>;
+      case 'waiting_production':
+        return <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700 border border-orange-200"><Clock size={12} /> Aguardando Produção</span>;
       default:
         return null;
     }
@@ -96,7 +136,10 @@ const SalesOrders: React.FC = () => {
           <p className="text-gray-500 text-sm mt-1">Acompanhamento de pedidos, faturamento e logística</p>
         </div>
 
-        <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium shadow-sm">
+        <button 
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium shadow-sm"
+        >
           <Plus size={18} />
           Novo Pedido
         </button>
@@ -123,6 +166,7 @@ const SalesOrders: React.FC = () => {
           <select className="px-4 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
             <option value="">Todos os Status</option>
             <option value="pending">Pendente</option>
+            <option value="waiting_production">Aguardando Produção</option>
             <option value="processing">Processando</option>
             <option value="shipped">Enviado</option>
             <option value="completed">Concluído</option>
@@ -149,13 +193,18 @@ const SalesOrders: React.FC = () => {
               <tr key={order.id} className="hover:bg-gray-50 transition-colors group">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
-                    <FileText size={16} className="text-emerald-600" />
+                    <FileText size={16} className={order.origin === 'pdv' ? 'text-blue-600' : 'text-emerald-600'} />
                     <span className="text-sm font-bold text-gray-900">{order.id}</span>
+                    {order.origin === 'pdv' && (
+                      <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold">PDV</span>
+                    )}
                   </div>
                 </td>
                 <td className="px-6 py-4">
                   <p className="text-sm font-medium text-gray-900">{order.customer}</p>
-                  <p className="text-[10px] text-gray-500">{order.items} itens</p>
+                  <p className="text-[10px] text-gray-500">
+                    {Array.isArray(order.items) ? order.items.length : order.items} itens
+                  </p>
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
                   {new Date(order.date).toLocaleDateString('pt-BR')}
@@ -197,6 +246,90 @@ const SalesOrders: React.FC = () => {
           </tbody>
         </table>
       </div>
+      {/* Add Order Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">Novo Pedido de Venda</h2>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cliente</label>
+                  <input 
+                    type="text" 
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    placeholder="Nome do cliente ou empresa"
+                    value={newOrder.customer}
+                    onChange={(e) => setNewOrder({...newOrder, customer: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Valor Total (R$)</label>
+                  <input 
+                    type="number" 
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    value={newOrder.value || ''}
+                    onChange={(e) => setNewOrder({...newOrder, value: parseFloat(e.target.value) || 0})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Vendedor</label>
+                  <input 
+                    type="text" 
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    value={newOrder.salesperson}
+                    onChange={(e) => setNewOrder({...newOrder, salesperson: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Status do Pedido</label>
+                  <select 
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
+                    value={newOrder.status}
+                    onChange={(e) => setNewOrder({...newOrder, status: e.target.value as any})}
+                  >
+                    <option value="pending">Pendente</option>
+                    <option value="waiting_production">Aguardando Produção</option>
+                    <option value="processing">Processando</option>
+                    <option value="shipped">Enviado</option>
+                    <option value="completed">Concluído</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Status de Pagamento</label>
+                  <select 
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none bg-white"
+                    value={newOrder.paymentStatus}
+                    onChange={(e) => setNewOrder({...newOrder, paymentStatus: e.target.value as any})}
+                  >
+                    <option value="pending">Aguardando Pagamento</option>
+                    <option value="paid">Pago</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 bg-gray-50 flex gap-3">
+              <button 
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg font-bold hover:bg-white transition-all"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleAddOrder}
+                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+              >
+                Salvar Pedido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

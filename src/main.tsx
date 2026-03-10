@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { TransactionProvider } from '@/src/context/TransactionContext';
 import { EmployeeProvider } from '@/src/context/EmployeeContext';
+import { SalesProvider } from '@/src/context/SalesContext';
+import { ProductionProvider } from '@/src/context/ProductionContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -14,7 +16,11 @@ root.render(
   <React.StrictMode>
     <TransactionProvider>
       <EmployeeProvider>
-        <App />
+        <SalesProvider>
+          <ProductionProvider>
+            <App />
+          </ProductionProvider>
+        </SalesProvider>
       </EmployeeProvider>
     </TransactionProvider>
   </React.StrictMode>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, Bell, Search, UserCircle, MessageSquare, ChevronDown, ChevronRight, Dot, Store } from 'lucide-react';
+import { Menu, Bell, Search, UserCircle, ChevronDown, ChevronRight, Dot, Store } from 'lucide-react';
 import { MENU_ITEMS } from './constants';
 import { MenuItem, ModuleId } from './types';
 import { FinancialDashboard } from './components/FinancialDashboard';
@@ -12,7 +12,6 @@ import { Controllership } from './components/Controllership';
 import { TaxManagement } from './components/TaxManagement';
 import { FinancialReports } from './components/FinancialReports';
 import { Settings } from './components/Settings';
-import { AIChatWidget } from './components/AIChatWidget';
 import { OperationalHistory } from './components/OperationalHistory';
 import { ChartOfAccounts } from './components/ChartOfAccounts';
 import { Accounting } from './components/Accounting';
@@ -103,7 +102,6 @@ const App: React.FC = () => {
   const [activeSubItem, setActiveSubItem] = useState<string | null>(null);
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set()); 
   const [isSidebarOpen, setSidebarOpen] = useState(true);
-  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const toggleModule = (id: string) => {
     const newExpanded = new Set(expandedModules);
@@ -242,15 +240,11 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Footer / Talk to AI */}
+          {/* Footer */}
           <div className="p-4 border-t border-white/10 bg-[#022c22]">
-            <button 
-              onClick={() => setIsChatOpen(true)}
-              className="w-full flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white py-3 rounded-lg border border-white/10 transition-all group"
-            >
-              <MessageSquare size={18} className="text-emerald-400 group-hover:scale-110 transition-transform" />
-              <span className="font-medium text-sm">Assistente Financeiro</span>
-            </button>
+            <div className="text-center text-[10px] text-emerald-300/40 uppercase tracking-widest">
+              VMS Financeiro v1.0
+            </div>
           </div>
         </aside>
 
@@ -312,9 +306,6 @@ const App: React.FC = () => {
           </main>
           
           <TransactionModal />
-          
-          {/* Floating Chat Widget */}
-          <AIChatWidget isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
         </div>
       </div>
   );

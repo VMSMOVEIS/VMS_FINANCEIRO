@@ -232,10 +232,59 @@ export interface JobRole {
 export enum LeadStatus {
   NEW = 'new',
   QUALIFICATION = 'qualification',
-  PROPOSAL = 'proposal',
+  QUOTE = 'quote',
   NEGOTIATION = 'negotiation',
+  ORDER_CONFIRMED = 'order_confirmed',
+  PRODUCTION = 'production',
+  DELIVERY = 'delivery',
   WON = 'won',
+  POST_SALE = 'post_sale',
   LOST = 'lost'
+}
+
+export interface BOMItem {
+  id: string;
+  materialName: string;
+  quantity: number;
+  unit: string;
+  cost: number;
+}
+
+export interface Quote {
+  id: string;
+  client: string;
+  productName: string;
+  date: string;
+  expiryDate: string;
+  bomItems: BOMItem[];
+  profitMargin: number; // Percentage
+  discount: number; // Percentage
+  value: number; // Final Price
+  status: 'draft' | 'waiting_approval' | 'sent' | 'approved' | 'rejected' | 'expired';
+}
+
+export interface ProductionOrder {
+  id: string;
+  productName: string;
+  client: string;
+  quantity: number;
+  deadline: string;
+  status: 'waiting' | 'in_production' | 'completed' | 'cancelled';
+  priority: 'low' | 'medium' | 'high';
+  progress: number;
+  quoteId?: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  category: 'pronta_entrega' | 'sob_medida';
+  type: 'mp' | 'pa' | 'processo';
+  quantity: number;
+  unit: string;
+  entryDate: string;
+  location: string;
+  value: number;
 }
 
 export interface Lead {
@@ -251,4 +300,40 @@ export interface Lead {
   probability: number; // 0-100
   notes?: string;
   expectedCloseDate?: string;
+}
+
+export interface SaleItem {
+  product: {
+    id: string;
+    code: string;
+    name: string;
+    price: number;
+  };
+  quantity: number;
+}
+
+export interface Sale {
+  id: string;
+  customer: string;
+  date: string;
+  value: number;
+  status: 'pending' | 'processing' | 'shipped' | 'completed' | 'cancelled' | 'waiting_production';
+  items: number | SaleItem[];
+  salesperson: string;
+  paymentStatus: 'paid' | 'pending';
+  origin: 'pdv' | 'order' | 'catalog';
+}
+
+export interface SalesPaymentMethod {
+  id: string;
+  name: string;
+  discount: number; // Percentage
+  active: boolean;
+}
+
+export interface StockAgingConfig {
+  id: string;
+  days: number;
+  discount: number; // Percentage
+  active: boolean;
 }

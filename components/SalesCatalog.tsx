@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { Search, Plus, Image as ImageIcon, Share2, ExternalLink, Trash2, Edit2, Copy, Check, Filter, Grid, List } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search, Plus, Image as ImageIcon, Share2, ExternalLink, Trash2, Edit2, Copy, Check, Filter, Grid, List, AlertCircle } from 'lucide-react';
+import { useProduction } from '../src/context/ProductionContext';
 
 interface Product {
   id: string;
+  sku?: string;
   name: string;
   description: string;
   price: number; // Preço de Venda
@@ -17,55 +19,34 @@ interface Product {
 const INITIAL_PRODUCTS: Product[] = [
   {
     id: '1',
-    name: 'Smartphone Pro Max',
-    description: 'O melhor smartphone do mercado com câmera de 108MP.',
-    price: 5499.00,
-    costPrice: 3500.00,
-    profitMargin: 36.35,
+    sku: 'PA-001',
+    name: 'Mesa de Jantar Carvalho 6 Lugares',
+    description: 'Mesa de jantar elegante em madeira carvalho.',
+    price: 2500.00,
+    costPrice: 1800.00,
+    profitMargin: 28,
     unit: 'UN',
-    category: 'Eletrônicos',
-    image: 'https://picsum.photos/seed/phone/400/400',
+    category: 'Móveis',
+    image: 'https://picsum.photos/seed/table/400/400',
     status: 'active'
   },
   {
     id: '2',
-    name: 'Notebook Ultra Slim',
-    description: 'Notebook leve e potente para trabalho e estudos.',
-    price: 3899.00,
-    costPrice: 2800.00,
-    profitMargin: 28.18,
+    sku: 'PA-002',
+    name: 'Cadeira Estofada Veludo Cinza',
+    description: 'Cadeira confortável com acabamento em veludo.',
+    price: 450.00,
+    costPrice: 300.00,
+    profitMargin: 33.33,
     unit: 'UN',
-    category: 'Informática',
-    image: 'https://picsum.photos/seed/laptop/400/400',
-    status: 'active'
-  },
-  {
-    id: '3',
-    name: 'Fone de Ouvido Noise Cancelling',
-    description: 'Som de alta fidelidade com cancelamento de ruído ativo.',
-    price: 1299.00,
-    costPrice: 800.00,
-    profitMargin: 38.41,
-    unit: 'UN',
-    category: 'Áudio',
-    image: 'https://picsum.photos/seed/headphones/400/400',
-    status: 'active'
-  },
-  {
-    id: '4',
-    name: 'Monitor 4K 27"',
-    description: 'Monitor profissional com cores vibrantes e alta resolução.',
-    price: 2499.00,
-    costPrice: 1800.00,
-    profitMargin: 27.97,
-    unit: 'UN',
-    category: 'Informática',
-    image: 'https://picsum.photos/seed/monitor/400/400',
+    category: 'Móveis',
+    image: 'https://picsum.photos/seed/chair/400/400',
     status: 'active'
   }
 ];
 
-export const SalesCatalog: React.FC = () => {
+export const SalesCatalog: React.FC<{ isPublic?: boolean }> = ({ isPublic = false }) => {
+  const { inventory } = useProduction();
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -73,6 +54,7 @@ export const SalesCatalog: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newProduct, setNewProduct] = useState<Partial<Product>>({
     name: '',
+    sku: '',
     description: '',
     price: 0,
     costPrice: 0,
@@ -82,6 +64,19 @@ export const SalesCatalog: React.FC = () => {
     image: '',
     status: 'active'
   });
+
+  const getStockStatus = (product: Product) => {
+    const stockItem = inventory.find(i => 
+      (product.sku && i.id === product.sku) || 
+      i.name.toLowerCase() === product.name.toLowerCase()
+    );
+    
+    if (!stockItem || stockItem.type !== 'pa' || stockItem.category !== 'pronta_entrega' || stockItem.quantity <= 0) {
+      return { available: false, quantity: 0 };
+    }
+    
+    return { available: true, quantity: stockItem.quantity };
+  };
 
   const calculateMargin = (cost: number, sell: number) => {
     if (!sell || sell === 0) return 0;
@@ -138,20 +133,24 @@ export const SalesCatalog: React.FC = () => {
           <p className="text-gray-500 text-sm">Gerencie seus produtos e compartilhe com seus clientes</p>
         </div>
         <div className="flex gap-3 w-full md:w-auto">
-          <button 
-            onClick={handleCopyLink}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-all shadow-sm"
-          >
-            {copied ? <Check size={18} className="text-emerald-500" /> : <Share2 size={18} />}
-            {copied ? 'Link Copiado!' : 'Compartilhar Link'}
-          </button>
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
-          >
-            <Plus size={18} />
-            Novo Produto
-          </button>
+          {!isPublic && (
+            <>
+              <button 
+                onClick={handleCopyLink}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-all shadow-sm"
+              >
+                {copied ? <Check size={18} className="text-emerald-500" /> : <Share2 size={18} />}
+                {copied ? 'Link Copiado!' : 'Compartilhar Link'}
+              </button>
+              <button 
+                onClick={() => setShowAddModal(true)}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+              >
+                <Plus size={18} />
+                Novo Produto
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -195,14 +194,16 @@ export const SalesCatalog: React.FC = () => {
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button className="p-2 bg-white rounded-lg shadow-sm text-gray-600 hover:text-emerald-600 transition-colors">
-                    <Edit2 size={16} />
-                  </button>
-                  <button className="p-2 bg-white rounded-lg shadow-sm text-gray-600 hover:text-red-600 transition-colors">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+                {!isPublic && (
+                  <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button className="p-2 bg-white rounded-lg shadow-sm text-gray-600 hover:text-emerald-600 transition-colors">
+                      <Edit2 size={16} />
+                    </button>
+                    <button className="p-2 bg-white rounded-lg shadow-sm text-gray-600 hover:text-red-600 transition-colors">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                )}
                 <div className="absolute bottom-3 left-3 flex gap-2">
                   <span className="bg-white/90 backdrop-blur px-2 py-1 rounded-md text-[10px] font-bold text-gray-700 uppercase tracking-wider">
                     {product.category}
@@ -213,7 +214,21 @@ export const SalesCatalog: React.FC = () => {
                 </div>
               </div>
               <div className="p-4">
-                <h3 className="font-bold text-gray-800 mb-1 line-clamp-1">{product.name}</h3>
+                <div className="flex justify-between items-start mb-1">
+                  <h3 className="font-bold text-gray-800 line-clamp-1">{product.name}</h3>
+                  {(() => {
+                    const stock = getStockStatus(product);
+                    return stock.available ? (
+                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded shrink-0">
+                        Em Estoque ({stock.quantity})
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1">
+                        <AlertCircle size={10} /> Sem Estoque
+                      </span>
+                    );
+                  })()}
+                </div>
                 <p className="text-xs text-gray-500 mb-3 line-clamp-2 h-8">{product.description}</p>
                 <div className="flex justify-between items-center pt-3 border-t border-gray-50">
                   <span className="text-lg font-bold text-emerald-600">
@@ -239,7 +254,7 @@ export const SalesCatalog: React.FC = () => {
                 <th className="px-6 py-4">Venda</th>
                 <th className="px-6 py-4">Margem</th>
                 <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Ações</th>
+                {!isPublic && <th className="px-6 py-4 text-right">Ações</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -274,17 +289,29 @@ export const SalesCatalog: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="flex items-center gap-1.5 text-emerald-600 font-medium">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                      Ativo
-                    </span>
+                    {(() => {
+                      const stock = getStockStatus(product);
+                      return stock.available ? (
+                        <span className="flex items-center gap-1.5 text-emerald-600 font-medium">
+                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                          Em Estoque ({stock.quantity})
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-red-600 font-medium">
+                          <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+                          Sem Estoque
+                        </span>
+                      );
+                    })()}
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button className="p-2 text-gray-400 hover:text-emerald-600 transition-colors"><Edit2 size={18} /></button>
-                      <button className="p-2 text-gray-400 hover:text-red-600 transition-colors"><Trash2 size={18} /></button>
-                    </div>
-                  </td>
+                  {!isPublic && (
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button className="p-2 text-gray-400 hover:text-emerald-600 transition-colors"><Edit2 size={18} /></button>
+                        <button className="p-2 text-gray-400 hover:text-red-600 transition-colors"><Trash2 size={18} /></button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -323,6 +350,16 @@ export const SalesCatalog: React.FC = () => {
                     className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none"
                     value={newProduct.name}
                     onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">SKU / Código (Para Sincronizar com Estoque PA)</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ex: PA-001"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    value={newProduct.sku}
+                    onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})}
                   />
                 </div>
                 <div>

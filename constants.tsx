@@ -188,18 +188,28 @@ export const PRODUCAO_MENU_ITEMS: MenuItem[] = [
   },
   {
     id: ModuleId.PRODUCAO_ORDENS,
-    label: 'Ordens de Produção',
+    label: 'PCP - Planejamento e Controle',
     icon: ClipboardList,
     subItems: [
-      { id: 'op_lista', label: 'Lista de OPs' },
-      { id: 'op_nova', label: 'Nova Ordem' },
-      { id: 'op_planejamento', label: 'Planejamento' },
+      { id: 'pcp_ordens', label: 'Ordens de Produção' },
+      { id: 'pcp_ficha', label: 'Ficha Técnica' },
+      { id: 'pcp_consumo', label: 'Consumo de MP' },
+      { id: 'pcp_etapas', label: 'Etapas de Produção' },
+      { id: 'pcp_custos', label: 'Custos de Fabricação' },
+      { id: 'pcp_planejamento', label: 'Planejamento' },
     ]
   },
   {
     id: ModuleId.PRODUCAO_ESTOQUE,
-    label: 'Estoque MP',
+    label: 'Estoques',
     icon: Package,
+    subItems: [
+      { id: 'estoque_mp', label: 'Estoque MP' },
+      { id: 'estoque_pa_pronta', label: 'PA - Pronta Entrega' },
+      { id: 'estoque_pa_medida', label: 'PA - Sob Medida' },
+      { id: 'estoque_processo_pronta', label: 'Processo - Pronta Entrega' },
+      { id: 'estoque_processo_medida', label: 'Processo - Sob Medida' },
+    ]
   },
   {
     id: ModuleId.PRODUCAO_MAQUINAS,
@@ -248,11 +258,6 @@ export const VENDAS_MENU_ITEMS: MenuItem[] = [
     id: ModuleId.VENDAS_ORCAMENTOS,
     label: 'Orçamentos',
     icon: FileSpreadsheet,
-  },
-  {
-    id: ModuleId.VENDAS_PROPOSTAS,
-    label: 'Propostas Comerciais',
-    icon: FileText,
   },
   {
     id: ModuleId.VENDAS_CLIENTES,

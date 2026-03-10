@@ -33,7 +33,9 @@ import {
   AreaChart,
   Area
 } from 'recharts';
-import { Lead, LeadStatus } from '../types';
+import { Lead, LeadStatus, Quote, ProductionOrder, Sale } from '../types';
+import { useSales } from '../src/context/SalesContext';
+import { useProduction } from '../src/context/ProductionContext';
 
 const MOCK_LEADS: Lead[] = [
   {
@@ -69,7 +71,7 @@ const MOCK_LEADS: Lead[] = [
     email: 'roberto@varejoexpress.com',
     phone: '(21) 99887-7665',
     value: 25000,
-    status: LeadStatus.PROPOSAL,
+    status: LeadStatus.QUOTE,
     lastContact: '2026-03-08',
     source: 'LinkedIn',
     probability: 60,
@@ -119,6 +121,8 @@ const MOCK_LEADS: Lead[] = [
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 const SalesCRM: React.FC = () => {
+  const { quotes, sales } = useSales();
+  const { productionOrders } = useProduction();
   const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'analytics'>('kanban');
@@ -132,9 +136,13 @@ const SalesCRM: React.FC = () => {
     switch (status) {
       case LeadStatus.NEW: return 'Novo Lead';
       case LeadStatus.QUALIFICATION: return 'Qualificação';
-      case LeadStatus.PROPOSAL: return 'Proposta';
+      case LeadStatus.QUOTE: return 'Orçamentos';
       case LeadStatus.NEGOTIATION: return 'Negociação';
-      case LeadStatus.WON: return 'Fechado (Ganhamos)';
+      case LeadStatus.ORDER_CONFIRMED: return 'Pedido Confirmado';
+      case LeadStatus.PRODUCTION: return 'Produção';
+      case LeadStatus.DELIVERY: return 'Entrega / Instalação';
+      case LeadStatus.WON: return 'Venda Concluída';
+      case LeadStatus.POST_SALE: return 'Pós - Venda';
       case LeadStatus.LOST: return 'Perdido';
       default: return status;
     }
@@ -144,9 +152,13 @@ const SalesCRM: React.FC = () => {
     switch (status) {
       case LeadStatus.NEW: return 'bg-blue-100 text-blue-700 border-blue-200';
       case LeadStatus.QUALIFICATION: return 'bg-indigo-100 text-indigo-700 border-indigo-200';
-      case LeadStatus.PROPOSAL: return 'bg-amber-100 text-amber-700 border-amber-200';
+      case LeadStatus.QUOTE: return 'bg-amber-100 text-amber-700 border-amber-200';
       case LeadStatus.NEGOTIATION: return 'bg-purple-100 text-purple-700 border-purple-200';
+      case LeadStatus.ORDER_CONFIRMED: return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+      case LeadStatus.PRODUCTION: return 'bg-orange-100 text-orange-700 border-orange-200';
+      case LeadStatus.DELIVERY: return 'bg-cyan-100 text-cyan-700 border-cyan-200';
       case LeadStatus.WON: return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+      case LeadStatus.POST_SALE: return 'bg-pink-100 text-pink-700 border-pink-200';
       case LeadStatus.LOST: return 'bg-red-100 text-red-700 border-red-200';
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
     }
@@ -155,9 +167,13 @@ const SalesCRM: React.FC = () => {
   const kanbanColumns = [
     { id: LeadStatus.NEW, label: 'Novos Leads', color: 'border-blue-500' },
     { id: LeadStatus.QUALIFICATION, label: 'Qualificação', color: 'border-indigo-500' },
-    { id: LeadStatus.PROPOSAL, label: 'Proposta', color: 'border-amber-500' },
+    { id: LeadStatus.QUOTE, label: 'Orçamentos', color: 'border-amber-500' },
     { id: LeadStatus.NEGOTIATION, label: 'Negociação', color: 'border-purple-500' },
-    { id: LeadStatus.WON, label: 'Ganhos', color: 'border-emerald-500' }
+    { id: LeadStatus.ORDER_CONFIRMED, label: 'Pedido Confirmado', color: 'border-emerald-500' },
+    { id: LeadStatus.PRODUCTION, label: 'Produção', color: 'border-orange-500' },
+    { id: LeadStatus.DELIVERY, label: 'Entrega / Instalação', color: 'border-cyan-500' },
+    { id: LeadStatus.WON, label: 'Venda Concluída', color: 'border-emerald-600' },
+    { id: LeadStatus.POST_SALE, label: 'Pós - Venda', color: 'border-pink-500' }
   ];
 
   // Analytics Data
@@ -303,26 +319,118 @@ const SalesCRM: React.FC = () => {
 
       {/* Content Area */}
       {viewMode === 'kanban' ? (
-        <div className="flex gap-6 overflow-x-auto pb-6 min-h-[600px] kanban-scroll">
-          {kanbanColumns.map(column => (
-            <div key={column.id} className="flex-shrink-0 w-80">
-              <div className={`flex items-center justify-between mb-4 pb-2 border-b-2 ${column.color}`}>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-gray-900">{column.label}</h3>
-                  <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    {filteredLeads.filter(l => l.status === column.id).length}
-                  </span>
-                </div>
-                <button className="p-1 hover:bg-gray-100 rounded-md text-gray-400">
-                  <Plus size={16} />
-                </button>
-              </div>
+        <div className="flex gap-6 overflow-x-auto pb-6 min-h-[600px] kanban-scroll scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent">
+          {kanbanColumns.map(column => {
+            // Get items for this column based on the mapping
+            let columnItems: any[] = [];
+            
+            if (column.id === LeadStatus.NEW) {
+              columnItems = filteredLeads.filter(l => l.status === LeadStatus.NEW).map(l => ({
+                id: l.id,
+                title: l.company,
+                subtitle: l.contactName,
+                value: l.value,
+                probability: l.probability,
+                date: l.expectedCloseDate,
+                lastContact: l.lastContact,
+                type: 'lead'
+              }));
+            } else if (column.id === LeadStatus.QUALIFICATION) {
+              columnItems = filteredLeads.filter(l => l.status === LeadStatus.QUALIFICATION).map(l => ({
+                id: l.id,
+                title: l.company,
+                subtitle: l.contactName,
+                value: l.value,
+                probability: l.probability,
+                date: l.expectedCloseDate,
+                lastContact: l.lastContact,
+                type: 'lead'
+              }));
+            } else if (column.id === LeadStatus.QUOTE) {
+              columnItems = quotes.filter(q => q.status === 'draft' || q.status === 'waiting_approval').map(q => ({
+                id: q.id,
+                title: q.client,
+                subtitle: q.productName,
+                value: q.value,
+                probability: 50,
+                date: q.expiryDate,
+                lastContact: q.date,
+                type: 'quote'
+              }));
+            } else if (column.id === LeadStatus.NEGOTIATION) {
+              columnItems = quotes.filter(q => q.status === 'sent').map(q => ({
+                id: q.id,
+                title: q.client,
+                subtitle: q.productName,
+                value: q.value,
+                probability: 70,
+                date: q.expiryDate,
+                lastContact: q.date,
+                type: 'quote'
+              }));
+            } else if (column.id === LeadStatus.ORDER_CONFIRMED) {
+              columnItems = quotes.filter(q => q.status === 'approved').map(q => ({
+                id: q.id,
+                title: q.client,
+                subtitle: q.productName,
+                value: q.value,
+                probability: 90,
+                date: q.expiryDate,
+                lastContact: q.date,
+                type: 'quote'
+              }));
+            } else if (column.id === LeadStatus.PRODUCTION) {
+              columnItems = productionOrders.filter(po => po.status === 'in_production').map(po => ({
+                id: po.id,
+                title: po.client,
+                subtitle: po.productName,
+                value: 0, // Production orders don't have value directly in the interface
+                probability: po.progress,
+                date: po.deadline,
+                lastContact: po.deadline,
+                type: 'production'
+              }));
+            } else if (column.id === LeadStatus.WON) {
+              columnItems = sales.filter(s => s.status === 'completed').map(s => ({
+                id: s.id,
+                title: s.customer,
+                subtitle: `Vendedor: ${s.salesperson}`,
+                value: s.value,
+                probability: 100,
+                date: s.date,
+                lastContact: s.date,
+                type: 'sale'
+              }));
+            } else if (column.id === LeadStatus.POST_SALE) {
+              columnItems = filteredLeads.filter(l => l.status === LeadStatus.POST_SALE).map(l => ({
+                id: l.id,
+                title: l.company,
+                subtitle: l.contactName,
+                value: l.value,
+                probability: 100,
+                date: l.expectedCloseDate,
+                lastContact: l.lastContact,
+                type: 'lead'
+              }));
+            }
 
-              <div className="space-y-4">
-                {filteredLeads
-                  .filter(lead => lead.status === column.id)
-                  .map(lead => (
-                    <div key={lead.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group">
+            return (
+              <div key={column.id} className="flex-shrink-0 w-80">
+                <div className={`flex items-center justify-between mb-4 pb-2 border-b-2 ${column.color}`}>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-gray-900">{column.label}</h3>
+                    <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                      {columnItems.length}
+                    </span>
+                  </div>
+                  <button className="p-1 hover:bg-gray-100 rounded-md text-gray-400">
+                    <Plus size={16} />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {columnItems.map(item => (
+                    <div key={item.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -330,9 +438,9 @@ const SalesCRM: React.FC = () => {
                           </div>
                           <div>
                             <h4 className="text-sm font-bold text-gray-900 group-hover:text-emerald-600 transition-colors truncate w-40">
-                              {lead.company}
+                              {item.title}
                             </h4>
-                            <p className="text-[10px] text-gray-500">{lead.contactName}</p>
+                            <p className="text-[10px] text-gray-500">{item.subtitle}</p>
                           </div>
                         </div>
                         <button className="p-1 text-gray-300 hover:text-gray-600">
@@ -342,41 +450,42 @@ const SalesCRM: React.FC = () => {
 
                       <div className="mb-4">
                         <p className="text-lg font-bold text-gray-900">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(lead.value)}
+                          {item.value > 0 ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value) : '---'}
                         </p>
                         <div className="flex items-center gap-1 mt-1">
                           <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                             <div 
                               className="h-full bg-emerald-500 rounded-full" 
-                              style={{ width: `${lead.probability}%` }}
+                              style={{ width: `${item.probability}%` }}
                             ></div>
                           </div>
-                          <span className="text-[10px] font-bold text-emerald-600">{lead.probability}%</span>
+                          <span className="text-[10px] font-bold text-emerald-600">{item.probability}%</span>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between pt-3 border-t border-gray-50">
                         <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
                           <Calendar size={12} />
-                          {new Date(lead.expectedCloseDate || '').toLocaleDateString('pt-BR')}
+                          {item.date ? new Date(item.date).toLocaleDateString('pt-BR') : '---'}
                         </div>
                         <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
                           <Clock size={12} />
-                          {new Date(lead.lastContact).toLocaleDateString('pt-BR')}
+                          {item.lastContact ? new Date(item.lastContact).toLocaleDateString('pt-BR') : '---'}
                         </div>
                       </div>
                     </div>
                   ))}
-                
-                {filteredLeads.filter(l => l.status === column.id).length === 0 && (
-                  <div className="py-12 border-2 border-dashed border-gray-100 rounded-2xl flex flex-col items-center justify-center text-gray-400">
-                    <Target size={32} className="opacity-20 mb-2" />
-                    <p className="text-xs">Sem oportunidades</p>
-                  </div>
-                )}
+                  
+                  {columnItems.length === 0 && (
+                    <div className="py-12 border-2 border-dashed border-gray-100 rounded-2xl flex flex-col items-center justify-center text-gray-400">
+                      <Target size={32} className="opacity-20 mb-2" />
+                      <p className="text-xs">Sem oportunidades</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : viewMode === 'list' ? (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

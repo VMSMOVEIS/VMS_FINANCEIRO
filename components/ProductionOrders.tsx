@@ -15,67 +15,86 @@ import {
   Package,
   Users
 } from 'lucide-react';
+import { useProduction } from '../src/context/ProductionContext';
+import { ProductionOrder } from '../types';
 
 interface ProductionOrdersProps {
   activeSubItem?: string | null;
 }
 
-interface Order {
-  id: string;
-  product: string;
-  quantity: number;
-  status: 'pending' | 'in_progress' | 'paused' | 'completed';
-  priority: 'low' | 'medium' | 'high';
-  deadline: string;
-  progress: number;
-}
-
-const MOCK_ORDERS: Order[] = [
-  { id: 'OP-2026-001', product: 'Camiseta Algodão Premium G', quantity: 500, status: 'in_progress', priority: 'high', deadline: '2026-03-15', progress: 65 },
-  { id: 'OP-2026-002', product: 'Calça Jeans Slim 42', quantity: 200, status: 'pending', priority: 'medium', deadline: '2026-03-20', progress: 0 },
-  { id: 'OP-2026-003', product: 'Moletom Canguru M', quantity: 150, status: 'paused', priority: 'low', deadline: '2026-03-25', progress: 30 },
-  { id: 'OP-2026-004', product: 'Bermuda Sarja 40', quantity: 300, status: 'completed', priority: 'medium', deadline: '2026-03-05', progress: 100 },
-];
-
 export const ProductionOrders: React.FC<ProductionOrdersProps> = ({ activeSubItem }) => {
-  const [view, setView] = useState<'list' | 'new' | 'planning'>('list');
-  const [orders, setOrders] = useState<Order[]>(MOCK_ORDERS);
+  const { productionOrders, updateProductionOrder, addProductionOrder } = useProduction();
+  const [view, setView] = useState<'list' | 'new' | 'planning' | 'ficha' | 'consumo' | 'etapas' | 'custos'>('list');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Todos os Status');
 
   useEffect(() => {
-    if (activeSubItem === 'op_lista') setView('list');
-    else if (activeSubItem === 'op_nova') setView('new');
-    else if (activeSubItem === 'op_planejamento') setView('planning');
+    if (activeSubItem === 'pcp_ordens') setView('list');
+    else if (activeSubItem === 'pcp_ficha') setView('ficha');
+    else if (activeSubItem === 'pcp_consumo') setView('consumo');
+    else if (activeSubItem === 'pcp_etapas') setView('etapas');
+    else if (activeSubItem === 'pcp_custos') setView('custos');
+    else if (activeSubItem === 'pcp_planejamento') setView('planning');
   }, [activeSubItem]);
 
-  const getStatusBadge = (status: Order['status']) => {
+  const getStatusBadge = (status: ProductionOrder['status']) => {
     switch (status) {
-      case 'pending': return <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Pendente</span>;
-      case 'in_progress': return <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Em Produção</span>;
-      case 'paused': return <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">Pausada</span>;
+      case 'waiting': return <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">Aguardando</span>;
+      case 'in_production': return <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Em Produção</span>;
       case 'completed': return <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Concluída</span>;
+      case 'cancelled': return <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Cancelada</span>;
     }
   };
+
+  const handleStatusChange = (id: string, newStatus: ProductionOrder['status']) => {
+    const order = productionOrders.find(o => o.id === id);
+    if (order) {
+      updateProductionOrder({ ...order, status: newStatus, progress: newStatus === 'completed' ? 100 : order.progress });
+    }
+  };
+
+  const filteredOrders = productionOrders.filter(order => {
+    const matchesSearch = order.productName.toLowerCase().includes(searchTerm.toLowerCase()) || order.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'Todos os Status' || 
+      (statusFilter === 'Em Produção' && order.status === 'in_production') ||
+      (statusFilter === 'Pendentes' && order.status === 'waiting') ||
+      (statusFilter === 'Concluídas' && order.status === 'completed');
+    return matchesSearch && matchesStatus;
+  });
 
   const renderList = () => (
     <div className="space-y-6">
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-center gap-4">
         <div className="relative flex-1 min-w-[300px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-          <input type="text" placeholder="Buscar por OP ou produto..." className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 text-sm" />
+          <input 
+            type="text" 
+            placeholder="Buscar por OP ou produto..." 
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 text-sm" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
-        <select className="px-4 py-2 border border-gray-200 rounded-lg text-sm bg-white">
+        <select 
+          className="px-4 py-2 border border-gray-200 rounded-lg text-sm bg-white"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
           <option>Todos os Status</option>
           <option>Em Produção</option>
           <option>Pendentes</option>
           <option>Concluídas</option>
         </select>
-        <button className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors shadow-sm">
+        <button 
+          onClick={() => setView('new')}
+          className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition-colors shadow-sm"
+        >
           <Plus size={18} /> Nova OP
         </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4">
-        {orders.map(order => (
+        {filteredOrders.map(order => (
           <div key={order.id} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow group">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div className="flex-1">
@@ -84,7 +103,8 @@ export const ProductionOrders: React.FC<ProductionOrdersProps> = ({ activeSubIte
                   {getStatusBadge(order.status)}
                   {order.priority === 'high' && <span className="flex items-center gap-1 text-[10px] font-bold text-red-600 uppercase"><AlertCircle size={12} /> Alta Prioridade</span>}
                 </div>
-                <h3 className="text-lg font-bold text-gray-900">{order.product}</h3>
+                <h3 className="text-lg font-bold text-gray-900">{order.productName}</h3>
+                <p className="text-xs text-gray-500 mb-2">Cliente: {order.client}</p>
                 <div className="flex flex-wrap gap-4 mt-3">
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <Package size={16} className="text-gray-400" />
@@ -108,14 +128,22 @@ export const ProductionOrders: React.FC<ProductionOrdersProps> = ({ activeSubIte
               </div>
 
               <div className="flex items-center gap-2">
-                {order.status === 'pending' && (
-                  <button className="p-2 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-100 transition-colors" title="Iniciar">
+                {order.status === 'waiting' && (
+                  <button 
+                    onClick={() => handleStatusChange(order.id, 'in_production')}
+                    className="p-2 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-100 transition-colors" 
+                    title="Iniciar"
+                  >
                     <Play size={20} />
                   </button>
                 )}
-                {order.status === 'in_progress' && (
-                  <button className="p-2 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition-colors" title="Pausar">
-                    <Pause size={20} />
+                {order.status === 'in_production' && (
+                  <button 
+                    onClick={() => handleStatusChange(order.id, 'completed')}
+                    className="p-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-colors" 
+                    title="Concluir"
+                  >
+                    <CheckCircle2 size={20} />
                   </button>
                 )}
                 <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-xl transition-colors">
@@ -125,6 +153,11 @@ export const ProductionOrders: React.FC<ProductionOrdersProps> = ({ activeSubIte
             </div>
           </div>
         ))}
+        {filteredOrders.length === 0 && (
+          <div className="bg-white p-12 rounded-2xl border border-dashed border-gray-200 text-center">
+            <p className="text-gray-500">Nenhuma ordem de produção encontrada.</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -135,34 +168,48 @@ export const ProductionOrders: React.FC<ProductionOrdersProps> = ({ activeSubIte
         <h2 className="text-2xl font-bold text-gray-900">Nova Ordem de Produção</h2>
         <p className="text-gray-500 text-sm">Preencha os dados para iniciar uma nova fabricação</p>
       </div>
-      <form className="p-8 space-y-6">
+      <form 
+        className="p-8 space-y-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const target = e.target as any;
+          const newOrder: ProductionOrder = {
+            id: `OP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+            productName: target.product.value,
+            client: target.client.value,
+            quantity: parseInt(target.quantity.value),
+            deadline: target.deadline.value,
+            status: 'waiting',
+            priority: target.priority.value.toLowerCase() as any,
+            progress: 0
+          };
+          addProductionOrder(newOrder);
+          setView('list');
+        }}
+      >
         <div className="grid grid-cols-2 gap-6">
           <div className="col-span-2">
             <label className="block text-sm font-bold text-gray-700 mb-2">Produto / Referência</label>
-            <input type="text" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" placeholder="Ex: Camiseta Algodão Premium" />
+            <input name="product" required type="text" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" placeholder="Ex: Camiseta Algodão Premium" />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-sm font-bold text-gray-700 mb-2">Cliente</label>
+            <input name="client" required type="text" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" placeholder="Nome do cliente" />
           </div>
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">Quantidade</label>
-            <input type="number" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" placeholder="0" />
+            <input name="quantity" required type="number" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" placeholder="0" />
           </div>
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">Prazo de Entrega</label>
-            <input type="date" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" />
+            <input name="deadline" required type="date" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" />
           </div>
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">Prioridade</label>
-            <select className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none bg-white">
+            <select name="priority" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none bg-white">
               <option>Baixa</option>
               <option>Média</option>
               <option>Alta</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">Linha de Produção</label>
-            <select className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none bg-white">
-              <option>Corte & Costura</option>
-              <option>Estamparia</option>
-              <option>Acabamento</option>
             </select>
           </div>
         </div>
@@ -229,12 +276,22 @@ export const ProductionOrders: React.FC<ProductionOrdersProps> = ({ activeSubIte
     </div>
   );
 
+  const renderPlaceholder = (title: string, description: string) => (
+    <div className="bg-white p-12 rounded-3xl shadow-sm border border-gray-100 text-center">
+      <div className="w-16 h-16 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center mx-auto mb-4">
+        <ClipboardList size={32} />
+      </div>
+      <h3 className="text-xl font-bold text-gray-900 mb-2">{title}</h3>
+      <p className="text-gray-500 max-w-md mx-auto">{description}</p>
+    </div>
+  );
+
   return (
     <div className="p-6 lg:p-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <ClipboardList className="text-orange-600" size={28} />
-          Ordens de Produção
+          PCP - Planejamento e Controle
         </h1>
         <p className="text-gray-500 text-sm mt-1">Gestão, acompanhamento e planejamento da fabricação</p>
       </div>
@@ -242,6 +299,10 @@ export const ProductionOrders: React.FC<ProductionOrdersProps> = ({ activeSubIte
       {view === 'list' && renderList()}
       {view === 'new' && renderNew()}
       {view === 'planning' && renderPlanning()}
+      {view === 'ficha' && renderPlaceholder('Ficha Técnica', 'Gerencie as especificações técnicas e composições dos produtos.')}
+      {view === 'consumo' && renderPlaceholder('Consumo de Matéria-Prima', 'Acompanhe o consumo real vs previsto de insumos na produção.')}
+      {view === 'etapas' && renderPlaceholder('Etapas de Produção', 'Defina e monitore as fases do processo produtivo.')}
+      {view === 'custos' && renderPlaceholder('Custos de Fabricação', 'Análise detalhada dos custos diretos e indiretos de produção.')}
     </div>
   );
 };
