@@ -96,7 +96,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
 import { useTransactions } from './src/context/TransactionContext';
 
 const App: React.FC = () => {
-  const { userProfile, companyProfile } = useTransactions();
+  const { userProfile, companyProfile, isLoading, refreshData } = useTransactions();
   const [activeModule, setActiveModule] = useState<ModuleId>(ModuleId.DASHBOARD);
   // activeSubItem is kept for potential future use or deep linking, though mostly flattened now
   const [activeSubItem, setActiveSubItem] = useState<string | null>(null);
@@ -281,6 +281,14 @@ const App: React.FC = () => {
                 />
               </div>
 
+              <button 
+                onClick={refreshData}
+                className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                title="Sincronizar com Nuvem"
+              >
+                <Store size={20} className={isLoading ? 'animate-spin text-emerald-600' : ''} />
+              </button>
+
               <button className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
                 <Bell size={20} />
                 <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
@@ -302,6 +310,14 @@ const App: React.FC = () => {
 
           {/* Page Content */}
           <main className="flex-1 overflow-y-auto bg-[#f0fdf4] relative">
+            {isLoading && (
+              <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-50 flex items-center justify-center">
+                <div className="bg-white p-6 rounded-2xl shadow-xl border border-emerald-100 flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
+                  <div className="w-12 h-12 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin"></div>
+                  <p className="text-emerald-900 font-medium text-sm">Sincronizando com a nuvem...</p>
+                </div>
+              </div>
+            )}
             {renderContent()}
           </main>
           

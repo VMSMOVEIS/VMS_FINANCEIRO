@@ -5,6 +5,7 @@ export interface AccountPlan {
   code: string;
   name: string;
   type: 'ativo' | 'passivo' | 'receita' | 'despesa';
+  level?: 'grupo' | 'subgrupo' | 'sintetica' | 'analitica';
 }
 
 export interface TransactionType {
@@ -151,8 +152,8 @@ export const transactionTypes: TransactionType[] = [
   { id: 'adiantamento_cliente', label: 'Adiantamento de Cliente', defaultDestination: 'Fluxo de Caixa', defaultType: 'income' },
   { id: 'adiantamento_fornecedor', label: 'Adiantamento a Fornecedor', defaultDestination: 'Fluxo de Caixa', defaultType: 'expense' },
   { id: 'transferencia', label: 'Transferência', defaultDestination: 'Tesouraria', defaultType: 'expense' },
-  { id: 'duplicata_receber', label: 'Duplicatas ou promissórias a receber', defaultDestination: 'Contas a Receber', defaultType: 'income' },
-  { id: 'duplicata_pagar', label: 'Duplicatas ou promissórias a pagar', defaultDestination: 'Contas a Pagar', defaultType: 'expense' },
+  { id: 'duplicata_receber', label: 'Contas a receber', defaultDestination: 'Contas a Receber', defaultType: 'income' },
+  { id: 'duplicata_pagar', label: 'Contas a pagar', defaultDestination: 'Contas a Pagar', defaultType: 'expense' },
 ];
 
 // Service methods to simulate API calls

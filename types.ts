@@ -100,6 +100,7 @@ export interface Transaction {
   date: string;
   description: string;
   category: string | null;
+  categoryCode?: string;
   value: number; // Total Value
   type: 'income' | 'expense' | 'transfer';
   transactionTypeId: string;

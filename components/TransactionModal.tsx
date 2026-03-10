@@ -27,6 +27,7 @@ export const TransactionModal: React.FC = () => {
     date: new Date().toISOString().split('T')[0],
     transactionTypeId: '',
     category: '',
+    categoryCode: '',
     documentType: 'NF',
     orderNumber: '',
     customerName: '',
@@ -166,6 +167,22 @@ export const TransactionModal: React.FC = () => {
           dueDate: value
         })) || [];
       }
+
+      // Auto-fill category when code is entered
+      if (name === 'categoryCode') {
+        const plan = accountPlans.find(p => p.code === value);
+        if (plan) {
+          newData.category = plan.name;
+        }
+      }
+
+      // Auto-fill code when category is selected
+      if (name === 'category') {
+        const plan = accountPlans.find(p => p.name === value);
+        if (plan) {
+          newData.categoryCode = plan.code;
+        }
+      }
       
       return newData;
     });
@@ -269,16 +286,19 @@ export const TransactionModal: React.FC = () => {
   };
 
   const addPayment = (amount: number) => {
+    const isDuplicata = formData.transactionTypeId === 'duplicata_receber' || formData.transactionTypeId === 'duplicata_pagar';
     const defaultMethod = paymentMethods.find(pm => pm.type === 'pix');
     const defaultAccount = accounts.find(acc => acc.id === defaultMethod?.defaultAccountId);
 
     const payment: Payment = {
       id: Date.now().toString(),
-      method: defaultMethod?.name || 'Pix', 
+      method: isDuplicata ? 'A Definir' : (defaultMethod?.name || 'Pix'), 
       value: amount,
       dueDate: formData.date || new Date().toISOString().split('T')[0],
-      destination: defaultAccount?.name || 'Caixa', 
-      status: 'completed' 
+      destination: isDuplicata 
+        ? (formData.transactionTypeId === 'duplicata_receber' ? 'Contas a Receber' : 'Contas a Pagar')
+        : (defaultAccount?.name || 'Caixa'), 
+      status: isDuplicata ? 'pending' : 'completed' 
     };
 
     setFormData(prev => ({
@@ -625,29 +645,57 @@ export const TransactionModal: React.FC = () => {
             </div>
 
             {!isTransfer && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Plano de Contas (Sugerido ou Novo)</label>
-                <input 
-                  list="account-plans-list"
-                  name="category"
-                  required
-                  autoComplete="off"
-                  value={formData.category || ''}
-                  onChange={handleInputChange}
-                  placeholder="Digite ou selecione uma categoria..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-                />
-                <datalist id="account-plans-list">
-                  {accountPlans
-                    .filter(acc => {
-                      if (formData.type === 'income') return acc.type === 'receita' || acc.type === 'ativo';
-                      if (formData.type === 'expense') return acc.type === 'despesa' || acc.type === 'passivo';
-                      return true;
-                    })
-                    .map(acc => (
-                      <option key={acc.id} value={acc.name}>{acc.code} - {acc.name}</option>
-                  ))}
-                </datalist>
+              <div className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
+                    <input 
+                      type="text"
+                      name="categoryCode"
+                      value={formData.categoryCode || ''}
+                      onChange={handleInputChange}
+                      placeholder="Ex: 1.1.01.01"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-mono"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Plano de Contas (Analítico)</label>
+                    <input 
+                      list="account-plans-list"
+                      name="category"
+                      required
+                      autoComplete="off"
+                      value={formData.category || ''}
+                      onChange={handleInputChange}
+                      placeholder="Digite ou selecione uma categoria..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                    />
+                    <datalist id="account-plans-list">
+                      {accountPlans
+                        .filter(acc => {
+                          if (formData.type === 'income') return acc.type === 'receita' || acc.type === 'ativo';
+                          if (formData.type === 'expense') return acc.type === 'despesa' || acc.type === 'passivo';
+                          return true;
+                        })
+                        .map(acc => (
+                          <option key={acc.id} value={acc.name}>{acc.code} - {acc.name}</option>
+                      ))}
+                    </datalist>
+                  </div>
+                </div>
+                
+                {formData.category && (() => {
+                  const plan = accountPlans.find(p => p.name === formData.category);
+                  const isAnalytic = plan?.code.split('.').length === 4;
+                  if (plan && !isAnalytic) {
+                    return (
+                      <p className="text-xs text-red-600 font-medium bg-red-50 p-2 rounded border border-red-100">
+                        Atenção: A conta "{plan.name}" é sintética. Por favor, selecione uma conta analítica (ex: {plan.code}.01).
+                      </p>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             )}
           </div>

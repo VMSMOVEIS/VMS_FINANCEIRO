@@ -7,13 +7,14 @@ export const ChartOfAccounts: React.FC = () => {
   const { accountPlans, addAccountPlan, deleteAccountPlan, updateAccountPlan, resetAccountPlans } = useTransactions();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [newAccount, setNewAccount] = useState<Partial<AccountPlan>>({
+  const [newAccount, setNewAccount] = useState<Partial<AccountPlan & { level: 'grupo' | 'subgrupo' | 'sintetica' | 'analitica' }>>({
     type: 'ativo',
     code: '',
-    name: ''
+    name: '',
+    level: 'analitica'
   });
 
-  const generateNextCode = (type: 'ativo' | 'passivo' | 'receita' | 'despesa') => {
+  const generateNextCode = (type: 'ativo' | 'passivo' | 'receita' | 'despesa', level: string, parentCode?: string) => {
     const prefixMap = {
       ativo: '1',
       passivo: '2',
@@ -21,32 +22,57 @@ export const ChartOfAccounts: React.FC = () => {
       despesa: '5'
     };
     const prefix = prefixMap[type];
-    const accounts = accountPlans.filter(a => a.type === type);
     
-    if (accounts.length === 0) return `${prefix}`;
-    
-    // For professional plans, we often have levels. 
-    // This is a simplified auto-generator for the next top-level or sub-level item.
-    // If there are accounts like 1, 1.1, 1.1.01, we find the next one.
-    const codes = accounts.map(a => a.code);
-    
-    // Logic: find max at the current level. 
-    // For simplicity, let's just increment the last number of the longest code found for that type
-    // or just return a placeholder if it's too complex.
-    // Professional users usually enter their own codes, but we'll provide a suggestion.
-    const maxCode = codes.sort().reverse()[0] || prefix;
-    const parts = maxCode.split('.');
-    const lastPart = parseInt(parts[parts.length - 1]);
-    
-    if (isNaN(lastPart)) return `${prefix}.1`;
-    
-    parts[parts.length - 1] = (lastPart + 1).toString();
-    return parts.join('.');
+    if (level === 'grupo') {
+      const groups = accountPlans.filter(a => a.code.split('.').length === 1 && a.type === type);
+      if (groups.length === 0) return prefix;
+      const lastCode = Math.max(...groups.map(g => parseInt(g.code)));
+      return (lastCode + 1).toString();
+    }
+
+    if (!parentCode) {
+      // Find a default parent if none provided
+      const possibleParents = accountPlans.filter(a => {
+        const parts = a.code.split('.');
+        if (level === 'subgrupo') return parts.length === 1 && a.type === type;
+        if (level === 'sintetica') return parts.length === 2 && a.type === type;
+        if (level === 'analitica') return parts.length === 3 && a.type === type;
+        return false;
+      });
+      if (possibleParents.length > 0) {
+        parentCode = possibleParents[0].code;
+      } else {
+        return '';
+      }
+    }
+
+    const children = accountPlans.filter(a => {
+      const parts = a.code.split('.');
+      const parentParts = parentCode!.split('.');
+      return a.code.startsWith(parentCode + '.') && parts.length === parentParts.length + 1;
+    });
+
+    if (children.length === 0) {
+      return `${parentCode}.${level === 'subgrupo' ? '1' : '01'}`;
+    }
+
+    const lastPart = Math.max(...children.map(c => {
+      const parts = c.code.split('.');
+      return parseInt(parts[parts.length - 1]);
+    }));
+
+    const nextPart = (lastPart + 1).toString();
+    return `${parentCode}.${level === 'subgrupo' ? nextPart : nextPart.padStart(2, '0')}`;
   };
 
   const handleTypeChange = (type: 'ativo' | 'passivo' | 'receita' | 'despesa') => {
-    const nextCode = generateNextCode(type);
+    const nextCode = generateNextCode(type, newAccount.level || 'analitica');
     setNewAccount({ ...newAccount, type, code: nextCode });
+  };
+
+  const handleLevelChange = (level: 'grupo' | 'subgrupo' | 'sintetica' | 'analitica') => {
+    const nextCode = generateNextCode(newAccount.type || 'ativo', level);
+    setNewAccount({ ...newAccount, level, code: nextCode });
   };
 
   const handleAddAccount = async (e: React.FormEvent) => {
@@ -56,13 +82,15 @@ export const ChartOfAccounts: React.FC = () => {
         await updateAccountPlan(editingId, {
             name: newAccount.name,
             code: newAccount.code,
-            type: newAccount.type as any
+            type: newAccount.type as any,
+            level: newAccount.level as any
         });
       } else {
         await addAccountPlan({
             name: newAccount.name,
             code: newAccount.code,
-            type: newAccount.type as any
+            type: newAccount.type as any,
+            level: newAccount.level as any
         });
       }
       setIsModalOpen(false);
@@ -148,8 +176,8 @@ export const ChartOfAccounts: React.FC = () => {
             onClick={() => {
               setIsModalOpen(true);
               setEditingId(null);
-              const nextCode = generateNextCode('ativo');
-              setNewAccount({ type: 'ativo', code: nextCode, name: '' });
+              const nextCode = generateNextCode('ativo', 'analitica');
+              setNewAccount({ type: 'ativo', code: nextCode, name: '', level: 'analitica' });
             }}
             className="bg-emerald-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
           >
@@ -276,6 +304,56 @@ export const ChartOfAccounts: React.FC = () => {
                   </button>
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nível da Conta</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(['grupo', 'subgrupo', 'sintetica', 'analitica'] as const).map((lvl) => (
+                    <button
+                      key={lvl}
+                      type="button"
+                      onClick={() => handleLevelChange(lvl)}
+                      className={`px-2 py-2 text-[10px] uppercase font-bold rounded-lg border transition-all ${
+                        newAccount.level === lvl 
+                          ? 'bg-gray-800 text-white border-gray-800 shadow-sm' 
+                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      {lvl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {newAccount.level !== 'grupo' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Conta Pai</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm bg-white"
+                    onChange={(e) => {
+                      const parentCode = e.target.value;
+                      const nextCode = generateNextCode(newAccount.type || 'ativo', newAccount.level || 'analitica', parentCode);
+                      setNewAccount({ ...newAccount, code: nextCode });
+                    }}
+                    value={accountPlans.find(p => newAccount.code?.startsWith(p.code + '.'))?.code || ''}
+                  >
+                    <option value="">Selecione a conta pai...</option>
+                    {accountPlans
+                      .filter(p => {
+                        const parts = p.code.split('.');
+                        if (newAccount.level === 'subgrupo') return parts.length === 1 && p.type === newAccount.type;
+                        if (newAccount.level === 'sintetica') return parts.length === 2 && p.type === newAccount.type;
+                        if (newAccount.level === 'analitica') return parts.length === 3 && p.type === newAccount.type;
+                        return false;
+                      })
+                      .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))
+                      .map(p => (
+                        <option key={p.id} value={p.code}>{p.code} - {p.name}</option>
+                      ))
+                    }
+                  </select>
+                </div>
+              )}
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="col-span-1">

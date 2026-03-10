@@ -153,7 +153,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         id: p.id,
         code: p.code,
         name: p.name,
-        type: p.type as any
+        type: p.type as any,
+        level: p.level as any
       })));
 
       // Fetch Transactions with Payments
@@ -172,6 +173,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         date: t.date,
         description: t.description,
         category: t.category,
+        categoryCode: t.category_code,
         value: Number(t.value),
         type: t.transaction_type_id === 'transferencia' ? 'transfer' : t.type,
         transactionTypeId: t.transaction_type_id,
@@ -234,6 +236,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           date: transaction.date,
           description: transaction.description,
           category: transaction.category,
+          category_code: transaction.categoryCode,
           value: transaction.value,
           type: transaction.type === 'transfer' ? 'expense' : transaction.type,
           transaction_type_id: transaction.transactionTypeId,
@@ -282,6 +285,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           date: updatedTransaction.date,
           description: updatedTransaction.description,
           category: updatedTransaction.category,
+          category_code: updatedTransaction.categoryCode,
           value: updatedTransaction.value,
           type: updatedTransaction.type === 'transfer' ? 'expense' : updatedTransaction.type,
           transaction_type_id: updatedTransaction.transactionTypeId,
@@ -460,7 +464,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         .insert([{
           code: plan.code,
           name: plan.name,
-          type: plan.type
+          type: plan.type,
+          level: plan.level
         }]);
       if (error) throw error;
       await fetchData();
@@ -477,7 +482,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         .update({
           code: plan.code,
           name: plan.name,
-          type: plan.type
+          type: plan.type,
+          level: plan.level
         })
         .eq('id', id);
       if (error) throw error;
