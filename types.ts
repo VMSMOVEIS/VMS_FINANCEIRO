@@ -4,7 +4,8 @@ export enum SectorId {
   FINANCEIRO = 'financeiro',
   RH = 'rh',
   PRODUCAO = 'producao',
-  VENDAS = 'vendas'
+  VENDAS = 'vendas',
+  COMPRAS = 'compras'
 }
 
 export enum ModuleId {
@@ -51,7 +52,14 @@ export enum ModuleId {
   VENDAS_CLIENTES = 'vendas_clientes',
   VENDAS_CATALOGO = 'vendas_catalogo',
   VENDAS_METAS = 'vendas_metas',
-  VENDAS_CONFIG = 'vendas_config'
+  VENDAS_CONFIG = 'vendas_config',
+
+  // Compras Modules
+  COMPRAS_DASHBOARD = 'compras_dashboard',
+  COMPRAS_PEDIDOS = 'compras_pedidos',
+  COMPRAS_FORNECEDORES = 'compras_fornecedores',
+  COMPRAS_COTACAO = 'compras_cotacao',
+  COMPRAS_CONFIG = 'compras_config'
 }
 
 export interface SubMenuItem {
@@ -286,6 +294,7 @@ export interface InventoryItem {
   entryDate: string;
   location: string;
   value: number;
+  estimatedCost?: number;
 }
 
 export interface Lead {
@@ -304,25 +313,57 @@ export interface Lead {
 }
 
 export interface SaleItem {
-  product: {
-    id: string;
-    code: string;
-    name: string;
-    price: number;
-  };
+  productId: string;
+  code: string;
+  name: string;
+  unit: string;
   quantity: number;
+  listPrice: number;
+  discount: number;
+  unitPrice: number;
+  totalPrice: number;
 }
 
 export interface Sale {
   id: string;
   customer: string;
+  salesperson: string;
+  store?: string;
   date: string;
+  effectiveDate?: string;
+  dueDate?: string;
+  items: SaleItem[];
+  itemCount: number;
+  totalQuantity: number;
+  totalDiscount: number;
+  deliveryTime?: string;
+  otherExpenses: number;
+  commission: number;
   value: number;
   status: 'pending' | 'processing' | 'shipped' | 'completed' | 'cancelled' | 'waiting_production';
-  items: number | SaleItem[];
-  salesperson: string;
   paymentStatus: 'paid' | 'pending';
   origin: 'pdv' | 'order' | 'catalog';
+  saleType?: 'pronta_entrega' | 'encomenda' | 'prazo';
+  paymentMethod?: string;
+  accountPlanId?: string;
+  notes?: string;
+  estimatedCost?: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  supplier: string;
+  date: string;
+  dueDate?: string;
+  effectiveDate?: string;
+  value: number;
+  status: 'pending' | 'processing' | 'received' | 'completed' | 'cancelled';
+  items: number | any[];
+  buyer: string;
+  paymentStatus: 'paid' | 'pending';
+  purchaseType?: 'mercadoria' | 'materia_prima' | 'insumos' | 'escritorio' | string;
+  paymentMethod?: string;
+  accountPlanId?: string;
 }
 
 export interface SalesPaymentMethod {

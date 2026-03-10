@@ -4,7 +4,9 @@ import { SalesPaymentMethod, Quote, Sale } from '../../types';
 interface SalesContextType {
   sales: Sale[];
   addSale: (sale: Sale) => void;
-  updateSaleStatus: (id: string, status: Sale['status']) => void;
+  updateSale: (sale: Sale) => void;
+  deleteSale: (id: string) => void;
+  updateSaleStatus: (id: string, status: Sale['status'], extraData?: Partial<Sale>) => void;
   quotes: Quote[];
   addQuote: (quote: Quote) => void;
   updateQuote: (quote: Quote) => void;
@@ -25,22 +27,32 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       {
         id: 'PV-2026-001',
         customer: 'Tech Solutions Ltda',
+        salesperson: 'João Silva',
         date: '2026-03-05',
         value: 45000,
         status: 'completed',
-        items: 5,
-        salesperson: 'João Silva',
+        items: [],
+        itemCount: 0,
+        totalQuantity: 0,
+        totalDiscount: 0,
+        otherExpenses: 0,
+        commission: 0,
         paymentStatus: 'paid',
         origin: 'order'
       },
       {
         id: 'PV-2026-002',
         customer: 'Indústria Metalúrgica Silva',
+        salesperson: 'Maria Costa',
         date: '2026-03-07',
         value: 120000,
         status: 'processing',
-        items: 12,
-        salesperson: 'Maria Costa',
+        items: [],
+        itemCount: 0,
+        totalQuantity: 0,
+        totalDiscount: 0,
+        otherExpenses: 0,
+        commission: 0,
         paymentStatus: 'pending',
         origin: 'order'
       }
@@ -83,8 +95,25 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSales(prev => [sale, ...prev]);
   };
 
-  const updateSaleStatus = (id: string, status: Sale['status']) => {
-    setSales(prev => prev.map(s => s.id === id ? { ...s, status } : s));
+  const updateSale = (sale: Sale) => {
+    setSales(prev => prev.map(s => s.id === sale.id ? sale : s));
+  };
+
+  const deleteSale = (id: string) => {
+    setSales(prev => prev.filter(s => s.id !== id));
+  };
+
+  const updateSaleStatus = (id: string, status: Sale['status'], extraData?: Partial<Sale>) => {
+    setSales(prev => prev.map(s => 
+      s.id === id 
+        ? { 
+            ...s, 
+            status, 
+            effectiveDate: status === 'completed' ? new Date().toISOString() : s.effectiveDate,
+            ...extraData
+          } 
+        : s
+    ));
   };
 
   const addQuote = (quote: Quote) => {
@@ -115,6 +144,8 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <SalesContext.Provider value={{ 
       sales, 
       addSale, 
+      updateSale,
+      deleteSale,
       updateSaleStatus, 
       quotes,
       addQuote,

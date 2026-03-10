@@ -5,6 +5,7 @@ import { TransactionProvider } from '@/src/context/TransactionContext';
 import { EmployeeProvider } from '@/src/context/EmployeeContext';
 import { SalesProvider } from '@/src/context/SalesContext';
 import { ProductionProvider } from '@/src/context/ProductionContext';
+import { PurchasingProvider } from '@/src/context/PurchasingContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -17,9 +18,11 @@ root.render(
     <TransactionProvider>
       <EmployeeProvider>
         <SalesProvider>
-          <ProductionProvider>
-            <App />
-          </ProductionProvider>
+          <PurchasingProvider>
+            <ProductionProvider>
+              <App />
+            </ProductionProvider>
+          </PurchasingProvider>
         </SalesProvider>
       </EmployeeProvider>
     </TransactionProvider>

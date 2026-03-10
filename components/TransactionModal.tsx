@@ -484,7 +484,7 @@ export const TransactionModal: React.FC = () => {
                       : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  Receita
+                  Entrada
                 </button>
                 <button
                   type="button"
@@ -495,7 +495,7 @@ export const TransactionModal: React.FC = () => {
                       : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                   }`}
                 >
-                  Despesa
+                  Saída
                 </button>
                 <button
                   type="button"

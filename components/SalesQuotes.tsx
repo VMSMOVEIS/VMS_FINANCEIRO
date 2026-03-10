@@ -150,11 +150,26 @@ export const SalesQuotes: React.FC = () => {
     const salesOrder: Sale = {
       id: `PV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
       customer: quote.client,
+      salesperson: 'Sistema',
       date: new Date().toISOString(),
       value: quote.value,
       status: 'waiting_production',
-      items: 1, // Simplified
-      salesperson: 'Sistema',
+      items: [{
+        productId: 'quote-item',
+        code: 'ORC',
+        name: quote.productName,
+        unit: 'un',
+        quantity: 1,
+        listPrice: quote.value,
+        discount: 0,
+        unitPrice: quote.value,
+        totalPrice: quote.value
+      }],
+      itemCount: 1,
+      totalQuantity: 1,
+      totalDiscount: 0,
+      otherExpenses: 0,
+      commission: 0,
       paymentStatus: 'pending',
       origin: 'order'
     };

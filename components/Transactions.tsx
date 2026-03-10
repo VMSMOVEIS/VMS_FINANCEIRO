@@ -90,7 +90,7 @@ export const Transactions: React.FC = () => {
             <ArrowUpRight size={24} />
           </div>
           <div>
-            <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Total Receitas</p>
+            <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Total Entradas</p>
             <p className="text-xl font-bold text-gray-900">
               R$ {filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
@@ -101,7 +101,7 @@ export const Transactions: React.FC = () => {
             <ArrowDownLeft size={24} />
           </div>
           <div>
-            <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Total Despesas</p>
+            <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Total Saídas</p>
             <p className="text-xl font-bold text-gray-900">
               R$ {filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.value, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>

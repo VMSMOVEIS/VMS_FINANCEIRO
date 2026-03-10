@@ -11,6 +11,7 @@ interface Product {
   code: string;
   name: string;
   price: number;
+  estimatedCost?: number;
   stock: number;
   category: string;
   image?: string;
@@ -40,6 +41,7 @@ export const SalesPDV: React.FC = () => {
         code: item.id,
         name: item.name,
         price: item.value,
+        estimatedCost: item.estimatedCost,
         stock: item.quantity,
         category: 'Pronta Entrega',
         image: `https://picsum.photos/seed/${item.name}/400/400`
@@ -100,17 +102,40 @@ export const SalesPDV: React.FC = () => {
       change: 0
     };
 
+    const totalEstimatedCost = cart.reduce((sum, item) => sum + ((item.product as any).estimatedCost || 0) * item.quantity, 0);
+    const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+    const saleItems = cart.map(item => ({
+      productId: item.product.id,
+      code: item.product.code,
+      name: item.product.name,
+      unit: 'un',
+      quantity: item.quantity,
+      listPrice: item.product.price,
+      discount: 0,
+      unitPrice: item.product.price,
+      totalPrice: item.product.price * item.quantity
+    }));
+
     // Add to shared sales context
     addSale({
       id: saleId,
       customer: customerCPF || 'Consumidor Final',
-      date: new Date().toISOString(),
-      value: finalTotal,
-      status: 'completed',
-      items: cart.length,
       salesperson: salesperson?.name || 'Não informado',
+      date: new Date().toISOString(),
+      effectiveDate: new Date().toISOString(),
+      value: finalTotal,
+      estimatedCost: totalEstimatedCost,
+      status: 'completed',
+      items: saleItems,
+      itemCount: saleItems.length,
+      totalQuantity: totalQuantity,
+      totalDiscount: discountAmount,
+      otherExpenses: 0,
+      commission: 0,
       paymentStatus: 'paid',
-      origin: 'pdv'
+      origin: 'pdv',
+      paymentMethod: selectedPaymentMethod?.name || 'Não informado'
     });
 
     setLastSale(saleData);
@@ -189,9 +214,16 @@ export const SalesPDV: React.FC = () => {
                     </div>
                     <p className="text-xs text-gray-500 mb-2">{product.category}</p>
                     <div className="flex justify-between items-center">
-                      <span className="text-emerald-600 font-bold">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-emerald-600 font-bold">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
+                        </span>
+                        {product.estimatedCost && (
+                          <span className="text-[9px] text-gray-400 italic">
+                            Custo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.estimatedCost)}
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-600">
                         Estoque: {product.stock}
                       </span>

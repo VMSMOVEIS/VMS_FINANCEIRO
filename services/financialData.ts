@@ -145,8 +145,6 @@ export const defaultAccountPlans: Omit<AccountPlan, 'id'>[] = [
 let accountPlans: AccountPlan[] = defaultAccountPlans.map((p, i) => ({ ...p, id: `def-${i}` }));
 
 export const transactionTypes: TransactionType[] = [
-  { id: 'compra', label: 'Compra', defaultDestination: 'Contas a Pagar', defaultType: 'expense' },
-  { id: 'venda', label: 'Venda', defaultDestination: 'Contas a Receber', defaultType: 'income' },
   { id: 'pagamento', label: 'Pagamento', defaultDestination: 'Fluxo de Caixa', defaultType: 'expense' },
   { id: 'recebimento', label: 'Recebimento', defaultDestination: 'Fluxo de Caixa', defaultType: 'income' },
   { id: 'adiantamento_cliente', label: 'Adiantamento de Cliente', defaultDestination: 'Fluxo de Caixa', defaultType: 'income' },

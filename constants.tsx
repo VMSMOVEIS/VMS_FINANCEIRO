@@ -70,20 +70,6 @@ export const MENU_ITEMS: MenuItem[] = [
     ]
   },
   {
-    id: ModuleId.HISTORICO_OPERACIONAL,
-    label: 'Histórico Operacional',
-    icon: History,
-    subItems: [
-      { id: 'historico_vendas', label: 'Histórico de Vendas' },
-      { id: 'historico_compras', label: 'Histórico de Compras' },
-    ]
-  },
-  {
-    id: ModuleId.PLANO_CONTAS,
-    label: 'Plano de Contas',
-    icon: ListTree,
-  },
-  {
     id: ModuleId.TESOURARIA,
     label: 'Tesouraria',
     icon: Landmark,
@@ -96,6 +82,7 @@ export const MENU_ITEMS: MenuItem[] = [
       { id: 'contab_dre', label: 'DRE' },
       { id: 'contab_balanco', label: 'Balanço Patrimonial' },
       { id: 'contab_balancete', label: 'Balancete' },
+      { id: 'contab_plano', label: 'Plano de Contas' },
       { id: 'contab_diario', label: 'Livro Diário' },
       { id: 'contab_razao', label: 'Livro Razão' },
       { id: 'contab_dfc', label: 'DFC' },
@@ -277,6 +264,34 @@ export const VENDAS_MENU_ITEMS: MenuItem[] = [
   {
     id: ModuleId.VENDAS_CONFIG,
     label: 'Configurações Vendas',
+    icon: Settings2,
+  }
+];
+
+export const COMPRAS_MENU_ITEMS: MenuItem[] = [
+  {
+    id: ModuleId.COMPRAS_DASHBOARD,
+    label: 'Dashboard Compras',
+    icon: LayoutDashboard,
+  },
+  {
+    id: ModuleId.COMPRAS_PEDIDOS,
+    label: 'Pedidos de Compra',
+    icon: ShoppingCart,
+  },
+  {
+    id: ModuleId.COMPRAS_COTACAO,
+    label: 'Cotações de Preço',
+    icon: FileSpreadsheet,
+  },
+  {
+    id: ModuleId.COMPRAS_FORNECEDORES,
+    label: 'Gestão de Fornecedores',
+    icon: Users,
+  },
+  {
+    id: ModuleId.COMPRAS_CONFIG,
+    label: 'Configurações Compras',
     icon: Settings2,
   }
 ];

@@ -44,14 +44,14 @@ export const FinancialDashboard: React.FC = () => {
 
   // --- KPI Calculations ---
 
-  // 1. Receita Total (Total Revenue) - Sum of all 'income' transactions
+  // 1. Entrada Total (Total Inflow) - Sum of all 'income' transactions
   const totalRevenue = useMemo(() => {
     return filteredTransactions
       .filter(t => t.type === 'income' && !t.linkedTransactionId)
       .reduce((sum, t) => sum + t.value, 0);
   }, [filteredTransactions]);
 
-  // 2. Despesas (Total Expenses) - Sum of all 'expense' transactions
+  // 2. Saídas (Total Outflows) - Sum of all 'expense' transactions
   const totalExpenses = useMemo(() => {
     return filteredTransactions
       .filter(t => t.type === 'expense' && !t.linkedTransactionId)
@@ -96,7 +96,7 @@ export const FinancialDashboard: React.FC = () => {
 
   // --- Chart Data Preparation ---
 
-  // 1. Receitas vs Despesas (Monthly)
+  // 1. Entradas vs Saídas (Monthly)
   const monthlyData = useMemo(() => {
     const data: Record<string, { name: string; receita: number; despesa: number }> = {};
     
@@ -258,7 +258,7 @@ export const FinancialDashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-medium text-gray-500">Receita Total</p>
+              <p className="text-sm font-medium text-gray-500">Entrada Total</p>
               <h3 className="text-2xl font-bold text-gray-900 mt-1">R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
             </div>
             <div className="p-2 bg-emerald-100 rounded-lg">
@@ -276,7 +276,7 @@ export const FinancialDashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-medium text-gray-500">Despesas</p>
+              <p className="text-sm font-medium text-gray-500">Saídas</p>
               <h3 className="text-2xl font-bold text-gray-900 mt-1">R$ {totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
             </div>
             <div className="p-2 bg-red-100 rounded-lg">
@@ -343,7 +343,7 @@ export const FinancialDashboard: React.FC = () => {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Receitas vs Despesas</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Entradas vs Saídas</h3>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData}>
@@ -352,8 +352,8 @@ export const FinancialDashboard: React.FC = () => {
                 <YAxis axisLine={false} tickLine={false} />
                 <Tooltip formatter={(value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)} />
                 <Legend />
-                <Bar dataKey="receita" fill="#10b981" radius={[4, 4, 0, 0]} name="Receita" />
-                <Bar dataKey="despesa" fill="#ef4444" radius={[4, 4, 0, 0]} name="Despesa" />
+                <Bar dataKey="receita" fill="#10b981" radius={[4, 4, 0, 0]} name="Entrada" />
+                <Bar dataKey="despesa" fill="#ef4444" radius={[4, 4, 0, 0]} name="Saída" />
               </BarChart>
             </ResponsiveContainer>
           </div>

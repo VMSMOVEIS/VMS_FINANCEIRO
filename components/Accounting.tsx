@@ -1,6 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { FileText, Book, Scale, Calculator, Calendar, Edit2, Trash2, PieChart, TrendingUp, FileBarChart, List, AlignLeft } from 'lucide-react';
+import { FileText, Book, Scale, Calculator, Calendar, Edit2, Trash2, PieChart, TrendingUp, FileBarChart, List, AlignLeft, ListTree } from 'lucide-react';
 import { useTransactions } from '@/src/context/TransactionContext';
+import { useSales } from '@/src/context/SalesContext';
+import { usePurchasing } from '@/src/context/PurchasingContext';
+import { ChartOfAccounts } from './ChartOfAccounts';
 
 interface AccountingProps {
   initialView?: string;
@@ -11,6 +14,8 @@ export const Accounting: React.FC<AccountingProps> = ({ initialView = 'contab_dr
   const [reportLevel, setReportLevel] = useState<'grupo' | 'subgrupo' | 'sintetica' | 'analitica'>('analitica');
   const [showZeroBalances, setShowZeroBalances] = useState(false);
   const { transactions, accounts, accountPlans } = useTransactions();
+  const { sales } = useSales();
+  const { purchases } = usePurchasing();
 
   // Sync activeTab when initialView changes (e.g. from sidebar navigation)
   React.useEffect(() => {
@@ -19,7 +24,7 @@ export const Accounting: React.FC<AccountingProps> = ({ initialView = 'contab_dr
     }
   }, [initialView]);
 
-  const entries = useMemo(() => generateAccountingEntries(transactions, accountPlans), [transactions, accountPlans]);
+  const entries = useMemo(() => generateAccountingEntries(transactions, accountPlans, sales, purchases), [transactions, accountPlans, sales, purchases]);
 
   const renderContent = () => {
     const commonProps = { transactions, accountPlans, entries, reportLevel, showZeroBalances };
@@ -31,6 +36,8 @@ export const Accounting: React.FC<AccountingProps> = ({ initialView = 'contab_dr
         return <BalanceSheetView {...commonProps} accounts={accounts} />;
       case 'contab_balancete':
         return <TrialBalanceView {...commonProps} />;
+      case 'contab_plano':
+        return <ChartOfAccounts />;
       case 'contab_diario':
         return <JournalView transactions={transactions} entries={entries} />;
       case 'contab_razao':
@@ -67,6 +74,7 @@ export const Accounting: React.FC<AccountingProps> = ({ initialView = 'contab_dr
           <TabButton id="contab_dre" label="DRE" icon={FileText} active={activeTab === 'contab_dre'} onClick={setActiveTab} />
           <TabButton id="contab_balanco" label="Balanço Patrimonial" icon={Scale} active={activeTab === 'contab_balanco'} onClick={setActiveTab} />
           <TabButton id="contab_balancete" label="Balancete" icon={Calculator} active={activeTab === 'contab_balancete'} onClick={setActiveTab} />
+          <TabButton id="contab_plano" label="Plano de Contas" icon={ListTree} active={activeTab === 'contab_plano'} onClick={setActiveTab} />
           <TabButton id="contab_diario" label="Livro Diário" icon={Calendar} active={activeTab === 'contab_diario'} onClick={setActiveTab} />
           <TabButton id="contab_razao" label="Livro Razão" icon={Book} active={activeTab === 'contab_razao'} onClick={setActiveTab} />
           <TabButton id="contab_dfc" label="DFC" icon={TrendingUp} active={activeTab === 'contab_dfc'} onClick={setActiveTab} />
@@ -143,13 +151,12 @@ const TabButton = ({ id, label, icon: Icon, active, onClick }: any) => (
   </button>
 );
 
-// Helper to generate accounting entries from transactions
 // Helper to generate accounting entries from transactions using the Chart of Accounts
-const generateAccountingEntries = (transactions: any[], accountPlans: any[]) => {
+const generateAccountingEntries = (transactions: any[], accountPlans: any[], sales: any[] = [], purchases: any[] = []) => {
   const entries: any[] = [];
   let entryId = 1;
 
-  const findPlan = (name: string) => accountPlans.find(p => p.name === name);
+  const findPlan = (name: string) => accountPlans.find(p => p.name === name || p.id === name);
   const getLabel = (name: string) => {
     const p = findPlan(name);
     return p ? `${p.code} - ${p.name}` : name;
@@ -159,6 +166,62 @@ const generateAccountingEntries = (transactions: any[], accountPlans: any[]) => 
   const planReceivables = findPlan('Clientes') || findPlan('Contas a Receber') || { code: '1.1.02.01', name: 'Clientes' };
   const planPayables = findPlan('Fornecedores') || { code: '2.1.01', name: 'Fornecedores' };
   const planCash = findPlan('Caixa') || findPlan('Banco Conta Corrente') || findPlan('Caixa e Equivalentes de Caixa') || { code: '1.1.01.01', name: 'Caixa' };
+
+  // Process Sales Orders (Completed with effectiveDate)
+  sales.forEach(s => {
+    if (s.status === 'completed' && s.effectiveDate) {
+      const revenuePlan = findPlan(s.accountPlanId) || findPlan('Venda de Mercadorias') || { code: '4.1.01.01', name: 'Venda de Mercadorias' };
+      const revenueLabel = `${revenuePlan.code} - ${revenuePlan.name}`;
+      const bankPlan = findPlan(s.paymentMethod) || planCash;
+      const bankLabel = `${bankPlan.code} - ${bankPlan.name}`;
+
+      entries.push({
+        id: entryId++,
+        transactionId: s.id,
+        date: s.effectiveDate,
+        description: `Venda Concluída - ${s.id} - ${s.customer}`,
+        debit: bankLabel,
+        credit: revenueLabel,
+        value: s.value
+      });
+
+      // Add COGS entry if estimatedCost is present
+      if (s.estimatedCost && s.estimatedCost > 0) {
+        const cogsPlan = findPlan('Custo das Mercadorias Vendidas') || findPlan('CUSTOS DE PRODUÇÃO') || { code: '5.1.01', name: 'CMV' };
+        const inventoryPlan = findPlan('Produtos Acabados') || findPlan('Estoques') || { code: '1.1.03.10', name: 'Estoques' };
+        
+        entries.push({
+          id: entryId++,
+          transactionId: s.id,
+          date: s.effectiveDate,
+          description: `Baixa de Estoque (CMV) - ${s.id}`,
+          debit: `${cogsPlan.code} - ${cogsPlan.name}`,
+          credit: `${inventoryPlan.code} - ${inventoryPlan.name}`,
+          value: s.estimatedCost
+        });
+      }
+    }
+  });
+
+  // Process Purchase Orders (Completed with effectiveDate)
+  purchases.forEach(p => {
+    if (p.status === 'completed' && p.effectiveDate) {
+      const expensePlan = findPlan(p.accountPlanId) || findPlan('Compras de Mercadorias') || { code: '5.1.01.01', name: 'Compras de Mercadorias' };
+      const expenseLabel = `${expensePlan.code} - ${expensePlan.name}`;
+      const bankPlan = findPlan(p.paymentMethod) || planCash;
+      const bankLabel = `${bankPlan.code} - ${bankPlan.name}`;
+
+      entries.push({
+        id: entryId++,
+        transactionId: p.id,
+        date: p.effectiveDate,
+        description: `Compra Concluída - ${p.id} - ${p.supplier}`,
+        debit: expenseLabel,
+        credit: bankLabel,
+        value: p.value
+      });
+    }
+  });
 
   transactions.forEach(t => {
     // Handle Transfers
