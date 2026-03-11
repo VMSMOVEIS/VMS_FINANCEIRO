@@ -262,14 +262,25 @@ export interface BOMItem {
 export interface Quote {
   id: string;
   client: string;
-  productName: string;
+  salesperson?: string;
+  store?: string;
   date: string;
   expiryDate: string;
+  items?: SaleItem[];
+  itemCount?: number;
+  totalQuantity?: number;
+  totalDiscount?: number;
+  deliveryTime?: string;
+  otherExpenses?: number;
+  commission?: number;
+  value: number; // Final Price
+  status: 'draft' | 'waiting_approval' | 'sent' | 'approved' | 'rejected' | 'expired';
+  paymentStatus?: 'paid' | 'pending' | 'partial';
   bomItems: BOMItem[];
   profitMargin: number; // Percentage
   discount: number; // Percentage
-  value: number; // Final Price
-  status: 'draft' | 'waiting_approval' | 'sent' | 'approved' | 'rejected' | 'expired';
+  notes?: string;
+  saleType?: 'pronta_entrega' | 'encomenda' | 'prazo';
 }
 
 export interface ProductionOrder {
@@ -341,7 +352,7 @@ export interface Sale {
   commission: number;
   value: number;
   status: 'pending' | 'processing' | 'shipped' | 'completed' | 'cancelled' | 'waiting_production';
-  paymentStatus: 'paid' | 'pending';
+  paymentStatus: 'paid' | 'pending' | 'partial';
   origin: 'pdv' | 'order' | 'catalog';
   saleType?: 'pronta_entrega' | 'encomenda' | 'prazo';
   paymentMethod?: string;

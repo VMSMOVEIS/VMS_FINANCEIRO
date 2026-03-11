@@ -350,7 +350,7 @@ const SalesCRM: React.FC = () => {
               columnItems = quotes.filter(q => q.status === 'draft' || q.status === 'waiting_approval').map(q => ({
                 id: q.id,
                 title: q.client,
-                subtitle: q.productName,
+                subtitle: q.items?.[0]?.name || 'Item de Orçamento',
                 value: q.value,
                 probability: 50,
                 date: q.expiryDate,
@@ -361,7 +361,7 @@ const SalesCRM: React.FC = () => {
               columnItems = quotes.filter(q => q.status === 'sent').map(q => ({
                 id: q.id,
                 title: q.client,
-                subtitle: q.productName,
+                subtitle: q.items?.[0]?.name || 'Item de Orçamento',
                 value: q.value,
                 probability: 70,
                 date: q.expiryDate,
@@ -372,7 +372,7 @@ const SalesCRM: React.FC = () => {
               columnItems = quotes.filter(q => q.status === 'approved').map(q => ({
                 id: q.id,
                 title: q.client,
-                subtitle: q.productName,
+                subtitle: q.items?.[0]?.name || 'Item de Orçamento',
                 value: q.value,
                 probability: 90,
                 date: q.expiryDate,

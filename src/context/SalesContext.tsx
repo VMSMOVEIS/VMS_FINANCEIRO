@@ -70,13 +70,26 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [paymentMethods, setPaymentMethods] = useState<SalesPaymentMethod[]>(() => {
     const saved = localStorage.getItem('vms_sales_payment_methods');
-    if (saved) return JSON.parse(saved);
-    return [
+    const defaults = [
       { id: '1', name: 'Pix', discount: 10, active: true },
       { id: '2', name: 'Dinheiro', discount: 5, active: true },
       { id: '3', name: 'Cartão de Débito', discount: 0, active: true },
       { id: '4', name: 'Cartão de Crédito', discount: 0, active: true },
+      { id: '5', name: 'A Definir', discount: 0, active: true },
+      { id: '6', name: 'Parcelado', discount: 0, active: true },
     ];
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Merge defaults to ensure new methods are added
+      const merged = [...parsed];
+      defaults.forEach(def => {
+        if (!merged.find(m => m.name === def.name)) {
+          merged.push(def);
+        }
+      });
+      return merged;
+    }
+    return defaults;
   });
 
   useEffect(() => {

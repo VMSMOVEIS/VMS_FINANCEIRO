@@ -27,6 +27,8 @@ export const SalesPDV: React.FC = () => {
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [selectedSalespersonId, setSelectedSalespersonId] = useState<string>('');
   const [customerCPF, setCustomerCPF] = useState('');
+  const [paidAmount, setPaidAmount] = useState<number>(0);
+  const [dueDate, setDueDate] = useState<string>('');
   const [showReceipt, setShowReceipt] = useState(false);
   const [lastSale, setLastSale] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'sale' | 'history'>('sale');
@@ -88,7 +90,7 @@ export const SalesPDV: React.FC = () => {
 
   const handleFinalizeSale = () => {
     const salesperson = salespeople.find(s => s.id === selectedSalespersonId);
-    const saleId = `VND-${Math.floor(100000 + Math.random() * 900000)}`;
+    const saleId = `VND-${Math.floor(10000 + Math.random() * 90000)}`;
     const saleData: any = {
       id: saleId,
       date: new Date().toISOString(),
@@ -117,6 +119,8 @@ export const SalesPDV: React.FC = () => {
       totalPrice: item.product.price * item.quantity
     }));
 
+    const isPartial = selectedPaymentMethod?.name === 'Parcelado' && paidAmount < finalTotal;
+
     // Add to shared sales context
     addSale({
       id: saleId,
@@ -124,27 +128,46 @@ export const SalesPDV: React.FC = () => {
       salesperson: salesperson?.name || 'Não informado',
       date: new Date().toISOString(),
       effectiveDate: new Date().toISOString(),
+      dueDate: isPartial ? dueDate : undefined,
       value: finalTotal,
       estimatedCost: totalEstimatedCost,
-      status: 'completed',
+      status: isPartial ? 'pending' : 'completed',
       items: saleItems,
       itemCount: saleItems.length,
       totalQuantity: totalQuantity,
       totalDiscount: discountAmount,
       otherExpenses: 0,
       commission: 0,
-      paymentStatus: 'paid',
+      paymentStatus: isPartial ? 'pending' : 'paid',
       origin: 'pdv',
-      paymentMethod: selectedPaymentMethod?.name || 'Não informado'
+      paymentMethod: selectedPaymentMethod?.name || 'Não informado',
+      notes: isPartial ? `Pago: R$ ${paidAmount.toFixed(2)}. Restante: R$ ${(finalTotal - paidAmount).toFixed(2)}` : ''
     });
 
-    setLastSale(saleData);
+    setLastSale({
+      id: saleId,
+      date: new Date().toISOString(),
+      items: cart,
+      total: finalTotal,
+      subtotal: total,
+      discount: discountAmount,
+      paymentMethod: selectedPaymentMethod?.name || 'Não informado',
+      salesperson: salesperson?.name || 'Não informado',
+      customerCPF: customerCPF || 'Não informado',
+      paidAmount: paidAmount || finalTotal,
+      remainingAmount: finalTotal - (paidAmount || finalTotal),
+      dueDate: dueDate,
+      change: 0
+    });
+
     setShowReceipt(true);
     // Reset cart after sale
     setCart([]);
     setSelectedPaymentMethodId(null);
     setSelectedSalespersonId('');
     setCustomerCPF('');
+    setPaidAmount(0);
+    setDueDate('');
   };
 
   const handlePrint = () => {
@@ -347,6 +370,29 @@ export const SalesPDV: React.FC = () => {
                     </button>
                   ))}
                 </div>
+
+                {selectedPaymentMethod?.name === 'Parcelado' && (
+                  <div className="grid grid-cols-2 gap-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-emerald-700 uppercase">Valor Pago (Entrada)</label>
+                      <input
+                        type="number"
+                        className="w-full bg-white border border-emerald-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={paidAmount}
+                        onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-emerald-700 uppercase">Data do Vencimento</label>
+                      <input
+                        type="date"
+                        className="w-full bg-white border border-emerald-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <button
                   onClick={handleFinalizeSale}

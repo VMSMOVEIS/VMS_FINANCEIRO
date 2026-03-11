@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ShoppingCart, 
   Plus, 
@@ -76,7 +76,7 @@ const STORES = ['Loja Principal', 'Showroom Centro', 'Loja Online', 'Filial Sul'
 
 const SalesOrders: React.FC = () => {
   const { sales, addSale, updateSaleStatus, updateSale, deleteSale, paymentMethods } = useSales();
-  const { accountPlans } = useTransactions();
+  const { accountPlans, transactions, addTransaction } = useTransactions();
   const { inventory } = useProduction();
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -88,7 +88,7 @@ const SalesOrders: React.FC = () => {
     store: STORES[0],
     date: new Date().toISOString().split('T')[0],
     effectiveDate: '',
-    dueDate: '',
+    dueDate: new Date().toISOString().split('T')[0],
     items: [],
     itemCount: 0,
     totalQuantity: 0,
@@ -127,8 +127,30 @@ const SalesOrders: React.FC = () => {
   const [statusChangeData, setStatusChangeData] = useState<{ id: string, status: Sale['status'] } | null>(null);
   const [statusExtraData, setStatusExtraData] = useState({
     paymentMethod: '',
-    accountPlanId: ''
+    accountPlanId: '',
+    selectedAdvances: [] as string[],
+    advanceTotal: 0
   });
+
+  const orderAdvances = useMemo(() => {
+    if (!selectedOrder) return [];
+    return transactions.filter(t => 
+      t.transactionTypeId === 'adiantamento_cliente' && 
+      (t.orderNumber === selectedOrder.id || t.customerName === selectedOrder.customer)
+    );
+  }, [transactions, selectedOrder]);
+
+  useEffect(() => {
+    if (showStatusModal && selectedOrder) {
+      const autoAdvances = orderAdvances.map(a => a.id.toString());
+      const total = orderAdvances.reduce((sum, a) => sum + a.value, 0);
+      setStatusExtraData(prev => ({
+        ...prev,
+        selectedAdvances: autoAdvances,
+        advanceTotal: total
+      }));
+    }
+  }, [showStatusModal, selectedOrder, orderAdvances]);
 
   const filteredOrders = sales.filter(order => 
     order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -229,14 +251,43 @@ const SalesOrders: React.FC = () => {
 
   const confirmStatusChange = () => {
     if (statusChangeData && statusExtraData.paymentMethod && statusExtraData.accountPlanId) {
+      const balance = selectedOrder!.value - statusExtraData.advanceTotal;
+      
+      // Update sale status
       updateSaleStatus(statusChangeData.id, statusChangeData.status, {
         paymentMethod: statusExtraData.paymentMethod,
         accountPlanId: statusExtraData.accountPlanId,
-        paymentStatus: 'paid'
+        paymentStatus: balance <= 0 ? 'paid' : 'partial'
       });
+
+      // Create transaction for the balance if any
+      if (balance > 0) {
+        addTransaction({
+          date: new Date().toISOString(),
+          description: `Recebimento Pedido ${selectedOrder!.id}`,
+          category: accountPlans.find(ap => ap.id === statusExtraData.accountPlanId)?.name || 'Vendas',
+          categoryCode: accountPlans.find(ap => ap.id === statusExtraData.accountPlanId)?.code,
+          value: balance,
+          type: 'income',
+          transactionTypeId: 'recebimento',
+          documentType: 'Pedido',
+          orderNumber: selectedOrder!.id,
+          customerName: selectedOrder!.customer,
+          status: 'completed',
+          payments: [{
+            id: Math.random().toString(36).substr(2, 9),
+            method: statusExtraData.paymentMethod,
+            value: balance,
+            dueDate: new Date().toISOString(),
+            destination: 'Fluxo de Caixa',
+            status: 'completed'
+          }]
+        });
+      }
+
       setShowStatusModal(false);
       setStatusChangeData(null);
-      setStatusExtraData({ paymentMethod: '', accountPlanId: '' });
+      setStatusExtraData({ paymentMethod: '', accountPlanId: '', selectedAdvances: [], advanceTotal: 0 });
     } else {
       alert('Por favor, preencha todos os campos.');
     }
@@ -751,64 +802,115 @@ const SalesOrders: React.FC = () => {
       )}
 
       {/* Status Change Modal */}
-      {showStatusModal && (
+      {showStatusModal && selectedOrder && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-emerald-50">
-              <h2 className="text-xl font-bold text-gray-800">Finalizar Pedido</h2>
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Finalizar Pedido</h2>
+                <p className="text-xs text-emerald-600 font-medium">{selectedOrder.id} - {selectedOrder.customer}</p>
+              </div>
               <button onClick={() => setShowStatusModal(false)} className="text-gray-400 hover:text-gray-600">
                 <X size={24} />
               </button>
             </div>
-            <div className="p-6 space-y-4">
-              <p className="text-sm text-gray-600 italic">Informe os dados financeiros para concluir a venda.</p>
-              
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Forma de Pagamento</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {paymentMethods.map(pm => (
-                    <button
-                      key={pm.id}
-                      type="button"
-                      onClick={() => setStatusExtraData({...statusExtraData, paymentMethod: pm.name})}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
-                        statusExtraData.paymentMethod === pm.name ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                      }`}
-                    >
-                      {pm.name.toLowerCase().includes('pix') ? <QrCode size={14} /> : 
-                       pm.name.toLowerCase().includes('cartão') ? <CreditCard size={14} /> : 
-                       <Banknote size={14} />}
-                      {pm.name}
-                    </button>
-                  ))}
+            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Valor do Pedido</label>
+                  <p className="text-lg font-bold text-gray-800">R$ {selectedOrder.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                </div>
+                <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                  <label className="block text-[10px] font-bold text-emerald-600 uppercase mb-1">Saldo a Receber</label>
+                  <p className="text-lg font-bold text-emerald-700">R$ {(selectedOrder.value - statusExtraData.advanceTotal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tipo de Venda (Conta Receita)</label>
-                <select 
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-sm"
-                  value={statusExtraData.accountPlanId}
-                  onChange={(e) => setStatusExtraData({...statusExtraData, accountPlanId: e.target.value})}
-                >
-                  <option value="">Selecione a conta de receita...</option>
-                  {revenueAccounts.map(ap => (
-                    <option key={ap.id} value={ap.id}>{ap.code} - {ap.name}</option>
-                  ))}
-                </select>
+              {orderAdvances.length > 0 && (
+                <div className="space-y-3">
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Adiantamentos Encontrados</label>
+                  <div className="space-y-2">
+                    {orderAdvances.map(adv => (
+                      <div key={adv.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-100">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                            <DollarSign size={16} />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-blue-800">Adiantamento #{adv.id}</p>
+                            <p className="text-[10px] text-blue-600">{new Date(adv.date).toLocaleDateString('pt-BR')}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <p className="text-sm font-bold text-blue-700">R$ {adv.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                          <input 
+                            type="checkbox"
+                            checked={statusExtraData.selectedAdvances.includes(adv.id.toString())}
+                            onChange={(e) => {
+                              const selected = e.target.checked 
+                                ? [...statusExtraData.selectedAdvances, adv.id.toString()]
+                                : statusExtraData.selectedAdvances.filter(id => id !== adv.id.toString());
+                              const total = orderAdvances.filter(a => selected.includes(a.id.toString())).reduce((sum, a) => sum + a.value, 0);
+                              setStatusExtraData({...statusExtraData, selectedAdvances: selected, advanceTotal: total});
+                            }}
+                            className="w-4 h-4 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">Forma de Recebimento (Saldo)</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {paymentMethods.map(pm => (
+                      <button
+                        key={pm.id}
+                        type="button"
+                        onClick={() => setStatusExtraData({...statusExtraData, paymentMethod: pm.name})}
+                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                          statusExtraData.paymentMethod === pm.name ? 'bg-emerald-600 text-white border-emerald-600 shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        {pm.name.toLowerCase().includes('pix') ? <QrCode size={14} /> : 
+                         pm.name.toLowerCase().includes('cartão') ? <CreditCard size={14} /> : 
+                         <Banknote size={14} />}
+                        {pm.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wider">Categoria de Receita</label>
+                  <select 
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-sm font-medium"
+                    value={statusExtraData.accountPlanId}
+                    onChange={(e) => setStatusExtraData({...statusExtraData, accountPlanId: e.target.value})}
+                  >
+                    <option value="">Selecione a conta...</option>
+                    {revenueAccounts.map(ap => (
+                      <option key={ap.id} value={ap.id}>{ap.code} - {ap.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
-            <div className="p-6 bg-gray-50 flex gap-3">
+            <div className="p-6 bg-gray-50 flex gap-3 border-t border-gray-100">
               <button 
                 onClick={() => setShowStatusModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg font-bold hover:bg-white transition-all"
+                className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-white transition-all"
               >
                 Cancelar
               </button>
               <button 
                 onClick={confirmStatusChange}
-                className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+                className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2"
               >
+                <CheckCircle2 size={18} />
                 Confirmar Recebimento
               </button>
             </div>
