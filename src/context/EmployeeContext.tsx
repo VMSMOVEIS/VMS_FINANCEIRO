@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Employee, EmployeeDocument, JobRole } from '../../types';
+import { supabase } from '../lib/supabase';
 
 interface EmployeeContextType {
   employees: Employee[];
@@ -119,76 +120,286 @@ const INITIAL_EMPLOYEES: Employee[] = [
 ];
 
 export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [employees, setEmployees] = useState<Employee[]>(() => {
-    const saved = localStorage.getItem('vms_employees');
-    return saved ? JSON.parse(saved) : INITIAL_EMPLOYEES;
-  });
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [jobRoles, setJobRoles] = useState<JobRole[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [jobRoles, setJobRoles] = useState<JobRole[]>(() => {
-    const saved = localStorage.getItem('vms_job_roles');
-    return saved ? JSON.parse(saved) : INITIAL_ROLES;
-  });
+  const fetchData = async () => {
+    if (!supabase) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    try {
+      // Fetch Job Roles
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('shifts') // Using shifts table for roles/schedules for now or create a job_roles table
+        .select('*');
+      
+      // If shifts table is used for roles, map it
+      if (rolesData) {
+        setJobRoles(rolesData.map(r => ({
+          id: r.id,
+          name: r.name,
+          description: r.description
+        })));
+      }
+
+      // Fetch Employees
+      const { data: empData, error: empError } = await supabase
+        .from('employees')
+        .select(`
+          *,
+          employee_documents (*)
+        `)
+        .order('name', { ascending: true });
+      
+      if (empError) throw empError;
+      
+      setEmployees(empData.map(e => ({
+        id: e.id,
+        name: e.name,
+        role: e.role,
+        department: e.department,
+        workSchedule: e.work_schedule,
+        shiftId: e.shift_id,
+        email: e.email,
+        phone: e.phone,
+        cpf: e.cpf,
+        rg: e.rg,
+        birthDate: e.birth_date,
+        gender: e.gender,
+        maritalStatus: e.marital_status,
+        admissionDate: e.admission_date,
+        salary: Number(e.salary),
+        status: e.status,
+        address: {
+          street: e.address_street,
+          number: e.address_number,
+          complement: e.address_complement,
+          neighborhood: e.address_neighborhood,
+          city: e.address_city,
+          state: e.address_state,
+          zipCode: e.address_zip_code
+        },
+        bankInfo: {
+          bank: e.bank_name,
+          agency: e.bank_agency,
+          account: e.bank_account,
+          type: e.bank_account_type,
+          pixKey: e.bank_pix_key
+        },
+        education: e.education,
+        benefits: [], // Benefits would need another join or separate fetch
+        documents: e.employee_documents.map((d: any) => ({
+          id: d.id,
+          name: d.name,
+          type: d.type,
+          uploadDate: d.upload_date,
+          url: d.url
+        }))
+      })));
+
+    } catch (error) {
+      console.error('Error fetching employee data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    localStorage.setItem('vms_employees', JSON.stringify(employees));
-  }, [employees]);
+    fetchData();
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem('vms_job_roles', JSON.stringify(jobRoles));
-  }, [jobRoles]);
-
-  const addEmployee = (employeeData: Omit<Employee, 'id' | 'documents'>) => {
-    const newEmployee: Employee = {
-      ...employeeData,
-      id: Math.random().toString(36).substr(2, 9),
-      documents: []
-    };
-    setEmployees(prev => [newEmployee, ...prev]);
+  const addEmployee = async (employeeData: Omit<Employee, 'id' | 'documents'>) => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .insert([{
+          name: employeeData.name,
+          role: employeeData.role,
+          department: employeeData.department,
+          work_schedule: employeeData.workSchedule,
+          shift_id: employeeData.shiftId,
+          email: employeeData.email,
+          phone: employeeData.phone,
+          cpf: employeeData.cpf,
+          rg: employeeData.rg,
+          birth_date: employeeData.birthDate,
+          gender: employeeData.gender,
+          marital_status: employeeData.maritalStatus,
+          admission_date: employeeData.admissionDate,
+          salary: employeeData.salary,
+          status: employeeData.status,
+          address_street: employeeData.address?.street,
+          address_number: employeeData.address?.number,
+          address_complement: employeeData.address?.complement,
+          address_neighborhood: employeeData.address?.neighborhood,
+          address_city: employeeData.address?.city,
+          address_state: employeeData.address?.state,
+          address_zip_code: employeeData.address?.zipCode,
+          bank_name: employeeData.bankInfo?.bank,
+          bank_agency: employeeData.bankInfo?.agency,
+          bank_account: employeeData.bankInfo?.account,
+          bank_account_type: employeeData.bankInfo?.type,
+          bank_pix_key: employeeData.bankInfo?.pixKey,
+          education: employeeData.education
+        }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error adding employee:', error);
+    }
   };
 
-  const updateEmployee = (id: string, employeeData: Partial<Employee>) => {
-    setEmployees(prev => prev.map(emp => emp.id === id ? { ...emp, ...employeeData } : emp));
+  const updateEmployee = async (id: string, employeeData: Partial<Employee>) => {
+    if (!supabase) return;
+    try {
+      const updateObj: any = {};
+      if (employeeData.name) updateObj.name = employeeData.name;
+      if (employeeData.role) updateObj.role = employeeData.role;
+      if (employeeData.department) updateObj.department = employeeData.department;
+      if (employeeData.workSchedule) updateObj.work_schedule = employeeData.workSchedule;
+      if (employeeData.shiftId) updateObj.shift_id = employeeData.shiftId;
+      if (employeeData.email) updateObj.email = employeeData.email;
+      if (employeeData.phone) updateObj.phone = employeeData.phone;
+      if (employeeData.cpf) updateObj.cpf = employeeData.cpf;
+      if (employeeData.rg) updateObj.rg = employeeData.rg;
+      if (employeeData.birthDate) updateObj.birth_date = employeeData.birthDate;
+      if (employeeData.gender) updateObj.gender = employeeData.gender;
+      if (employeeData.maritalStatus) updateObj.marital_status = employeeData.maritalStatus;
+      if (employeeData.admissionDate) updateObj.admission_date = employeeData.admissionDate;
+      if (employeeData.salary) updateObj.salary = employeeData.salary;
+      if (employeeData.status) updateObj.status = employeeData.status;
+      if (employeeData.education) updateObj.education = employeeData.education;
+
+      if (employeeData.address) {
+        updateObj.address_street = employeeData.address.street;
+        updateObj.address_number = employeeData.address.number;
+        updateObj.address_complement = employeeData.address.complement;
+        updateObj.address_neighborhood = employeeData.address.neighborhood;
+        updateObj.address_city = employeeData.address.city;
+        updateObj.address_state = employeeData.address.state;
+        updateObj.address_zip_code = employeeData.address.zipCode;
+      }
+
+      if (employeeData.bankInfo) {
+        updateObj.bank_name = employeeData.bankInfo.bank;
+        updateObj.bank_agency = employeeData.bankInfo.agency;
+        updateObj.bank_account = employeeData.bankInfo.account;
+        updateObj.bank_account_type = employeeData.bankInfo.type;
+        updateObj.bank_pix_key = employeeData.bankInfo.pixKey;
+      }
+
+      const { error } = await supabase
+        .from('employees')
+        .update(updateObj)
+        .eq('id', id);
+      
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error updating employee:', error);
+    }
   };
 
-  const deleteEmployee = (id: string) => {
-    setEmployees(prev => prev.filter(emp => emp.id !== id));
+  const deleteEmployee = async (id: string) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+    }
   };
 
-  const addDocument = (employeeId: string, documentData: Omit<EmployeeDocument, 'id' | 'uploadDate'>) => {
-    const newDoc: EmployeeDocument = {
-      ...documentData,
-      id: Math.random().toString(36).substr(2, 9),
-      uploadDate: new Date().toISOString().split('T')[0]
-    };
-    setEmployees(prev => prev.map(emp => 
-      emp.id === employeeId 
-        ? { ...emp, documents: [newDoc, ...emp.documents] } 
-        : emp
-    ));
+  const addDocument = async (employeeId: string, documentData: Omit<EmployeeDocument, 'id' | 'uploadDate'>) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('employee_documents')
+        .insert([{
+          employee_id: employeeId,
+          name: documentData.name,
+          type: documentData.type,
+          url: documentData.url
+        }]);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error adding document:', error);
+    }
   };
 
-  const removeDocument = (employeeId: string, documentId: string) => {
-    setEmployees(prev => prev.map(emp => 
-      emp.id === employeeId 
-        ? { ...emp, documents: emp.documents.filter(d => d.id !== documentId) } 
-        : emp
-    ));
+  const removeDocument = async (employeeId: string, documentId: string) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('employee_documents')
+        .delete()
+        .eq('id', documentId);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error removing document:', error);
+    }
   };
 
-  const addJobRole = (roleData: Omit<JobRole, 'id'>) => {
-    const newRole: JobRole = {
-      ...roleData,
-      id: Math.random().toString(36).substr(2, 9)
-    };
-    setJobRoles(prev => [...prev, newRole]);
+  const addJobRole = async (roleData: Omit<JobRole, 'id'>) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('shifts') // Using shifts for roles for now
+        .insert([{
+          name: roleData.name,
+          description: roleData.description,
+          start_time: '08:00',
+          end_time: '17:00'
+        }]);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error adding job role:', error);
+    }
   };
 
-  const updateJobRole = (id: string, roleData: Partial<JobRole>) => {
-    setJobRoles(prev => prev.map(role => role.id === id ? { ...role, ...roleData } : role));
+  const updateJobRole = async (id: string, roleData: Partial<JobRole>) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('shifts')
+        .update({
+          name: roleData.name,
+          description: roleData.description
+        })
+        .eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error updating job role:', error);
+    }
   };
 
-  const deleteJobRole = (id: string) => {
-    setJobRoles(prev => prev.filter(role => role.id !== id));
+  const deleteJobRole = async (id: string) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('shifts')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error deleting job role:', error);
+    }
   };
 
   const fetchEmployeesByRole = (role: string) => {

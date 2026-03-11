@@ -44,46 +44,29 @@ interface TransactionContextType {
 const TransactionContext = createContext<TransactionContextType | undefined>(undefined);
 
 export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('vms_user_profile');
-    return saved ? JSON.parse(saved) : {
-      name: 'Ricardo Silva',
-      email: 'ricardo.silva@empresa.com.br',
-      role: 'Gerente Financeiro',
-      phone: '(11) 99999-9999',
-      avatar: 'RS'
-    };
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    name: 'Ricardo Silva',
+    email: 'ricardo.silva@empresa.com.br',
+    role: 'Gerente Financeiro',
+    phone: '(11) 99999-9999',
+    avatar: 'RS'
   });
 
-  const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(() => {
-    const saved = localStorage.getItem('vms_company_profile');
-    return saved ? JSON.parse(saved) : {
-      name: 'Móveis & Design Ltda.',
-      cnpj: '12.345.678/0001-90',
-      email: 'contato@moveisedesign.com.br',
-      phone: '(11) 3333-4444',
-      address: 'Av. Paulista, 1000 - São Paulo, SP'
-    };
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile>({
+    name: 'Móveis & Design Ltda.',
+    cnpj: '12.345.678/0001-90',
+    email: 'contato@moveisedesign.com.br',
+    phone: '(11) 3333-4444',
+    address: 'Av. Paulista, 1000 - São Paulo, SP'
   });
 
-  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(() => {
-    const saved = localStorage.getItem('vms_notification_settings');
-    return saved ? JSON.parse(saved) : {
-      dueDateAlert: true,
-      alertDaysBefore: 3,
-      emailAlerts: true
-    };
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+    dueDateAlert: true,
+    alertDaysBefore: 3,
+    emailAlerts: true
   });
 
-  const [taxes, setTaxes] = useState<Tax[]>(() => {
-    const saved = localStorage.getItem('vms_taxes');
-    return saved ? JSON.parse(saved) : [
-      { id: '1', name: 'DAS - Simples Nacional', type: 'das', competence: '01/2026', dueDate: '2026-02-20', value: 12500, status: 'paid' },
-      { id: '2', name: 'FGTS', type: 'fgts', competence: '01/2026', dueDate: '2026-02-07', value: 4200, status: 'paid' },
-      { id: '3', name: 'INSS', type: 'inss', competence: '01/2026', dueDate: '2026-02-20', value: 8900, status: 'pending' },
-      { id: '4', name: 'ISSQN', type: 'iss', competence: '01/2026', dueDate: '2026-02-15', value: 1500, status: 'overdue' },
-    ];
-  });
+  const [taxes, setTaxes] = useState<Tax[]>([]);
 
   // Persist settings to localStorage
   useEffect(() => {
@@ -110,6 +93,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
+  // Fetch Data from Supabase
   const fetchData = async () => {
     if (!supabase) {
       setIsLoading(false);
@@ -117,6 +101,38 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
     setIsLoading(true);
     try {
+      // Fetch Profiles and Settings
+      const [
+        { data: profileData },
+        { data: companyData },
+        { data: settingsData },
+        { data: taxesData }
+      ] = await Promise.all([
+        supabase.from('profiles').select('*').limit(1).single(),
+        supabase.from('company_profile').select('*').limit(1).single(),
+        supabase.from('notification_settings').select('*').limit(1).single(),
+        supabase.from('taxes').select('*').order('due_date', { ascending: true })
+      ]);
+
+      if (profileData) setUserProfile(profileData);
+      if (companyData) setCompanyProfile(companyData);
+      if (settingsData) setNotificationSettings({
+        dueDateAlert: settingsData.due_date_alert,
+        alertDaysBefore: settingsData.alert_days_before,
+        emailAlerts: settingsData.email_alerts
+      });
+      if (taxesData) setTaxes(taxesData.map(t => ({
+        id: t.id,
+        name: t.name,
+        type: t.type as any,
+        competence: t.competence,
+        dueDate: t.due_date,
+        value: Number(t.value),
+        status: t.status as any,
+        description: t.description,
+        year: t.year
+      })));
+
       // Fetch Accounts
       const { data: accountsData, error: accountsError } = await supabase
         .from('accounts')
@@ -629,56 +645,148 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const updateUserProfile = async (profile: Partial<UserProfile>) => {
-    // In a real app, this would update the 'profiles' table
-    setUserProfile(prev => ({ ...prev, ...profile }));
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .upsert([{ ...userProfile, ...profile }])
+        .select()
+        .single();
+      if (error) throw error;
+      setUserProfile(data);
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+    }
   };
 
   const updateCompanyProfile = async (profile: Partial<CompanyProfile>) => {
-    // In a real app, this would update the 'companies' table
-    setCompanyProfile(prev => ({ ...prev, ...profile }));
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from('company_profile')
+        .upsert([{ ...companyProfile, ...profile }])
+        .select()
+        .single();
+      if (error) throw error;
+      setCompanyProfile(data);
+    } catch (error) {
+      console.error('Error updating company profile:', error);
+    }
   };
 
   const updateNotificationSettings = async (settings: Partial<NotificationSettings>) => {
-    // In a real app, this would update the 'settings' table
-    setNotificationSettings(prev => ({ ...prev, ...settings }));
+    if (!supabase) return;
+    try {
+      const newSettings = { ...notificationSettings, ...settings };
+      const { data, error } = await supabase
+        .from('notification_settings')
+        .upsert([{ 
+          due_date_alert: newSettings.dueDateAlert,
+          alert_days_before: newSettings.alertDaysBefore,
+          email_alerts: newSettings.emailAlerts
+        }])
+        .select()
+        .single();
+      if (error) throw error;
+      setNotificationSettings({
+        dueDateAlert: data.due_date_alert,
+        alertDaysBefore: data.alert_days_before,
+        emailAlerts: data.email_alerts
+      });
+    } catch (error) {
+      console.error('Error updating notification settings:', error);
+    }
   };
 
   const addTax = async (tax: Omit<Tax, 'id'>) => {
-    const newTax = { ...tax, id: Math.random().toString(36).substr(2, 9) };
-    setTaxes(prev => [...prev, newTax]);
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('taxes')
+        .insert([{
+          name: tax.name,
+          type: tax.type,
+          competence: tax.competence,
+          due_date: tax.dueDate,
+          value: tax.value,
+          status: tax.status,
+          description: tax.description,
+          year: tax.year
+        }]);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error adding tax:', error);
+    }
   };
 
   const updateTax = async (id: string, updatedTax: Partial<Tax>) => {
-    setTaxes(prev => prev.map(t => t.id === id ? { ...t, ...updatedTax } : t));
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('taxes')
+        .update({
+          name: updatedTax.name,
+          type: updatedTax.type,
+          competence: updatedTax.competence,
+          due_date: updatedTax.dueDate,
+          value: updatedTax.value,
+          status: updatedTax.status,
+          description: updatedTax.description,
+          year: updatedTax.year
+        })
+        .eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error updating tax:', error);
+    }
   };
 
   const deleteTax = async (id: string) => {
-    setTaxes(prev => prev.filter(t => t.id !== id));
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('taxes')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error deleting tax:', error);
+    }
   };
 
   const generateAnnualTaxes = async (year: number, totalValue: number, taxType: Tax['type'], name: string) => {
+    if (!supabase) return;
     const monthlyValue = totalValue / 12;
-    const newTaxes: Tax[] = [];
+    const newTaxes: any[] = [];
     
     for (let month = 1; month <= 12; month++) {
       const monthStr = month.toString().padStart(2, '0');
       const competence = `${monthStr}/${year}`;
-      // Due date is usually 20th of the next month for DAS, but let's simplify to 20th of the same month for now or next
       const dueDate = `${year}-${monthStr}-20`;
       
       newTaxes.push({
-        id: Math.random().toString(36).substr(2, 9),
         name,
         type: taxType,
         competence,
-        dueDate,
+        due_date: dueDate,
         value: monthlyValue,
         status: 'pending',
         year
       });
     }
     
-    setTaxes(prev => [...prev, ...newTaxes]);
+    try {
+      const { error } = await supabase
+        .from('taxes')
+        .insert(newTaxes);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error generating annual taxes:', error);
+    }
   };
 
   return (
