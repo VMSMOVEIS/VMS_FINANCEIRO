@@ -1,7 +1,7 @@
 -- Supabase Schema for Employee Management System
 
 -- 1. Shifts (Turnos)
-CREATE TABLE shifts (
+CREATE TABLE IF NOT EXISTS shifts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
   description TEXT,
@@ -9,6 +9,16 @@ CREATE TABLE shifts (
   end_time TIME NOT NULL,
   break_start TIME,
   break_end TIME,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 1.1 Job Roles (Cargos)
+CREATE TABLE IF NOT EXISTS job_roles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  description TEXT,
+  department TEXT,
+  base_salary DECIMAL(10,2),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -84,11 +94,44 @@ CREATE TABLE employee_documents (
 -- Enable Row Level Security (RLS)
 ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shifts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE benefits_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE employee_benefits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE employee_documents ENABLE ROW LEVEL SECURITY;
 
--- Create policies (Example: Allow authenticated users to read everything)
-CREATE POLICY "Allow authenticated users to read employees" ON employees FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow authenticated users to insert employees" ON employees FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "Allow authenticated users to update employees" ON employees FOR UPDATE TO authenticated USING (true);
+-- Create policies (Allow all for public access)
+DROP POLICY IF EXISTS "Allow public read employees" ON employees;
+DROP POLICY IF EXISTS "Allow public insert employees" ON employees;
+DROP POLICY IF EXISTS "Allow public update employees" ON employees;
+DROP POLICY IF EXISTS "Allow public delete employees" ON employees;
+CREATE POLICY "Allow all for employees" ON employees FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read shifts" ON shifts;
+DROP POLICY IF EXISTS "Allow public insert shifts" ON shifts;
+DROP POLICY IF EXISTS "Allow public update shifts" ON shifts;
+DROP POLICY IF EXISTS "Allow public delete shifts" ON shifts;
+CREATE POLICY "Allow all for shifts" ON shifts FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read job_roles" ON job_roles;
+DROP POLICY IF EXISTS "Allow public insert job_roles" ON job_roles;
+DROP POLICY IF EXISTS "Allow public update job_roles" ON job_roles;
+DROP POLICY IF EXISTS "Allow public delete job_roles" ON job_roles;
+CREATE POLICY "Allow all for job_roles" ON job_roles FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read benefits_config" ON benefits_config;
+DROP POLICY IF EXISTS "Allow public insert benefits_config" ON benefits_config;
+DROP POLICY IF EXISTS "Allow public update benefits_config" ON benefits_config;
+DROP POLICY IF EXISTS "Allow public delete benefits_config" ON benefits_config;
+CREATE POLICY "Allow all for benefits_config" ON benefits_config FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read employee_benefits" ON employee_benefits;
+DROP POLICY IF EXISTS "Allow public insert employee_benefits" ON employee_benefits;
+DROP POLICY IF EXISTS "Allow public update employee_benefits" ON employee_benefits;
+DROP POLICY IF EXISTS "Allow public delete employee_benefits" ON employee_benefits;
+CREATE POLICY "Allow all for employee_benefits" ON employee_benefits FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public read employee_documents" ON employee_documents;
+DROP POLICY IF EXISTS "Allow public insert employee_documents" ON employee_documents;
+DROP POLICY IF EXISTS "Allow public update employee_documents" ON employee_documents;
+DROP POLICY IF EXISTS "Allow public delete employee_documents" ON employee_documents;
+CREATE POLICY "Allow all for employee_documents" ON employee_documents FOR ALL USING (true) WITH CHECK (true);

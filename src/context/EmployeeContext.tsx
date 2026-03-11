@@ -133,15 +133,16 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       // Fetch Job Roles
       const { data: rolesData, error: rolesError } = await supabase
-        .from('shifts') // Using shifts table for roles/schedules for now or create a job_roles table
+        .from('job_roles')
         .select('*');
       
-      // If shifts table is used for roles, map it
       if (rolesData) {
         setJobRoles(rolesData.map(r => ({
           id: r.id,
           name: r.name,
-          description: r.description
+          description: r.description,
+          department: r.department,
+          baseSalary: r.base_salary
         })));
       }
 
@@ -357,12 +358,12 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!supabase) return;
     try {
       const { error } = await supabase
-        .from('shifts') // Using shifts for roles for now
+        .from('job_roles')
         .insert([{
           name: roleData.name,
           description: roleData.description,
-          start_time: '08:00',
-          end_time: '17:00'
+          department: roleData.department,
+          base_salary: roleData.baseSalary
         }]);
       if (error) throw error;
       await fetchData();
@@ -375,10 +376,12 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!supabase) return;
     try {
       const { error } = await supabase
-        .from('shifts')
+        .from('job_roles')
         .update({
           name: roleData.name,
-          description: roleData.description
+          description: roleData.description,
+          department: roleData.department,
+          base_salary: roleData.baseSalary
         })
         .eq('id', id);
       if (error) throw error;
@@ -392,7 +395,7 @@ export const EmployeeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!supabase) return;
     try {
       const { error } = await supabase
-        .from('shifts')
+        .from('job_roles')
         .delete()
         .eq('id', id);
       if (error) throw error;

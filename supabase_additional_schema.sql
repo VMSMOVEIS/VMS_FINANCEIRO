@@ -210,48 +210,63 @@ ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE account_plans ENABLE ROW LEVEL SECURITY;
 
--- Policies for authenticated users
-CREATE POLICY "Allow auth read inventory" ON inventory FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow auth write inventory" ON inventory FOR ALL TO authenticated USING (true);
+-- Policies for public access (Allow all)
+DROP POLICY IF EXISTS "Allow public read inventory" ON inventory;
+DROP POLICY IF EXISTS "Allow public write inventory" ON inventory;
+CREATE POLICY "Allow all for inventory" ON inventory FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow auth read production_orders" ON production_orders FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow auth write production_orders" ON production_orders FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow public read production_orders" ON production_orders;
+DROP POLICY IF EXISTS "Allow public write production_orders" ON production_orders;
+CREATE POLICY "Allow all for production_orders" ON production_orders FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow auth read purchase_orders" ON purchase_orders FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow auth write purchase_orders" ON purchase_orders FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow public read purchase_orders" ON purchase_orders;
+DROP POLICY IF EXISTS "Allow public write purchase_orders" ON purchase_orders;
+CREATE POLICY "Allow all for purchase_orders" ON purchase_orders FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow auth read stock_aging_configs" ON stock_aging_configs FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow auth write stock_aging_configs" ON stock_aging_configs FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow public read stock_aging_configs" ON stock_aging_configs;
+DROP POLICY IF EXISTS "Allow public write stock_aging_configs" ON stock_aging_configs;
+CREATE POLICY "Allow all for stock_aging_configs" ON stock_aging_configs FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow auth read taxes" ON taxes FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow auth write taxes" ON taxes FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow public read taxes" ON taxes;
+DROP POLICY IF EXISTS "Allow public write taxes" ON taxes;
+CREATE POLICY "Allow all for taxes" ON taxes FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow auth read profiles" ON profiles FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow auth write profiles" ON profiles FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow public read profiles" ON profiles;
+DROP POLICY IF EXISTS "Allow public write profiles" ON profiles;
+CREATE POLICY "Allow all for profiles" ON profiles FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow auth read company_profile" ON company_profile FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow auth write company_profile" ON company_profile FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow public read company_profile" ON company_profile;
+DROP POLICY IF EXISTS "Allow public write company_profile" ON company_profile;
+CREATE POLICY "Allow all for company_profile" ON company_profile FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow auth read notification_settings" ON notification_settings FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow auth write notification_settings" ON notification_settings FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow public read notification_settings" ON notification_settings;
+DROP POLICY IF EXISTS "Allow public write notification_settings" ON notification_settings;
+CREATE POLICY "Allow all for notification_settings" ON notification_settings FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow auth read payment_methods" ON payment_methods FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow auth write payment_methods" ON payment_methods FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow public read payment_methods" ON payment_methods;
+DROP POLICY IF EXISTS "Allow public write payment_methods" ON payment_methods;
+CREATE POLICY "Allow all for payment_methods" ON payment_methods FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow auth read customers" ON customers FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow auth write customers" ON customers FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow public read customers" ON customers;
+DROP POLICY IF EXISTS "Allow public write customers" ON customers;
+CREATE POLICY "Allow all for customers" ON customers FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow auth read quotes" ON quotes FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow auth write quotes" ON quotes FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow public read quotes" ON quotes;
+DROP POLICY IF EXISTS "Allow public write quotes" ON quotes;
+CREATE POLICY "Allow all for quotes" ON quotes FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow auth read accounts" ON accounts FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow auth write accounts" ON accounts FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow public read accounts" ON accounts;
+DROP POLICY IF EXISTS "Allow public write accounts" ON accounts;
+CREATE POLICY "Allow all for accounts" ON accounts FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow auth read transactions" ON transactions FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow auth write transactions" ON transactions FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow public read transactions" ON transactions;
+DROP POLICY IF EXISTS "Allow public write transactions" ON transactions;
+CREATE POLICY "Allow all for transactions" ON transactions FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow auth read payments" ON payments FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow auth write payments" ON payments FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow public read payments" ON payments;
+DROP POLICY IF EXISTS "Allow public write payments" ON payments;
+CREATE POLICY "Allow all for payments" ON payments FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Allow auth read account_plans" ON account_plans FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow auth write account_plans" ON account_plans FOR ALL TO authenticated USING (true);
+DROP POLICY IF EXISTS "Allow public read account_plans" ON account_plans;
+DROP POLICY IF EXISTS "Allow public write account_plans" ON account_plans;
+CREATE POLICY "Allow all for account_plans" ON account_plans FOR ALL USING (true) WITH CHECK (true);

@@ -10,49 +10,36 @@ import {
   Tag,
   Calendar,
   Layers,
-  Box
+  Box,
+  X,
+  Trash2,
+  Edit2
 } from 'lucide-react';
 import { useProduction } from '../src/context/ProductionContext';
-
-interface InventoryItem {
-  id: string;
-  name: string;
-  category: 'pronta_entrega' | 'sob_medida';
-  type: 'mp' | 'pa' | 'processo';
-  quantity: number;
-  unit: string;
-  entryDate: string;
-  location: string;
-  value: number;
-}
-
-const MOCK_INVENTORY: InventoryItem[] = [
-  // PA - Pronta Entrega
-  { id: 'PA-001', name: 'Mesa de Jantar Carvalho 6 Lugares', category: 'pronta_entrega', type: 'pa', quantity: 5, unit: 'UN', entryDate: '2025-12-10', location: 'A-01', value: 2500 },
-  { id: 'PA-002', name: 'Cadeira Estofada Veludo Cinza', category: 'pronta_entrega', type: 'pa', quantity: 24, unit: 'UN', entryDate: '2026-01-15', location: 'A-02', value: 450 },
-  { id: 'PA-003', name: 'Aparador Retrô Off White', category: 'pronta_entrega', type: 'pa', quantity: 3, unit: 'UN', entryDate: '2025-11-20', location: 'B-05', value: 890 },
-  
-  // PA - Sob Medida
-  { id: 'PA-SM-001', name: 'Cozinha Planejada - Cliente João', category: 'sob_medida', type: 'pa', quantity: 1, unit: 'KIT', entryDate: '2026-03-01', location: 'Expedição', value: 15000 },
-  { id: 'PA-SM-002', name: 'Painel TV Ripado - Cliente Maria', category: 'sob_medida', type: 'pa', quantity: 1, unit: 'UN', entryDate: '2026-03-05', location: 'Expedição', value: 3200 },
-
-  // Processo - Pronta Entrega
-  { id: 'PR-001', name: 'Sofá 3 Lugares Retrátil (Estrutura)', category: 'pronta_entrega', type: 'processo', quantity: 10, unit: 'UN', entryDate: '2026-03-08', location: 'Tapeçaria', value: 1200 },
-  
-  // Processo - Sob Medida
-  { id: 'PR-SM-001', name: 'Dormitório Casal - Cliente Carlos', category: 'sob_medida', type: 'processo', quantity: 1, unit: 'KIT', entryDate: '2026-03-09', location: 'Montagem', value: 8500 },
-
-  // MP
-  { id: 'MP-001', name: 'Chapa MDF 18mm Carvalho', category: 'pronta_entrega', type: 'mp', quantity: 45, unit: 'CH', entryDate: '2026-02-10', location: 'Almoxarifado', value: 280 },
-];
+import { InventoryItem } from '../types';
 
 interface ProductionInventoryProps {
   activeSubItem?: string | null;
 }
 
 export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ activeSubItem }) => {
-  const { stockAgingConfigs, inventory } = useProduction();
+  const { stockAgingConfigs, inventory, addInventoryItem, updateInventoryItem, deleteInventoryItem } = useProduction();
   const [searchTerm, setSearchTerm] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [showActions, setShowActions] = useState<string | null>(null);
+
+  const [formData, setFormData] = useState<Omit<InventoryItem, 'id'>>({
+    name: '',
+    category: 'pronta_entrega',
+    type: 'mp',
+    quantity: 0,
+    unit: 'UN',
+    entryDate: new Date().toISOString().split('T')[0],
+    location: '',
+    value: 0,
+    estimatedCost: 0
+  });
 
   const filteredItems = useMemo(() => {
     return inventory.filter(item => {
@@ -66,7 +53,7 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
       
       return matchesSearch;
     });
-  }, [activeSubItem, searchTerm]);
+  }, [activeSubItem, searchTerm, inventory]);
 
   const calculateDiscount = (entryDate: string) => {
     const entry = new Date(entryDate);
@@ -92,6 +79,64 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
     }
   };
 
+  const handleOpenModal = (item?: InventoryItem) => {
+    if (item) {
+      setEditingItem(item);
+      setFormData({
+        name: item.name,
+        category: item.category,
+        type: item.type,
+        quantity: item.quantity,
+        unit: item.unit,
+        entryDate: item.entryDate,
+        location: item.location,
+        value: item.value,
+        estimatedCost: item.estimatedCost
+      });
+    } else {
+      setEditingItem(null);
+      // Auto-set type based on activeSubItem
+      let defaultType: 'mp' | 'pa' | 'processo' = 'mp';
+      let defaultCategory: 'pronta_entrega' | 'sob_medida' = 'pronta_entrega';
+      
+      if (activeSubItem?.includes('mp')) defaultType = 'mp';
+      else if (activeSubItem?.includes('pa')) defaultType = 'pa';
+      else if (activeSubItem?.includes('processo')) defaultType = 'processo';
+
+      if (activeSubItem?.includes('medida')) defaultCategory = 'sob_medida';
+
+      setFormData({
+        name: '',
+        category: defaultCategory,
+        type: defaultType,
+        quantity: 0,
+        unit: 'UN',
+        entryDate: new Date().toISOString().split('T')[0],
+        location: '',
+        value: 0,
+        estimatedCost: 0
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingItem) {
+      await updateInventoryItem({ ...formData, id: editingItem.id });
+    } else {
+      await addInventoryItem({ ...formData, id: '' });
+    }
+    setIsModalOpen(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este item do estoque?')) {
+      await deleteInventoryItem(id);
+      setShowActions(null);
+    }
+  };
+
   return (
     <div className="p-6 lg:p-8">
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -102,7 +147,10 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
           </h1>
           <p className="text-gray-500 text-sm mt-1">Controle de saldos, localizações e envelhecimento de produtos</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 transition-colors shadow-sm">
+        <button 
+          onClick={() => handleOpenModal()}
+          className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 transition-colors shadow-sm"
+        >
           <Plus size={18} /> Entrada de Estoque
         </button>
       </div>
@@ -148,7 +196,7 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
                         </div>
                         <div>
                           <p className="text-sm font-bold text-gray-900">{item.name}</p>
-                          <p className="text-[10px] text-gray-500 font-mono uppercase">{item.id}</p>
+                          <p className="text-[10px] text-gray-500 font-mono uppercase truncate max-w-[100px]">{item.id}</p>
                         </div>
                       </div>
                     </td>
@@ -180,10 +228,33 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
                         <span className="text-[10px] text-gray-400">Sem desconto</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <button className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors">
+                    <td className="px-6 py-4 text-right relative">
+                      <button 
+                        onClick={() => setShowActions(showActions === item.id ? null : item.id)}
+                        className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                      >
                         <MoreHorizontal size={18} />
                       </button>
+
+                      {showActions === item.id && (
+                        <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-10">
+                          <button 
+                            onClick={() => {
+                              handleOpenModal(item);
+                              setShowActions(null);
+                            }}
+                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                          >
+                            <Edit2 size={16} /> Editar Item
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(item.id)}
+                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 size={16} /> Excluir Item
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -199,6 +270,157 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
           </table>
         </div>
       </div>
+
+      {/* Modal de Entrada de Estoque */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl">
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-orange-600 text-white">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <Plus size={24} />
+                {editingItem ? 'Editar Item' : 'Entrada de Estoque'}
+              </h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Nome do Produto/Material</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" 
+                    placeholder="Ex: Chapa MDF 18mm Carvalho" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Tipo de Estoque</label>
+                  <select 
+                    value={formData.type}
+                    onChange={(e) => setFormData({...formData, type: e.target.value as any})}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none bg-white"
+                  >
+                    <option value="mp">Matéria-Prima (MP)</option>
+                    <option value="pa">Produto Acabado (PA)</option>
+                    <option value="processo">Em Processo</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Categoria</label>
+                  <select 
+                    value={formData.category}
+                    onChange={(e) => setFormData({...formData, category: e.target.value as any})}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none bg-white"
+                  >
+                    <option value="pronta_entrega">Pronta Entrega</option>
+                    <option value="sob_medida">Sob Medida</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Quantidade</label>
+                  <input 
+                    type="number" 
+                    required
+                    min="0"
+                    step="0.01"
+                    value={formData.quantity}
+                    onChange={(e) => setFormData({...formData, quantity: Number(e.target.value)})}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Unidade</label>
+                  <select 
+                    value={formData.unit}
+                    onChange={(e) => setFormData({...formData, unit: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none bg-white"
+                  >
+                    <option value="UN">Unidade (UN)</option>
+                    <option value="CH">Chapa (CH)</option>
+                    <option value="MT">Metro (MT)</option>
+                    <option value="M2">Metro Quadrado (M2)</option>
+                    <option value="KG">Quilo (KG)</option>
+                    <option value="KIT">Kit (KIT)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Data de Entrada</label>
+                  <input 
+                    type="date" 
+                    required
+                    value={formData.entryDate}
+                    onChange={(e) => setFormData({...formData, entryDate: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Localização</label>
+                  <input 
+                    type="text" 
+                    required
+                    value={formData.location}
+                    onChange={(e) => setFormData({...formData, location: e.target.value})}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" 
+                    placeholder="Ex: Almoxarifado A-01" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Valor Unitário (R$)</label>
+                  <input 
+                    type="number" 
+                    required
+                    min="0"
+                    step="0.01"
+                    value={formData.value}
+                    onChange={(e) => setFormData({...formData, value: Number(e.target.value)})}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Custo Estimado (R$)</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    step="0.01"
+                    value={formData.estimatedCost}
+                    onChange={(e) => setFormData({...formData, estimatedCost: Number(e.target.value)})}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" 
+                  />
+                </div>
+              </div>
+
+              <div className="mt-8 flex gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="flex-1 px-6 py-3 border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 px-6 py-3 bg-orange-600 text-white rounded-xl font-bold hover:bg-orange-700 transition-colors shadow-lg shadow-orange-600/20"
+                >
+                  {editingItem ? 'Salvar Alterações' : 'Confirmar Entrada'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

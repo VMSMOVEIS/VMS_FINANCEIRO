@@ -10,6 +10,7 @@ interface ProductionContextType {
   inventory: InventoryItem[];
   updateInventoryItem: (item: InventoryItem) => void;
   addInventoryItem: (item: InventoryItem) => void;
+  deleteInventoryItem: (id: string) => void;
   productionOrders: ProductionOrder[];
   addProductionOrder: (order: ProductionOrder) => void;
   updateProductionOrder: (order: ProductionOrder) => void;
@@ -176,7 +177,6 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const { error } = await supabase
         .from('inventory')
         .insert([{
-          id: item.id,
           name: item.name,
           category: item.category,
           type: item.type,
@@ -191,6 +191,20 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       await fetchData();
     } catch (error) {
       console.error('Error adding inventory item:', error);
+    }
+  };
+
+  const deleteInventoryItem = async (id: string) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('inventory')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error deleting inventory item:', error);
     }
   };
 
@@ -263,6 +277,7 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       inventory,
       updateInventoryItem,
       addInventoryItem,
+      deleteInventoryItem,
       productionOrders,
       addProductionOrder,
       updateProductionOrder,

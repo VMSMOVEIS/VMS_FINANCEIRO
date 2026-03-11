@@ -973,31 +973,6 @@ export const EmployeeManagement: React.FC<EmployeeManagementProps> = ({ activeSu
                     <h4 className="text-sm font-bold text-pink-600 uppercase tracking-wider mb-4">Informações Profissionais</h4>
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Cargo</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={formData.role}
-                      onChange={(e) => setFormData({...formData, role: e.target.value})}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none" 
-                      placeholder="Ex: Desenvolvedor" 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Departamento</label>
-                    <select 
-                      value={formData.department}
-                      onChange={(e) => setFormData({...formData, department: e.target.value})}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 outline-none bg-white"
-                    >
-                      <option value="TI">TI</option>
-                      <option value="RH">RH</option>
-                      <option value="Vendas">Vendas</option>
-                      <option value="Financeiro">Financeiro</option>
-                      <option value="Produção">Produção</option>
-                    </select>
-                  </div>
-                  <div>
                     <label className="block text-sm font-bold text-gray-700 mb-2">Data de Admissão</label>
                     <input 
                       type="date" 
