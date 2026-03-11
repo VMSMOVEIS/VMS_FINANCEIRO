@@ -121,7 +121,7 @@ const MOCK_LEADS: Lead[] = [
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 const SalesCRM: React.FC = () => {
-  const { quotes, sales } = useSales();
+  const { quotes, sales, isLoading } = useSales();
   const { productionOrders } = useProduction();
   const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
   const [searchTerm, setSearchTerm] = useState('');
@@ -204,6 +204,7 @@ const SalesCRM: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <Target className="text-emerald-600" size={28} />
             CRM / Funil de Vendas
+            {isLoading && <Clock className="animate-spin text-blue-500" size={20} />}
           </h1>
           <p className="text-gray-500 text-sm mt-1">Gerencie suas oportunidades e acompanhe o desempenho comercial</p>
         </div>

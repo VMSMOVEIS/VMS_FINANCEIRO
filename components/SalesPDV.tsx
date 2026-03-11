@@ -20,7 +20,7 @@ interface Product {
 export const SalesPDV: React.FC = () => {
   const { companyProfile } = useTransactions();
   const { fetchEmployeesByRole } = useEmployees();
-  const { sales, addSale, paymentMethods } = useSales();
+  const { sales, addSale, paymentMethods, isLoading } = useSales();
   const { inventory } = useProduction();
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -201,7 +201,10 @@ export const SalesPDV: React.FC = () => {
             <div className="flex-1 flex flex-col p-6 overflow-hidden">
               <div className="mb-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h1 className="text-2xl font-bold text-gray-800">PDV - Venda Rápida</h1>
+                  <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    PDV - Venda Rápida
+                    {isLoading && <History className="animate-spin text-blue-500" size={20} />}
+                  </h1>
                 </div>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />

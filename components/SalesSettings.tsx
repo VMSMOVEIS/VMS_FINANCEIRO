@@ -8,14 +8,15 @@ import {
   CheckCircle2, 
   AlertCircle,
   Settings2,
-  ChevronRight
+  ChevronRight,
+  Clock
 } from 'lucide-react';
 import { useSales } from '../src/context/SalesContext';
 import { SalesPaymentMethod } from '../types';
 
 export const SalesSettings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'payments' | 'discounts'>('payments');
-  const { paymentMethods, addPaymentMethod, updatePaymentMethod, deletePaymentMethod } = useSales();
+  const { paymentMethods, addPaymentMethod, updatePaymentMethod, deletePaymentMethod, isLoading } = useSales();
   const [showAddModal, setShowAddModal] = useState(false);
   const [newMethod, setNewMethod] = useState<Partial<SalesPaymentMethod>>({
     name: '',
@@ -44,6 +45,7 @@ export const SalesSettings: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <Settings2 className="text-emerald-600" size={28} />
           Configurações de Vendas
+          {isLoading && <Clock className="animate-spin text-blue-500" size={20} />}
         </h1>
         <p className="text-gray-500 text-sm mt-1">Gerencie formas de pagamento, descontos e regras comerciais</p>
       </div>

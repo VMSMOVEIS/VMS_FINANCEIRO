@@ -75,7 +75,7 @@ const MOCK_ORDERS = [
 const STORES = ['Loja Principal', 'Showroom Centro', 'Loja Online', 'Filial Sul'];
 
 const SalesOrders: React.FC = () => {
-  const { sales, addSale, updateSaleStatus, updateSale, deleteSale, paymentMethods } = useSales();
+  const { sales, addSale, updateSaleStatus, updateSale, deleteSale, paymentMethods, isLoading } = useSales();
   const { accountPlans, transactions, addTransaction } = useTransactions();
   const { inventory } = useProduction();
   const [searchTerm, setSearchTerm] = useState('');
@@ -323,6 +323,7 @@ const SalesOrders: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <ShoppingCart className="text-emerald-600" size={28} />
             Pedidos de Venda
+            {isLoading && <Clock className="animate-spin text-blue-500" size={20} />}
           </h1>
           <p className="text-gray-500 text-sm mt-1">Acompanhamento de pedidos, faturamento e logística</p>
         </div>

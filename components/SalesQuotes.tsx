@@ -36,7 +36,7 @@ import { Quote, BOMItem, ProductionOrder, Sale, SaleItem } from '../types';
 const STORES = ['Loja Principal', 'Showroom Centro', 'Loja Online', 'Filial Sul'];
 
 export const SalesQuotes: React.FC = () => {
-  const { quotes, addQuote, updateQuote, deleteQuote, addSale } = useSales();
+  const { quotes, addQuote, updateQuote, deleteQuote, addSale, isLoading } = useSales();
   const { addProductionOrder, inventory } = useProduction();
   const { accountPlans } = useTransactions();
   
@@ -309,7 +309,10 @@ export const SalesQuotes: React.FC = () => {
     <div className="p-6 space-y-6 bg-gray-50 min-h-full">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Orçamentos</h1>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            Orçamentos
+            {isLoading && <Clock className="animate-spin text-blue-500" size={20} />}
+          </h1>
           <p className="text-gray-500 text-sm">Gestão de propostas e performance de conversão</p>
         </div>
         <button 

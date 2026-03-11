@@ -262,6 +262,7 @@ export interface BOMItem {
 export interface Quote {
   id: string;
   client: string;
+  productName?: string;
   salesperson?: string;
   store?: string;
   date: string;
