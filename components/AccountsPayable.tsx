@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Download, Edit, Trash2, FileText } from 'lucide-react';
+import { Plus, Search, Filter, Download, Edit, Trash2, FileText, Check } from 'lucide-react';
 import { useTransactions } from '@/src/context/TransactionContext';
 
 interface AccountsPayableProps {
@@ -7,7 +7,7 @@ interface AccountsPayableProps {
 }
 
 export const AccountsPayable: React.FC<AccountsPayableProps> = ({ initialTab = 'geral' }) => {
-  const { transactions, deleteTransaction, openModal } = useTransactions();
+  const { transactions, deleteTransaction, updateTransaction, openModal } = useTransactions();
   const [activeTab, setActiveTab] = useState<'geral' | 'adiantamentos'>(initialTab);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -32,7 +32,8 @@ export const AccountsPayable: React.FC<AccountsPayableProps> = ({ initialTab = '
         transactionId: t.id,
         category: t.category,
         supplier: t.customerName || 'Fornecedor',
-        orderNumber: t.orderNumber || t.documentType
+        orderNumber: t.orderNumber || t.documentType,
+        transactionStatus: t.status
       }))
   ).filter(item => {
     if (!searchTerm) return true;
@@ -54,6 +55,12 @@ export const AccountsPayable: React.FC<AccountsPayableProps> = ({ initialTab = '
   const handleEdit = (id: number) => {
     const transaction = transactions.find(t => t.id === id);
     if (transaction) openModal(transaction);
+  };
+
+  const handleComplete = async (id: number) => {
+    if (window.confirm('Deseja marcar este adiantamento como realizado/compensado?')) {
+      await updateTransaction(id, { status: 'completed' });
+    }
   };
 
   return (
@@ -181,15 +188,29 @@ export const AccountsPayable: React.FC<AccountsPayableProps> = ({ initialTab = '
                   <td className="px-6 py-4 font-medium text-gray-900">R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      item.status === 'completed' 
+                      item.transactionStatus === 'completed' 
                         ? 'bg-emerald-100 text-emerald-700' 
+                        : item.transactionStatus === 'a_compensar'
+                        ? 'bg-blue-100 text-blue-700'
                         : 'bg-yellow-100 text-yellow-700'
                     }`}>
-                      {item.status === 'completed' ? 'Pago' : 'Aberto'}
+                      {activeTab === 'adiantamentos' 
+                        ? (item.transactionStatus === 'completed' ? 'Realizado' : 'A compensar')
+                        : (item.transactionStatus === 'completed' ? 'Pago' : 'Aberto')
+                      }
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
+                      {activeTab === 'adiantamentos' && item.transactionStatus === 'a_compensar' && (
+                        <button 
+                          onClick={() => handleComplete(item.transactionId)}
+                          className="p-1.5 hover:bg-emerald-50 rounded text-gray-400 hover:text-emerald-600 transition-colors"
+                          title="Marcar como Realizado"
+                        >
+                          <Check size={16} />
+                        </button>
+                      )}
                       <button 
                         onClick={() => handleEdit(item.transactionId)}
                         className="p-1.5 hover:bg-blue-50 rounded text-gray-400 hover:text-blue-600 transition-colors"

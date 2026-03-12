@@ -126,11 +126,52 @@ const SalesCRM: React.FC = () => {
   const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'analytics'>('kanban');
+  const [selectedStage, setSelectedStage] = useState<LeadStatus | null>(null);
+  const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
+  const [newLead, setNewLead] = useState<Partial<Lead>>({
+    company: '',
+    contactName: '',
+    email: '',
+    phone: '',
+    value: 0,
+    source: 'Site',
+    probability: 10,
+    status: LeadStatus.NEW
+  });
 
-  const filteredLeads = leads.filter(lead => 
-    lead.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lead.contactName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredLeads = leads.filter(lead => {
+    const matchesSearch = lead.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lead.contactName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStage = selectedStage ? lead.status === selectedStage : true;
+    return matchesSearch && matchesStage;
+  });
+
+  const handleAddLead = (e: React.FormEvent) => {
+    e.preventDefault();
+    const lead: Lead = {
+      ...newLead as Lead,
+      id: Math.random().toString(36).substr(2, 9),
+      lastContact: new Date().toISOString().split('T')[0],
+      expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    };
+    setLeads([lead, ...leads]);
+    setIsLeadModalOpen(false);
+    setNewLead({
+      company: '',
+      contactName: '',
+      email: '',
+      phone: '',
+      value: 0,
+      source: 'Site',
+      probability: 10,
+      status: LeadStatus.NEW
+    });
+  };
+
+  const handleStageClick = (stage: LeadStatus) => {
+    setSelectedStage(stage);
+    setViewMode('list');
+  };
 
   const getStatusLabel = (status: LeadStatus) => {
     switch (status) {
@@ -230,7 +271,10 @@ const SalesCRM: React.FC = () => {
               Análise
             </button>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium shadow-sm">
+          <button 
+            onClick={() => setIsLeadModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium shadow-sm"
+          >
             <Plus size={18} />
             Nova Oportunidade
           </button>
@@ -305,6 +349,15 @@ const SalesCRM: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2">
+            {selectedStage && (
+              <button 
+                onClick={() => setSelectedStage(null)}
+                className="flex items-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold border border-emerald-100"
+              >
+                Etapa: {getStatusLabel(selectedStage)}
+                <XCircle size={14} />
+              </button>
+            )}
             <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
               <Filter size={16} />
               Filtros
@@ -417,7 +470,10 @@ const SalesCRM: React.FC = () => {
 
             return (
               <div key={column.id} className="flex-shrink-0 w-80">
-                <div className={`flex items-center justify-between mb-4 pb-2 border-b-2 ${column.color}`}>
+                <div 
+                  className={`flex items-center justify-between mb-4 pb-2 border-b-2 cursor-pointer hover:opacity-80 transition-opacity ${column.color}`}
+                  onClick={() => handleStageClick(column.id)}
+                >
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-gray-900">{column.label}</h3>
                     <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -431,7 +487,14 @@ const SalesCRM: React.FC = () => {
 
                 <div className="space-y-4">
                   {columnItems.map(item => (
-                    <div key={item.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group">
+                    <div 
+                      key={item.id} 
+                      className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStageClick(column.id);
+                      }}
+                    >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
@@ -661,6 +724,108 @@ const SalesCRM: React.FC = () => {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Lead Modal */}
+      {isLeadModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h3 className="text-lg font-bold text-gray-800">Nova Oportunidade</h3>
+              <button onClick={() => setIsLeadModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <XCircle size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleAddLead} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Empresa</label>
+                <input 
+                  type="text" 
+                  required
+                  value={newLead.company}
+                  onChange={(e) => setNewLead({...newLead, company: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+                  placeholder="Nome da empresa"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Contato</label>
+                <input 
+                  type="text" 
+                  required
+                  value={newLead.contactName}
+                  onChange={(e) => setNewLead({...newLead, contactName: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+                  placeholder="Nome do contato"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input 
+                    type="email" 
+                    value={newLead.email}
+                    onChange={(e) => setNewLead({...newLead, email: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+                    placeholder="email@exemplo.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                  <input 
+                    type="text" 
+                    value={newLead.phone}
+                    onChange={(e) => setNewLead({...newLead, phone: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Valor Estimado</label>
+                  <input 
+                    type="number" 
+                    value={newLead.value}
+                    onChange={(e) => setNewLead({...newLead, value: Number(e.target.value)})}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Origem</label>
+                  <select 
+                    value={newLead.source}
+                    onChange={(e) => setNewLead({...newLead, source: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all bg-white"
+                  >
+                    <option value="Site">Site</option>
+                    <option value="Indicação">Indicação</option>
+                    <option value="Google Ads">Google Ads</option>
+                    <option value="LinkedIn">LinkedIn</option>
+                    <option value="Outros">Outros</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="pt-4 flex justify-end gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setIsLeadModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 shadow-sm"
+                >
+                  Salvar Oportunidade
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

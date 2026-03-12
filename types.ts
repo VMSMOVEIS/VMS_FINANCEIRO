@@ -116,7 +116,7 @@ export interface Transaction {
   orderNumber?: string;
   customerName?: string; // Added customer/supplier name
   payments: Payment[];
-  status: 'completed' | 'pending' | 'partial';
+  status: 'completed' | 'pending' | 'partial' | 'a_compensar';
   linkedTransactionId?: number;
   linkedPaymentId?: string;
 }

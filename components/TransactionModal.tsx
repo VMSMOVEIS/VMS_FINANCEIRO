@@ -361,13 +361,13 @@ export const TransactionModal: React.FC = () => {
     try {
       const allCompleted = formData.payments?.every(p => p.status === 'completed');
       const allPending = formData.payments?.every(p => p.status === 'pending');
-      let status: 'completed' | 'pending' | 'partial' = 'partial';
+      let status: 'completed' | 'pending' | 'partial' | 'a_compensar' = 'partial';
       if (allCompleted) status = 'completed';
       if (allPending) status = 'pending';
 
-      // Force pending status for new advances so they show as "Aguardando compensação"
+      // Force 'a_compensar' status for new advances
       if (isAdvance && !editingTransaction) {
-          status = 'pending';
+          status = 'a_compensar';
       }
 
         const transaction: Omit<Transaction, 'id'> = {
@@ -675,11 +675,7 @@ export const TransactionModal: React.FC = () => {
                         .filter(acc => {
                           // Only show analytical accounts (level 'analitica' or code parts length === 4)
                           const isAnalytic = acc.level === 'analitica' || acc.code.split('.').length === 4;
-                          if (!isAnalytic) return false;
-
-                          if (formData.type === 'income') return acc.type === 'receita' || acc.type === 'ativo';
-                          if (formData.type === 'expense') return acc.type === 'despesa' || acc.type === 'passivo';
-                          return true;
+                          return isAnalytic;
                         })
                         .map(acc => (
                           <option key={acc.id} value={acc.name}>{acc.code} - {acc.name}</option>

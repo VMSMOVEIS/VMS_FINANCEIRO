@@ -245,12 +245,34 @@ const generateAccountingEntries = (transactions: any[], accountPlans: any[], sal
       return;
     }
 
-    // 1. Initial Recognition (Accrual Basis)
+  // 1. Initial Recognition (Accrual Basis)
     if (!t.linkedTransactionId) {
-      const categoryPlan = findPlan(t.category);
+      const categoryPlan = findPlan(t.categoryCode) || findPlan(t.category);
       const categoryLabel = categoryPlan ? `${categoryPlan.code} - ${categoryPlan.name}` : t.category;
       
-      if (t.type === 'income') {
+      if (t.transactionTypeId === 'adiantamento_cliente') {
+        const advanceLiabilityPlan = findPlan('Adiantamento de Clientes') || { code: '2.1.05', name: 'Adiantamento de Clientes' };
+        entries.push({
+          id: entryId++,
+          transactionId: t.id,
+          date: t.date,
+          description: `Recebimento de Adiantamento - ${t.description}`,
+          debit: `${planCash.code} - ${planCash.name}`,
+          credit: `${advanceLiabilityPlan.code} - ${advanceLiabilityPlan.name}`,
+          value: t.value
+        });
+      } else if (t.transactionTypeId === 'adiantamento_fornecedor') {
+        const advanceAssetPlan = findPlan('Adiantamento a Fornecedores') || { code: '1.1.04.02', name: 'Adiantamento a Fornecedores' };
+        entries.push({
+          id: entryId++,
+          transactionId: t.id,
+          date: t.date,
+          description: `Pagamento de Adiantamento - ${t.description}`,
+          debit: `${advanceAssetPlan.code} - ${advanceAssetPlan.name}`,
+          credit: `${planCash.code} - ${planCash.name}`,
+          value: t.value
+        });
+      } else if (t.type === 'income') {
         entries.push({
           id: entryId++,
           transactionId: t.id,

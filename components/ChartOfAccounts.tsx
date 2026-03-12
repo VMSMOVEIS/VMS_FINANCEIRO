@@ -124,13 +124,14 @@ export const ChartOfAccounts: React.FC = () => {
       <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto">
         {accounts.map(account => {
           const isHeader = account.code.split('.').length <= 2;
+          const isSynthetic = account.level === 'sintetica';
           return (
             <div key={account.id} className={`p-3 flex justify-between items-center hover:bg-gray-50 group ${isHeader ? 'bg-gray-50/50' : ''}`}>
               <div className="flex items-center gap-3">
                 <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded ${isHeader ? 'bg-gray-200 text-gray-700 font-bold' : 'bg-gray-100 text-gray-500'}`}>
                   {account.code}
                 </span>
-                <span className={`${isHeader ? 'font-bold text-gray-900' : 'text-gray-700 text-sm ml-2'}`}>
+                <span className={`${isHeader ? 'font-bold text-gray-900' : isSynthetic ? 'font-bold text-blue-600' : 'text-gray-700 text-sm ml-2'}`}>
                   {account.name}
                 </span>
               </div>
