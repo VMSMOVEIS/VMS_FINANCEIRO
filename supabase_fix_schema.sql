@@ -72,6 +72,8 @@ CREATE TABLE IF NOT EXISTS transactions (
   order_number TEXT,
   customer_name TEXT,
   status TEXT NOT NULL DEFAULT 'pending',
+  linked_transaction_id INTEGER,
+  linked_payment_id UUID,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -83,9 +85,17 @@ CREATE TABLE IF NOT EXISTS payments (
   value DECIMAL(12, 2) NOT NULL,
   due_date DATE NOT NULL,
   bank_id UUID REFERENCES accounts(id),
+  destination TEXT,
+  source TEXT,
   status TEXT NOT NULL DEFAULT 'pending',
+  reconciled BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add missing columns to payments if it already exists
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS destination TEXT;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS source TEXT;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS reconciled BOOLEAN DEFAULT false;
 
 -- 7. Account Plans (Plano de Contas)
 CREATE TABLE IF NOT EXISTS account_plans (

@@ -271,32 +271,34 @@ CREATE TABLE IF NOT EXISTS accounts (
 
 -- 2.19 Transactions
 CREATE TABLE IF NOT EXISTS transactions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  date DATE NOT NULL,
+  id SERIAL PRIMARY KEY,
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
   description TEXT NOT NULL,
   category TEXT,
   category_code TEXT,
-  value DECIMAL(10,2) NOT NULL,
-  type TEXT NOT NULL, -- 'income' or 'expense'
+  value DECIMAL(12, 2) NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('income', 'expense', 'transfer')),
   transaction_type_id TEXT,
   document_type TEXT,
   order_number TEXT,
   customer_name TEXT,
-  status TEXT DEFAULT 'Pendente',
+  status TEXT NOT NULL DEFAULT 'pending',
+  linked_transaction_id INTEGER,
+  linked_payment_id UUID,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- 2.20 Payments
 CREATE TABLE IF NOT EXISTS payments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  transaction_id UUID REFERENCES transactions(id) ON DELETE CASCADE,
-  method TEXT,
-  value DECIMAL(10,2),
-  due_date DATE,
+  transaction_id INTEGER REFERENCES transactions(id) ON DELETE CASCADE,
+  method TEXT NOT NULL,
+  value DECIMAL(12, 2) NOT NULL,
+  due_date DATE NOT NULL,
   bank_id UUID REFERENCES accounts(id),
   destination TEXT,
   source TEXT,
-  status TEXT DEFAULT 'Pendente',
+  status TEXT NOT NULL DEFAULT 'pending',
   reconciled BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -322,6 +324,7 @@ ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE production_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE purchase_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_aging_configs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stock_config_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE taxes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE company_profile ENABLE ROW LEVEL SECURITY;

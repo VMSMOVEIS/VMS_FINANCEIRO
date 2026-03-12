@@ -47,6 +47,15 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: PlusCircle,
   },
   {
+    id: ModuleId.HISTORICO_OPERACIONAL,
+    label: 'Histórico Operacional',
+    icon: History,
+    subItems: [
+      { id: 'historico_vendas', label: 'Histórico de Vendas' },
+      { id: 'historico_compras', label: 'Histórico de Compras' },
+    ]
+  },
+  {
     id: ModuleId.FLUXO_CAIXA,
     label: 'Fluxo de Caixa',
     icon: TrendingUp,

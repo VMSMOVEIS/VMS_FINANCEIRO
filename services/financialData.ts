@@ -147,6 +147,8 @@ let accountPlans: AccountPlan[] = defaultAccountPlans.map((p, i) => ({ ...p, id:
 export const transactionTypes: TransactionType[] = [
   { id: 'pagamento', label: 'Pagamento', defaultDestination: 'Fluxo de Caixa', defaultType: 'expense' },
   { id: 'recebimento', label: 'Recebimento', defaultDestination: 'Fluxo de Caixa', defaultType: 'income' },
+  { id: 'venda', label: 'Venda', defaultDestination: 'Fluxo de Caixa', defaultType: 'income' },
+  { id: 'compra', label: 'Compra', defaultDestination: 'Fluxo de Caixa', defaultType: 'expense' },
   { id: 'adiantamento_cliente', label: 'Adiantamento de Cliente', defaultDestination: 'Fluxo de Caixa', defaultType: 'income' },
   { id: 'adiantamento_fornecedor', label: 'Adiantamento a Fornecedor', defaultDestination: 'Fluxo de Caixa', defaultType: 'expense' },
   { id: 'transferencia', label: 'Transferência', defaultDestination: 'Tesouraria', defaultType: 'expense' },

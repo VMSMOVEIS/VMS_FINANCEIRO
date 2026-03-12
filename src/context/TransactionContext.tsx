@@ -197,6 +197,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         orderNumber: t.order_number,
         customerName: t.customer_name,
         status: t.status,
+        linkedTransactionId: t.linked_transaction_id,
+        linkedPaymentId: t.linked_payment_id,
         payments: t.payments.map((p: any) => ({
           id: p.id,
           method: p.method,
@@ -259,7 +261,9 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           document_type: transaction.documentType,
           order_number: transaction.orderNumber,
           customer_name: transaction.customerName,
-          status: transaction.status
+          status: transaction.status,
+          linked_transaction_id: transaction.linkedTransactionId,
+          linked_payment_id: transaction.linkedPaymentId
         }])
         .select()
         .single();
@@ -287,7 +291,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       await fetchData();
     } catch (error: any) {
       console.error('Error adding transaction:', error);
-      alert(`Erro ao salvar lançamento: ${error.message || 'Erro desconhecido'}`);
+      const errorMessage = error.message || error.details || 'Erro desconhecido';
+      alert(`Erro ao salvar lançamento: ${errorMessage}`);
     }
   };
 
@@ -308,7 +313,9 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           document_type: updatedTransaction.documentType,
           order_number: updatedTransaction.orderNumber,
           customer_name: updatedTransaction.customerName,
-          status: updatedTransaction.status
+          status: updatedTransaction.status,
+          linked_transaction_id: updatedTransaction.linkedTransactionId,
+          linked_payment_id: updatedTransaction.linkedPaymentId
         })
         .eq('id', id);
 

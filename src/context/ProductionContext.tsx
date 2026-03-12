@@ -238,7 +238,10 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         status: o.status as any,
         priority: o.priority as any,
         progress: o.progress,
-        quoteId: o.quote_id
+        quoteId: o.quote_id,
+        orderNumber: o.order_number,
+        startDate: o.start_date,
+        responsible: o.responsible
       })));
 
     } catch (error) {
@@ -506,7 +509,10 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           status: order.status,
           priority: order.priority,
           progress: order.progress,
-          quote_id: order.quoteId
+          quote_id: order.quoteId,
+          order_number: order.orderNumber,
+          start_date: order.startDate,
+          responsible: order.responsible
         }]);
       if (error) throw error;
       await fetchData();
@@ -528,7 +534,10 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           status: order.status,
           priority: order.priority,
           progress: order.progress,
-          quote_id: order.quoteId
+          quote_id: order.quoteId,
+          order_number: order.orderNumber,
+          start_date: order.startDate,
+          responsible: order.responsible
         })
         .eq('id', order.id);
       if (error) throw error;

@@ -289,11 +289,14 @@ export interface ProductionOrder {
   productName: string;
   client: string;
   quantity: number;
-  deadline: string;
+  deadline: string; // Data prevista
   status: 'waiting' | 'in_production' | 'completed' | 'cancelled';
   priority: 'low' | 'medium' | 'high';
   progress: number;
   quoteId?: string;
+  orderNumber?: string; // nº Pedido de venda
+  startDate?: string; // Data início
+  responsible?: string; // Responsável
 }
 
 export interface InventoryItem {

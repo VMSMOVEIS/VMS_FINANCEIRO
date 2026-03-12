@@ -104,15 +104,23 @@ export const ProductionOrders: React.FC<ProductionOrdersProps> = ({ activeSubIte
                   {order.priority === 'high' && <span className="flex items-center gap-1 text-[10px] font-bold text-red-600 uppercase"><AlertCircle size={12} /> Alta Prioridade</span>}
                 </div>
                 <h3 className="text-lg font-bold text-gray-900">{order.productName}</h3>
-                <p className="text-xs text-gray-500 mb-2">Cliente: {order.client}</p>
-                <div className="flex flex-wrap gap-4 mt-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 mt-2">
+                  <p className="text-xs text-gray-500">Cliente: <span className="font-bold text-gray-700">{order.client}</span></p>
+                  <p className="text-xs text-gray-500">Pedido: <span className="font-bold text-gray-700">{order.orderNumber || '-'}</span></p>
+                  <p className="text-xs text-gray-500">Responsável: <span className="font-bold text-gray-700">{order.responsible || '-'}</span></p>
+                </div>
+                <div className="flex flex-wrap gap-4 mt-4">
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <Package size={16} className="text-gray-400" />
                     <span>Qtd: {order.quantity} un</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-500">
                     <Calendar size={16} className="text-gray-400" />
-                    <span>Prazo: {new Date(order.deadline).toLocaleDateString('pt-BR')}</span>
+                    <span>Início: {order.startDate ? new Date(order.startDate).toLocaleDateString('pt-BR') : '-'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Calendar size={16} className="text-gray-400" />
+                    <span>Prevista: {new Date(order.deadline).toLocaleDateString('pt-BR')}</span>
                   </div>
                 </div>
               </div>
@@ -179,6 +187,9 @@ export const ProductionOrders: React.FC<ProductionOrdersProps> = ({ activeSubIte
             client: target.client.value,
             quantity: parseInt(target.quantity.value),
             deadline: target.deadline.value,
+            startDate: target.startDate.value,
+            orderNumber: target.orderNumber.value,
+            responsible: target.responsible.value,
             status: 'waiting',
             priority: target.priority.value.toLowerCase() as any,
             progress: 0
@@ -192,17 +203,29 @@ export const ProductionOrders: React.FC<ProductionOrdersProps> = ({ activeSubIte
             <label className="block text-sm font-bold text-gray-700 mb-2">Produto / Referência</label>
             <input name="product" required type="text" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" placeholder="Ex: Camiseta Algodão Premium" />
           </div>
-          <div className="col-span-2">
-            <label className="block text-sm font-bold text-gray-700 mb-2">Cliente</label>
-            <input name="client" required type="text" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" placeholder="Nome do cliente" />
-          </div>
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">Quantidade</label>
             <input name="quantity" required type="number" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" placeholder="0" />
           </div>
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">Prazo de Entrega</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2">nº Pedido de venda</label>
+            <input name="orderNumber" type="text" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" placeholder="Ex: PV-2024-001" />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-sm font-bold text-gray-700 mb-2">Cliente</label>
+            <input name="client" required type="text" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" placeholder="Nome do cliente" />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">Data início</label>
+            <input name="startDate" required type="date" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">Data prevista</label>
             <input name="deadline" required type="date" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">Responsável</label>
+            <input name="responsible" required type="text" className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" placeholder="Nome do responsável" />
           </div>
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">Prioridade</label>

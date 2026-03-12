@@ -532,6 +532,17 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
                         </select>
                       </div>
                       <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Destino</label>
+                        <select 
+                          value={formData.stockCategory}
+                          onChange={(e) => setFormData({...formData, stockCategory: e.target.value as any})}
+                          className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none bg-white text-sm"
+                        >
+                          <option value="sob_medida">Sob medida</option>
+                          <option value="pronta_entrega">A pronta entrega</option>
+                        </select>
+                      </div>
+                      <div>
                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Marca</label>
                         <input 
                           type="text" 
