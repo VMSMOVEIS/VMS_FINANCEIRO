@@ -298,15 +298,50 @@ export interface ProductionOrder {
 
 export interface InventoryItem {
   id: string;
+  code: string;
   name: string;
-  category: 'pronta_entrega' | 'sob_medida';
+  description: string;
   type: 'mp' | 'pa' | 'processo';
+  category: string; // MDF, Ferragem, Armário, etc.
+  stockCategory: 'pronta_entrega' | 'sob_medida';
+  brand?: string;
+  model?: string;
   quantity: number;
   unit: string;
-  entryDate: string;
   location: string;
-  value: number;
-  estimatedCost?: number;
+  value: number; // Preço de venda para PA, Valor unitário para MP
+  estimatedCost: number; // Custo de produção para PA, Custo unitário para MP
+  minStock?: number;
+  maxStock?: number;
+  margin?: number;
+  markup?: number;
+  commission?: number;
+  warranty?: string;
+  productionLeadTime?: number;
+  ncm?: string;
+  cfop?: string;
+  cst_csosn?: string;
+  entryDate: string;
+  
+  // Novos campos MP
+  trackStock?: boolean;
+  averageCost?: number;
+  lastPurchaseCost?: number;
+  standardCost?: number;
+  defaultSupplierId?: string;
+  purchaseLeadTime?: number;
+  minPurchaseQuantity?: number;
+  purchaseUnit?: string;
+  consumptionUnit?: string;
+  conversionFactor?: number;
+  thickness?: number;
+  color?: string;
+  length?: number;
+  width?: number;
+  baseMaterial?: string;
+  productOrigin?: string;
+  status?: 'active' | 'inactive';
+  updatedAt?: string;
 }
 
 export interface Lead {
@@ -390,4 +425,10 @@ export interface StockAgingConfig {
   days: number;
   discount: number; // Percentage
   active: boolean;
+}
+
+export interface StockConfigItem {
+  id: string;
+  name: string;
+  type: 'mp_category' | 'location' | 'uom' | 'purchase_unit' | 'consumption_unit' | 'pa_category';
 }

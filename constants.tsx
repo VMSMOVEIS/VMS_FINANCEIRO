@@ -191,11 +191,9 @@ export const PRODUCAO_MENU_ITEMS: MenuItem[] = [
     label: 'Estoques',
     icon: Package,
     subItems: [
-      { id: 'estoque_mp', label: 'Estoque MP' },
-      { id: 'estoque_pa_pronta', label: 'PA - Pronta Entrega' },
-      { id: 'estoque_pa_medida', label: 'PA - Sob Medida' },
-      { id: 'estoque_processo_pronta', label: 'Processo - Pronta Entrega' },
-      { id: 'estoque_processo_medida', label: 'Processo - Sob Medida' },
+      { id: 'estoque_mp', label: 'Matéria-Prima' },
+      { id: 'estoque_pa', label: 'Produtos Acabados (PA)' },
+      { id: 'estoque_processo', label: 'Produtos em Processo' },
     ]
   },
   {

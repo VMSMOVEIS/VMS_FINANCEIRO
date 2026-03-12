@@ -91,16 +91,49 @@ CREATE TABLE IF NOT EXISTS employee_documents (
 -- 2.7 Inventory
 CREATE TABLE IF NOT EXISTS inventory (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  code TEXT,
   name TEXT NOT NULL,
-  category TEXT NOT NULL, -- 'pronta_entrega' | 'sob_medida'
+  description TEXT,
   type TEXT NOT NULL, -- 'mp' | 'pa' | 'processo'
+  category TEXT, -- 'MDF', 'Ferragem', 'Armário', etc.
+  stock_category TEXT NOT NULL DEFAULT 'pronta_entrega', -- 'pronta_entrega' | 'sob_medida'
+  brand TEXT,
+  model TEXT,
   quantity DECIMAL(10,2) DEFAULT 0,
   unit TEXT NOT NULL,
-  entry_date DATE DEFAULT CURRENT_DATE,
   location TEXT,
   value DECIMAL(10,2) DEFAULT 0,
   estimated_cost DECIMAL(10,2) DEFAULT 0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  min_stock DECIMAL(10,2) DEFAULT 0,
+  max_stock DECIMAL(10,2) DEFAULT 0,
+  margin DECIMAL(10,2) DEFAULT 0,
+  markup DECIMAL(10,2) DEFAULT 0,
+  commission DECIMAL(10,2) DEFAULT 0,
+  warranty TEXT,
+  production_lead_time INTEGER DEFAULT 0,
+  ncm TEXT,
+  cfop TEXT,
+  cst_csosn TEXT,
+  entry_date DATE DEFAULT CURRENT_DATE,
+  track_stock BOOLEAN DEFAULT TRUE,
+  average_cost DECIMAL(10,2) DEFAULT 0,
+  last_purchase_cost DECIMAL(10,2) DEFAULT 0,
+  standard_cost DECIMAL(10,2) DEFAULT 0,
+  default_supplier_id UUID,
+  purchase_lead_time INTEGER DEFAULT 0,
+  min_purchase_quantity DECIMAL(10,2) DEFAULT 0,
+  purchase_unit TEXT,
+  consumption_unit TEXT,
+  conversion_factor DECIMAL(10,2) DEFAULT 1,
+  thickness DECIMAL(10,2),
+  color TEXT,
+  length DECIMAL(10,2),
+  width DECIMAL(10,2),
+  base_material TEXT,
+  product_origin TEXT,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- 2.8 Production Orders
@@ -132,13 +165,22 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
 
 -- 2.10 Stock Aging Configs
 CREATE TABLE IF NOT EXISTS stock_aging_configs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  category TEXT NOT NULL,
-  max_days INTEGER NOT NULL,
+  id TEXT PRIMARY KEY,
+  days INTEGER NOT NULL,
+  discount NUMERIC NOT NULL,
+  active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2.11 Taxes
+-- 2.11 Stock Configuration Items
+CREATE TABLE IF NOT EXISTS stock_config_items (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL, -- 'mp_category', 'location', 'uom', 'purchase_unit', 'consumption_unit', 'pa_category'
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 2.12 Taxes
 CREATE TABLE IF NOT EXISTS taxes (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
@@ -301,7 +343,7 @@ DECLARE
     tables text[] := ARRAY[
         'job_roles', 'shifts', 'employees', 'benefits_config', 'employee_benefits', 
         'employee_documents', 'inventory', 'production_orders', 'purchase_orders', 
-        'stock_aging_configs', 'taxes', 'profiles', 'company_profile', 
+        'stock_aging_configs', 'stock_config_items', 'taxes', 'profiles', 'company_profile', 
         'notification_settings', 'payment_methods', 'customers', 'quotes', 
         'accounts', 'transactions', 'payments', 'account_plans'
     ];

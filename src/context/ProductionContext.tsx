@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { StockAgingConfig, InventoryItem, ProductionOrder } from '../../types';
+import { StockAgingConfig, InventoryItem, ProductionOrder, StockConfigItem } from '../../types';
 import { supabase } from '../lib/supabase';
 
 interface ProductionContextType {
@@ -7,10 +7,15 @@ interface ProductionContextType {
   addStockAgingConfig: (config: StockAgingConfig) => void;
   updateStockAgingConfig: (config: StockAgingConfig) => void;
   deleteStockAgingConfig: (id: string) => void;
+  stockConfigItems: StockConfigItem[];
+  addStockConfigItem: (item: Omit<StockConfigItem, 'id'>) => void;
+  updateStockConfigItem: (item: StockConfigItem) => void;
+  deleteStockConfigItem: (id: string) => void;
   inventory: InventoryItem[];
   updateInventoryItem: (item: InventoryItem) => void;
   addInventoryItem: (item: InventoryItem) => void;
   deleteInventoryItem: (id: string) => void;
+  finalizeProcess: (id: string) => void;
   productionOrders: ProductionOrder[];
   addProductionOrder: (order: ProductionOrder) => void;
   updateProductionOrder: (order: ProductionOrder) => void;
@@ -19,28 +24,141 @@ interface ProductionContextType {
 
 const MOCK_INVENTORY: InventoryItem[] = [
   // PA - Pronta Entrega
-  { id: 'PA-001', name: 'Mesa de Jantar Carvalho 6 Lugares', category: 'pronta_entrega', type: 'pa', quantity: 5, unit: 'UN', entryDate: '2025-12-10', location: 'A-01', value: 2500 },
-  { id: 'PA-002', name: 'Cadeira Estofada Veludo Cinza', category: 'pronta_entrega', type: 'pa', quantity: 24, unit: 'UN', entryDate: '2026-01-15', location: 'A-02', value: 450 },
-  { id: 'PA-003', name: 'Aparador Retrô Off White', category: 'pronta_entrega', type: 'pa', quantity: 3, unit: 'UN', entryDate: '2025-11-20', location: 'B-05', value: 890 },
+  { 
+    id: 'PA-001', 
+    code: 'PA001',
+    name: 'Mesa de Jantar Carvalho 6 Lugares', 
+    description: 'Mesa de jantar em MDF com acabamento carvalho',
+    category: 'Mesa', 
+    stockCategory: 'pronta_entrega',
+    type: 'pa', 
+    quantity: 5, 
+    unit: 'UN', 
+    entryDate: '2025-12-10', 
+    location: 'A-01', 
+    value: 2500,
+    estimatedCost: 1200
+  },
+  { 
+    id: 'PA-002', 
+    code: 'PA002',
+    name: 'Cadeira Estofada Veludo Cinza', 
+    description: 'Cadeira estofada com tecido veludo cinza',
+    category: 'Cadeira', 
+    stockCategory: 'pronta_entrega',
+    type: 'pa', 
+    quantity: 24, 
+    unit: 'UN', 
+    entryDate: '2026-01-15', 
+    location: 'A-02', 
+    value: 450,
+    estimatedCost: 180
+  },
+  { 
+    id: 'PA-003', 
+    code: 'PA003',
+    name: 'Aparador Retrô Off White', 
+    description: 'Aparador estilo retrô na cor off white',
+    category: 'Aparador', 
+    stockCategory: 'pronta_entrega',
+    type: 'pa', 
+    quantity: 3, 
+    unit: 'UN', 
+    entryDate: '2025-11-20', 
+    location: 'B-05', 
+    value: 890,
+    estimatedCost: 350
+  },
   
   // PA - Sob Medida
-  { id: 'PA-SM-001', name: 'Cozinha Planejada - Cliente João', category: 'sob_medida', type: 'pa', quantity: 1, unit: 'KIT', entryDate: '2026-03-01', location: 'Expedição', value: 15000 },
-  { id: 'PA-SM-002', name: 'Painel TV Ripado - Cliente Maria', category: 'sob_medida', type: 'pa', quantity: 1, unit: 'UN', entryDate: '2026-03-05', location: 'Expedição', value: 3200 },
+  { 
+    id: 'PA-SM-001', 
+    code: 'PASM001',
+    name: 'Cozinha Planejada - Cliente João', 
+    description: 'Projeto de cozinha planejada completa',
+    category: 'Cozinha', 
+    stockCategory: 'sob_medida',
+    type: 'pa', 
+    quantity: 1, 
+    unit: 'KIT', 
+    entryDate: '2026-03-01', 
+    location: 'Expedição', 
+    value: 15000,
+    estimatedCost: 8000
+  },
+  { 
+    id: 'PA-SM-002', 
+    code: 'PASM002',
+    name: 'Painel TV Ripado - Cliente Maria', 
+    description: 'Painel de TV ripado sob medida',
+    category: 'Painel', 
+    stockCategory: 'sob_medida',
+    type: 'pa', 
+    quantity: 1, 
+    unit: 'UN', 
+    entryDate: '2026-03-05', 
+    location: 'Expedição', 
+    value: 3200,
+    estimatedCost: 1500
+  },
 
   // Processo - Pronta Entrega
-  { id: 'PR-001', name: 'Sofá 3 Lugares Retrátil (Estrutura)', category: 'pronta_entrega', type: 'processo', quantity: 10, unit: 'UN', entryDate: '2026-03-08', location: 'Tapeçaria', value: 1200 },
+  { 
+    id: 'PR-001', 
+    code: 'PR001',
+    name: 'Sofá 3 Lugares Retrátil (Estrutura)', 
+    description: 'Estrutura de sofá 3 lugares retrátil',
+    category: 'Sofá', 
+    stockCategory: 'pronta_entrega',
+    type: 'processo', 
+    quantity: 10, 
+    unit: 'UN', 
+    entryDate: '2026-03-08', 
+    location: 'Tapeçaria', 
+    value: 1200,
+    estimatedCost: 600
+  },
   
   // Processo - Sob Medida
-  { id: 'PR-SM-001', name: 'Dormitório Casal - Cliente Carlos', category: 'sob_medida', type: 'processo', quantity: 1, unit: 'KIT', entryDate: '2026-03-09', location: 'Montagem', value: 8500 },
+  { 
+    id: 'PR-SM-001', 
+    code: 'PRSM001',
+    name: 'Dormitório Casal - Cliente Carlos', 
+    description: 'Estrutura de dormitório de casal sob medida',
+    category: 'Dormitório', 
+    stockCategory: 'sob_medida',
+    type: 'processo', 
+    quantity: 1, 
+    unit: 'KIT', 
+    entryDate: '2026-03-09', 
+    location: 'Montagem', 
+    value: 8500,
+    estimatedCost: 4000
+  },
 
   // MP
-  { id: 'MP-001', name: 'Chapa MDF 18mm Carvalho', category: 'pronta_entrega', type: 'mp', quantity: 45, unit: 'CH', entryDate: '2026-02-10', location: 'Almoxarifado', value: 280 },
+  { 
+    id: 'MP-001', 
+    code: 'MP001',
+    name: 'Chapa MDF 18mm Carvalho', 
+    description: 'Chapa de MDF 18mm com acabamento carvalho',
+    category: 'MDF', 
+    stockCategory: 'pronta_entrega',
+    type: 'mp', 
+    quantity: 45, 
+    unit: 'CH', 
+    entryDate: '2026-02-10', 
+    location: 'Almoxarifado', 
+    value: 280,
+    estimatedCost: 280
+  },
 ];
 
 const ProductionContext = createContext<ProductionContextType | undefined>(undefined);
 
 export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [stockAgingConfigs, setStockAgingConfigs] = useState<StockAgingConfig[]>([]);
+  const [stockConfigItems, setStockConfigItems] = useState<StockConfigItem[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [productionOrders, setProductionOrders] = useState<ProductionOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,26 +172,62 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const [
         { data: configsData },
+        { data: stockItemsData },
         { data: inventoryData },
         { data: ordersData }
       ] = await Promise.all([
         supabase.from('stock_aging_configs').select('*'),
+        supabase.from('stock_config_items').select('*'),
         supabase.from('inventory').select('*'),
         supabase.from('production_orders').select('*').order('deadline', { ascending: true })
       ]);
 
       if (configsData) setStockAgingConfigs(configsData);
+      if (stockItemsData) setStockConfigItems(stockItemsData);
       if (inventoryData) setInventory(inventoryData.map(i => ({
         id: i.id,
+        code: i.code || '',
         name: i.name,
-        category: i.category as any,
+        description: i.description || '',
         type: i.type as any,
+        category: i.category || '',
+        stockCategory: i.stock_category as any,
+        brand: i.brand || '',
+        model: i.model || '',
         quantity: Number(i.quantity),
         unit: i.unit,
-        entryDate: i.entry_date,
-        location: i.location,
+        location: i.location || '',
         value: Number(i.value),
-        estimatedCost: Number(i.estimated_cost)
+        estimatedCost: Number(i.estimated_cost),
+        minStock: Number(i.min_stock || 0),
+        maxStock: Number(i.max_stock || 0),
+        margin: Number(i.margin || 0),
+        markup: Number(i.markup || 0),
+        commission: Number(i.commission || 0),
+        warranty: i.warranty || '',
+        productionLeadTime: Number(i.production_lead_time || 0),
+        ncm: i.ncm || '',
+        cfop: i.cfop || '',
+        cst_csosn: i.cst_csosn || '',
+        entryDate: i.entry_date,
+        trackStock: i.track_stock,
+        averageCost: Number(i.average_cost || 0),
+        lastPurchaseCost: Number(i.last_purchase_cost || 0),
+        standardCost: Number(i.standard_cost || 0),
+        defaultSupplierId: i.default_supplier_id,
+        purchaseLeadTime: Number(i.purchase_lead_time || 0),
+        minPurchaseQuantity: Number(i.min_purchase_quantity || 0),
+        purchaseUnit: i.purchase_unit || '',
+        consumptionUnit: i.consumption_unit || '',
+        conversionFactor: Number(i.conversion_factor || 1),
+        thickness: i.thickness ? Number(i.thickness) : undefined,
+        color: i.color || '',
+        length: i.length ? Number(i.length) : undefined,
+        width: i.width ? Number(i.width) : undefined,
+        baseMaterial: i.base_material || '',
+        productOrigin: i.product_origin || '',
+        status: i.status as any,
+        updatedAt: i.updated_at
       })));
       if (ordersData) setProductionOrders(ordersData.map(o => ({
         id: o.id,
@@ -147,21 +301,102 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  const addStockConfigItem = async (item: Omit<StockConfigItem, 'id'>) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('stock_config_items')
+        .insert([{
+          id: Math.random().toString(36).substr(2, 9),
+          name: item.name,
+          type: item.type
+        }]);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error adding stock config item:', error);
+    }
+  };
+
+  const updateStockConfigItem = async (item: StockConfigItem) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('stock_config_items')
+        .update({
+          name: item.name,
+          type: item.type
+        })
+        .eq('id', item.id);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error updating stock config item:', error);
+    }
+  };
+
+  const deleteStockConfigItem = async (id: string) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('stock_config_items')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error deleting stock config item:', error);
+    }
+  };
+
   const updateInventoryItem = async (item: InventoryItem) => {
     if (!supabase) return;
     try {
       const { error } = await supabase
         .from('inventory')
         .update({
+          code: item.code,
           name: item.name,
-          category: item.category,
+          description: item.description,
           type: item.type,
+          category: item.category,
+          stock_category: item.stockCategory,
+          brand: item.brand,
+          model: item.model,
           quantity: item.quantity,
           unit: item.unit,
-          entry_date: item.entryDate,
           location: item.location,
           value: item.value,
-          estimated_cost: item.estimatedCost
+          estimated_cost: item.estimatedCost,
+          min_stock: item.minStock,
+          max_stock: item.maxStock,
+          margin: item.margin,
+          markup: item.markup,
+          commission: item.commission,
+          warranty: item.warranty,
+          production_lead_time: item.productionLeadTime,
+          ncm: item.ncm,
+          cfop: item.cfop,
+          cst_csosn: item.cst_csosn,
+          entry_date: item.entryDate,
+          track_stock: item.trackStock,
+          average_cost: item.averageCost,
+          last_purchase_cost: item.lastPurchaseCost,
+          standard_cost: item.standardCost,
+          default_supplier_id: item.defaultSupplierId,
+          purchase_lead_time: item.purchaseLeadTime,
+          min_purchase_quantity: item.minPurchaseQuantity,
+          purchase_unit: item.purchaseUnit,
+          consumption_unit: item.consumptionUnit,
+          conversion_factor: item.conversionFactor,
+          thickness: item.thickness,
+          color: item.color,
+          length: item.length,
+          width: item.width,
+          base_material: item.baseMaterial,
+          product_origin: item.productOrigin,
+          status: item.status,
+          updated_at: new Date().toISOString()
         })
         .eq('id', item.id);
       if (error) throw error;
@@ -177,15 +412,47 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const { error } = await supabase
         .from('inventory')
         .insert([{
+          code: item.code,
           name: item.name,
-          category: item.category,
+          description: item.description,
           type: item.type,
+          category: item.category,
+          stock_category: item.stockCategory,
+          brand: item.brand,
+          model: item.model,
           quantity: item.quantity,
           unit: item.unit,
-          entry_date: item.entryDate,
           location: item.location,
           value: item.value,
-          estimated_cost: item.estimatedCost
+          estimated_cost: item.estimatedCost,
+          min_stock: item.minStock,
+          max_stock: item.maxStock,
+          margin: item.margin,
+          markup: item.markup,
+          commission: item.commission,
+          warranty: item.warranty,
+          production_lead_time: item.productionLeadTime,
+          ncm: item.ncm,
+          cfop: item.cfop,
+          cst_csosn: item.cst_csosn,
+          entry_date: item.entryDate,
+          track_stock: item.trackStock,
+          average_cost: item.averageCost,
+          last_purchase_cost: item.lastPurchaseCost,
+          standard_cost: item.standardCost,
+          default_supplier_id: item.defaultSupplierId,
+          purchase_lead_time: item.purchaseLeadTime,
+          min_purchase_quantity: item.minPurchaseQuantity,
+          purchase_unit: item.purchaseUnit,
+          consumption_unit: item.consumptionUnit,
+          conversion_factor: item.conversionFactor,
+          thickness: item.thickness,
+          color: item.color,
+          length: item.length,
+          width: item.width,
+          base_material: item.baseMaterial,
+          product_origin: item.productOrigin,
+          status: item.status || 'active'
         }]);
       if (error) throw error;
       await fetchData();
@@ -205,6 +472,23 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       await fetchData();
     } catch (error) {
       console.error('Error deleting inventory item:', error);
+    }
+  };
+
+  const finalizeProcess = async (id: string) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('inventory')
+        .update({
+          type: 'pa',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error finalizing process:', error);
     }
   };
 
@@ -274,10 +558,15 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       addStockAgingConfig, 
       updateStockAgingConfig, 
       deleteStockAgingConfig,
+      stockConfigItems,
+      addStockConfigItem,
+      updateStockConfigItem,
+      deleteStockConfigItem,
       inventory,
       updateInventoryItem,
       addInventoryItem,
       deleteInventoryItem,
+      finalizeProcess,
       productionOrders,
       addProductionOrder,
       updateProductionOrder,
