@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SalesPaymentMethod, Quote, Sale } from '../../types';
+import { SalesPaymentMethod, Quote, Sale, Lead, Customer } from '../../types';
 import { supabase } from '../lib/supabase';
 
 interface SalesContextType {
   sales: Sale[];
   quotes: Quote[];
-  customers: any[];
+  leads: Lead[];
+  customers: Customer[];
   paymentMethods: SalesPaymentMethod[];
   addSale: (sale: Sale) => Promise<void>;
   updateSale: (sale: Sale) => Promise<void>;
@@ -14,6 +15,9 @@ interface SalesContextType {
   addQuote: (quote: Quote) => Promise<void>;
   updateQuote: (quote: Quote) => Promise<void>;
   deleteQuote: (id: string) => Promise<void>;
+  addLead: (lead: Lead) => Promise<void>;
+  updateLead: (lead: Lead) => Promise<void>;
+  deleteLead: (id: string) => Promise<void>;
   addCustomer: (customer: any) => Promise<void>;
   updateCustomer: (customer: any) => Promise<void>;
   deleteCustomer: (id: string) => Promise<void>;
@@ -29,7 +33,8 @@ const SalesContext = createContext<SalesContextType | undefined>(undefined);
 export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sales, setSales] = useState<Sale[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<SalesPaymentMethod[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -40,6 +45,30 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     setIsLoading(true);
     try {
+      // Fetch Leads
+      const { data: leadsData, error: leadsError } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (!leadsError) {
+        setLeads(leadsData.map(l => ({
+          id: l.id,
+          company: l.company,
+          contactName: l.contact_name,
+          email: l.email,
+          phone: l.phone,
+          value: Number(l.value),
+          status: l.status,
+          lastContact: l.last_contact,
+          date: l.date,
+          source: l.source,
+          probability: l.probability,
+          expectedCloseDate: l.expected_close_date,
+          orderDescription: l.order_description
+        })));
+      }
+
       // Fetch Quotes
       const { data: quotesData, error: quotesError } = await supabase
         .from('quotes')
@@ -331,12 +360,145 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const addCustomer = async (customer: any) => {
+  const addLead = async (lead: Lead) => {
+    if (!supabase) {
+      setLeads(prev => [lead, ...prev]);
+      return;
+    }
+    try {
+      const { data: leadData, error } = await supabase
+        .from('leads')
+        .insert([{
+          company: lead.company,
+          contact_name: lead.contactName,
+          email: lead.email,
+          phone: lead.phone,
+          value: lead.value,
+          status: lead.status,
+          source: lead.source,
+          probability: lead.probability,
+          expected_close_date: lead.expectedCloseDate,
+          order_description: lead.orderDescription,
+          date: lead.date,
+          last_contact: lead.lastContact,
+          street: lead.street,
+          number: lead.number,
+          neighborhood: lead.neighborhood,
+          city: lead.city,
+          state: lead.state
+        }])
+        .select()
+        .single();
+      
+      if (error) throw error;
+
+      // Automatically create a customer record
+      const { error: customerError } = await supabase
+        .from('customers')
+        .insert([{
+          name: lead.company,
+          document_type: 'CNPJ', // Default to CNPJ for company, can be changed later
+          document: '',
+          contact_name: lead.contactName,
+          email: lead.email,
+          phone: lead.phone,
+          status: 'finalizar_cadastro',
+          lead_id: leadData.id,
+          street: lead.street,
+          number: lead.number,
+          neighborhood: lead.neighborhood,
+          city: lead.city,
+          state: lead.state
+        }]);
+
+      if (customerError) {
+        console.warn('Error creating customer from lead:', customerError.message);
+      }
+
+      await fetchData();
+    } catch (error: any) {
+      console.error('Error adding lead:', error);
+    }
+  };
+
+  const updateLead = async (lead: Lead) => {
+    if (!supabase) {
+      setLeads(prev => prev.map(l => l.id === lead.id ? lead : l));
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          company: lead.company,
+          contact_name: lead.contactName,
+          email: lead.email,
+          phone: lead.phone,
+          value: lead.value,
+          status: lead.status,
+          source: lead.source,
+          probability: lead.probability,
+          expected_close_date: lead.expectedCloseDate,
+          order_description: lead.orderDescription,
+          last_contact: lead.lastContact || new Date().toISOString(),
+          street: lead.street,
+          number: lead.number,
+          neighborhood: lead.neighborhood,
+          city: lead.city,
+          state: lead.state
+        })
+        .eq('id', lead.id);
+      
+      if (error) throw error;
+      await fetchData();
+    } catch (error: any) {
+      console.error('Error updating lead:', error);
+    }
+  };
+
+  const deleteLead = async (id: string) => {
+    if (!supabase) {
+      setLeads(prev => prev.filter(l => l.id !== id));
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      setLeads(prev => prev.filter(l => l.id !== id));
+    } catch (error: any) {
+      console.error('Error deleting lead:', error);
+    }
+  };
+
+  const addCustomer = async (customer: Customer) => {
     if (!supabase) return;
     try {
       const { error } = await supabase
         .from('customers')
-        .insert([customer]);
+        .insert([{
+          id: customer.id,
+          type: customer.type,
+          document_type: customer.documentType,
+          name: customer.name,
+          business_name: customer.businessName,
+          document: customer.document,
+          contact_name: customer.contactName,
+          email: customer.email,
+          phone: customer.phone,
+          status: customer.status,
+          address: customer.address,
+          street: customer.street,
+          number: customer.number,
+          neighborhood: customer.neighborhood,
+          city: customer.city,
+          state: customer.state,
+          zip_code: customer.zipCode,
+          lead_id: customer.lead_id
+        }]);
       if (error) throw error;
       await fetchData();
     } catch (error: any) {
@@ -344,12 +506,29 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const updateCustomer = async (customer: any) => {
+  const updateCustomer = async (customer: Customer) => {
     if (!supabase) return;
     try {
       const { error } = await supabase
         .from('customers')
-        .update(customer)
+        .update({
+          type: customer.type,
+          document_type: customer.documentType,
+          name: customer.name,
+          business_name: customer.businessName,
+          document: customer.document,
+          contact_name: customer.contactName,
+          email: customer.email,
+          phone: customer.phone,
+          status: customer.status,
+          address: customer.address,
+          street: customer.street,
+          number: customer.number,
+          neighborhood: customer.neighborhood,
+          city: customer.city,
+          state: customer.state,
+          zip_code: customer.zipCode
+        })
         .eq('id', customer.id);
       if (error) throw error;
       await fetchData();
@@ -448,6 +627,10 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addQuote,
       updateQuote,
       deleteQuote,
+      leads,
+      addLead,
+      updateLead,
+      deleteLead,
       customers,
       addCustomer,
       updateCustomer,

@@ -167,20 +167,23 @@ const generateAccountingEntries = (transactions: any[], accountPlans: any[], sal
   const planPayables = findPlan('Fornecedores') || { code: '2.1.01', name: 'Fornecedores' };
   const planCash = findPlan('Caixa') || findPlan('Banco Conta Corrente') || findPlan('Caixa e Equivalentes de Caixa') || { code: '1.1.01.01', name: 'Caixa' };
 
-  // Process Sales Orders (Completed with effectiveDate)
+  // Process Sales Orders (Accrual Basis)
   sales.forEach(s => {
     if (s.status === 'completed' && s.effectiveDate) {
       const revenuePlan = findPlan(s.accountPlanId) || findPlan('Venda de Mercadorias') || { code: '4.1.01.01', name: 'Venda de Mercadorias' };
       const revenueLabel = `${revenuePlan.code} - ${revenuePlan.name}`;
-      const bankPlan = findPlan(s.paymentMethod) || planCash;
-      const bankLabel = `${bankPlan.code} - ${bankPlan.name}`;
+      
+      // If paid, debit Cash/Bank, otherwise debit Accounts Receivable
+      const isPaid = s.paymentStatus === 'paid';
+      const debitPlan = isPaid ? (findPlan(s.paymentMethod) || planCash) : planReceivables;
+      const debitLabel = `${debitPlan.code} - ${debitPlan.name}`;
 
       entries.push({
         id: entryId++,
         transactionId: s.id,
         date: s.effectiveDate,
         description: `Venda Concluída - ${s.id} - ${s.customer}`,
-        debit: bankLabel,
+        debit: debitLabel,
         credit: revenueLabel,
         value: s.value
       });
@@ -203,13 +206,16 @@ const generateAccountingEntries = (transactions: any[], accountPlans: any[], sal
     }
   });
 
-  // Process Purchase Orders (Completed with effectiveDate)
+  // Process Purchase Orders (Accrual Basis)
   purchases.forEach(p => {
     if (p.status === 'completed' && p.effectiveDate) {
       const expensePlan = findPlan(p.accountPlanId) || findPlan('Compras de Mercadorias') || { code: '5.1.01.01', name: 'Compras de Mercadorias' };
       const expenseLabel = `${expensePlan.code} - ${expensePlan.name}`;
-      const bankPlan = findPlan(p.paymentMethod) || planCash;
-      const bankLabel = `${bankPlan.code} - ${bankPlan.name}`;
+      
+      // If paid, credit Cash/Bank, otherwise credit Accounts Payable
+      const isPaid = p.paymentStatus === 'paid';
+      const creditPlan = isPaid ? (findPlan(p.paymentMethod) || planCash) : planPayables;
+      const creditLabel = `${creditPlan.code} - ${creditPlan.name}`;
 
       entries.push({
         id: entryId++,
@@ -217,7 +223,7 @@ const generateAccountingEntries = (transactions: any[], accountPlans: any[], sal
         date: p.effectiveDate,
         description: `Compra Concluída - ${p.id} - ${p.supplier}`,
         debit: expenseLabel,
-        credit: bankLabel,
+        credit: creditLabel,
         value: p.value
       });
     }
@@ -245,9 +251,10 @@ const generateAccountingEntries = (transactions: any[], accountPlans: any[], sal
       return;
     }
 
-  // 1. Initial Recognition (Accrual Basis)
-    if (!t.linkedTransactionId) {
-      const categoryPlan = findPlan(t.categoryCode) || findPlan(t.category);
+    // 1. Initial Recognition (Accrual Basis) for manual transactions
+    // Only if not linked to a sale/purchase (which are handled above)
+    if (!t.linkedTransactionId && t.status === 'completed') {
+      const categoryPlan = findPlan(t.accountPlanId) || findPlan(t.categoryCode) || findPlan(t.category);
       const categoryLabel = categoryPlan ? `${categoryPlan.code} - ${categoryPlan.name}` : t.category;
       
       if (t.transactionTypeId === 'adiantamento_cliente') {
@@ -273,27 +280,36 @@ const generateAccountingEntries = (transactions: any[], accountPlans: any[], sal
           value: t.value
         });
       } else if (t.type === 'income') {
+        // If it's a direct income (not from a sale order), recognize revenue
         entries.push({
           id: entryId++,
           transactionId: t.id,
           date: t.date,
-          description: `Reconhecimento de Receita/Ativo - ${t.description}`,
-          debit: `${planReceivables.code} - ${planReceivables.name}`,
+          description: `Receita Direta - ${t.description}`,
+          debit: `${planCash.code} - ${planCash.name}`,
           credit: categoryLabel,
           value: t.value
         });
       } else if (t.type === 'expense') {
+        // If it's a direct expense (not from a purchase order), recognize expense
         entries.push({
           id: entryId++,
           transactionId: t.id,
           date: t.date,
-          description: `Reconhecimento de Despesa/Passivo - ${t.description}`,
+          description: `Despesa Direta - ${t.description}`,
           debit: categoryLabel,
-          credit: `${planPayables.code} - ${planPayables.name}`,
+          credit: `${planCash.code} - ${planCash.name}`,
           value: t.value
         });
       }
     }
+
+    // 2. Payments/Receipts (Cash Basis) for linked transactions (Settling AR/AP)
+    // This part is tricky because we need to know if it's settling a previous accrual
+    // For now, let's assume if it has payments, it's a cash movement.
+    // If it's NOT a direct income/expense (handled above), it might be settling AR/AP.
+    // But wait, the current system doesn't clearly link Transactions to Sales Orders in a way that we can easily tell.
+    // So I'll stick to the logic that if it's a Transaction with payments, it's a cash movement.
 
     // 2. Payments/Receipts (Cash Basis)
     t.payments.forEach((p: any) => {

@@ -37,93 +37,11 @@ import { Lead, LeadStatus, Quote, ProductionOrder, Sale } from '../types';
 import { useSales } from '../src/context/SalesContext';
 import { useProduction } from '../src/context/ProductionContext';
 
-const MOCK_LEADS: Lead[] = [
-  {
-    id: '1',
-    company: 'Tech Solutions Ltda',
-    contactName: 'Carlos Oliveira',
-    email: 'carlos@techsolutions.com',
-    phone: '(11) 98765-4321',
-    value: 45000,
-    status: LeadStatus.NEW,
-    lastContact: '2026-03-05',
-    source: 'Indicação',
-    probability: 20,
-    expectedCloseDate: '2026-04-15'
-  },
-  {
-    id: '2',
-    company: 'Indústria Metalúrgica Silva',
-    contactName: 'Ana Paula',
-    email: 'ana.paula@silvametal.com.br',
-    phone: '(11) 91234-5678',
-    value: 120000,
-    status: LeadStatus.QUALIFICATION,
-    lastContact: '2026-03-07',
-    source: 'Google Ads',
-    probability: 40,
-    expectedCloseDate: '2026-05-20'
-  },
-  {
-    id: '3',
-    company: 'Varejo Express',
-    contactName: 'Roberto Santos',
-    email: 'roberto@varejoexpress.com',
-    phone: '(21) 99887-7665',
-    value: 25000,
-    status: LeadStatus.QUOTE,
-    lastContact: '2026-03-08',
-    source: 'LinkedIn',
-    probability: 60,
-    expectedCloseDate: '2026-03-25'
-  },
-  {
-    id: '4',
-    company: 'Logística Global S.A.',
-    contactName: 'Fernanda Lima',
-    email: 'fernanda.lima@logglobal.com',
-    phone: '(41) 97766-5544',
-    value: 85000,
-    status: LeadStatus.NEGOTIATION,
-    lastContact: '2026-03-09',
-    source: 'Site',
-    probability: 80,
-    expectedCloseDate: '2026-03-30'
-  },
-  {
-    id: '5',
-    company: 'Construtora Horizonte',
-    contactName: 'Marcos Reus',
-    email: 'marcos@horizonte.com.br',
-    phone: '(31) 96655-4433',
-    value: 210000,
-    status: LeadStatus.WON,
-    lastContact: '2026-03-01',
-    source: 'Indicação',
-    probability: 100,
-    expectedCloseDate: '2026-03-01'
-  },
-  {
-    id: '6',
-    company: 'Escola Aprender',
-    contactName: 'Juliana Costa',
-    email: 'diretoria@aprender.edu.br',
-    phone: '(11) 95544-3322',
-    value: 15000,
-    status: LeadStatus.LOST,
-    lastContact: '2026-02-20',
-    source: 'Google Ads',
-    probability: 0,
-    expectedCloseDate: '2026-02-20'
-  }
-];
-
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
-const SalesCRM: React.FC = () => {
-  const { quotes, sales, isLoading } = useSales();
+export const SalesCRM: React.FC = () => {
+  const { quotes, sales, leads, isLoading, addLead } = useSales();
   const { productionOrders } = useProduction();
-  const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'kanban' | 'list' | 'analytics'>('kanban');
   const [selectedStage, setSelectedStage] = useState<LeadStatus | null>(null);
@@ -146,15 +64,9 @@ const SalesCRM: React.FC = () => {
     return matchesSearch && matchesStage;
   });
 
-  const handleAddLead = (e: React.FormEvent) => {
+  const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault();
-    const lead: Lead = {
-      ...newLead as Lead,
-      id: Math.random().toString(36).substr(2, 9),
-      lastContact: new Date().toISOString().split('T')[0],
-      expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-    };
-    setLeads([lead, ...leads]);
+    await addLead(newLead as Lead);
     setIsLeadModalOpen(false);
     setNewLead({
       company: '',
@@ -833,4 +745,4 @@ const SalesCRM: React.FC = () => {
   );
 };
 
-export default SalesCRM;
+// No default export, using named export instead

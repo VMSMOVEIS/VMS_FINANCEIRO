@@ -291,7 +291,12 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       await fetchData();
     } catch (error: any) {
       console.error('Error adding transaction:', error);
-      const errorMessage = error.message || error.details || 'Erro desconhecido';
+      let errorMessage = error.message || error.details || 'Erro desconhecido';
+      
+      if (error.code === '23514') {
+        errorMessage = `Violação de restrição no banco de dados (Erro 23514). Verifique se o status ou tipo da transação é válido. Detalhes: ${errorMessage}`;
+      }
+      
       alert(`Erro ao salvar lançamento: ${errorMessage}`);
     }
   };
@@ -351,7 +356,13 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
       await fetchData();
     } catch (error: any) {
       console.error('Error updating transaction:', error);
-      alert(`Erro ao atualizar lançamento: ${error.message || 'Erro desconhecido'}`);
+      let errorMessage = error.message || 'Erro desconhecido';
+      
+      if (error.code === '23514') {
+        errorMessage = `Violação de restrição no banco de dados (Erro 23514). Verifique se o status ou tipo da transação é válido. Detalhes: ${errorMessage}`;
+      }
+      
+      alert(`Erro ao atualizar lançamento: ${errorMessage}`);
     }
   };
 

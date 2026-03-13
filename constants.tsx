@@ -56,6 +56,15 @@ export const MENU_ITEMS: MenuItem[] = [
     ]
   },
   {
+    id: ModuleId.FINANCEIRO_ADIANTAMENTOS,
+    label: 'Adiantamentos',
+    icon: Landmark,
+    subItems: [
+      { id: 'adiant_clientes', label: 'Adiant. de Clientes' },
+      { id: 'adiant_fornecedores', label: 'Adiant. de Fornecedores' },
+    ]
+  },
+  {
     id: ModuleId.FLUXO_CAIXA,
     label: 'Fluxo de Caixa',
     icon: TrendingUp,
@@ -66,7 +75,6 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: ArrowUpCircle,
     subItems: [
       { id: 'cr_geral', label: 'Visão Geral' },
-      { id: 'cr_adiantamentos', label: 'Adiant. de Clientes' },
     ]
   },
   {
@@ -75,7 +83,6 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: ArrowDownCircle,
     subItems: [
       { id: 'cp_geral', label: 'Visão Geral' },
-      { id: 'cp_adiantamentos', label: 'Adiant. a Fornecedores' },
     ]
   },
   {
@@ -242,6 +249,11 @@ export const VENDAS_MENU_ITEMS: MenuItem[] = [
     id: ModuleId.VENDAS_CRM,
     label: 'CRM / Funil',
     icon: Target,
+  },
+  {
+    id: ModuleId.VENDAS_LEADS,
+    label: 'Gestão de Leads',
+    icon: Users,
   },
   {
     id: ModuleId.VENDAS_PEDIDOS,

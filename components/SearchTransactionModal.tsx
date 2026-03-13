@@ -71,7 +71,7 @@ export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
                 matchesType = (t.transactionTypeId === 'adiantamento_fornecedor' || t.transactionTypeId?.includes('adiantamento')) && t.type === 'expense';
             }
 
-            if (matchesType && t.status === 'pending') {
+            if (matchesType && (t.status === 'pending' || t.status === 'a_compensar')) {
                 items.push({
                     id: t.id,
                     date: t.date,

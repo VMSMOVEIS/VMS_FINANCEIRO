@@ -22,6 +22,7 @@ export enum ModuleId {
   FISCAL = 'fiscal',
   RELATORIOS = 'relatorios',
   CONFIGURACOES = 'configuracoes',
+  FINANCEIRO_ADIANTAMENTOS = 'financeiro_adiantamentos',
   
   // RH Modules
   RH_DASHBOARD = 'rh_dashboard',
@@ -46,6 +47,7 @@ export enum ModuleId {
   VENDAS_DASHBOARD = 'vendas_dashboard',
   VENDAS_PDV = 'vendas_pdv',
   VENDAS_CRM = 'vendas_crm',
+  VENDAS_LEADS = 'vendas_leads',
   VENDAS_PEDIDOS = 'vendas_pedidos',
   VENDAS_ORCAMENTOS = 'vendas_orçamentos',
   VENDAS_PROPOSTAS = 'vendas_propostas',
@@ -356,10 +358,40 @@ export interface Lead {
   value: number;
   status: LeadStatus;
   lastContact: string;
+  date: string;
   source: string;
   probability: number; // 0-100
   notes?: string;
+  orderDescription?: string;
   expectedCloseDate?: string;
+  address?: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+}
+
+export interface Customer {
+  id: string;
+  type: 'individual' | 'company';
+  documentType: 'CPF' | 'CNPJ';
+  name: string;
+  businessName?: string;
+  document: string;
+  contactName?: string;
+  email: string;
+  phone: string;
+  status: 'active' | 'inactive' | 'finalizar_cadastro';
+  address?: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  createdAt: string;
+  lead_id?: string;
 }
 
 export interface SaleItem {

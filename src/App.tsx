@@ -15,13 +15,15 @@ import { Settings } from '../components/Settings';
 import { OperationalHistory } from '../components/OperationalHistory';
 import { ChartOfAccounts } from '../components/ChartOfAccounts';
 import { Accounting } from '../components/Accounting';
+import { LeadsManagement } from '../components/LeadsManagement';
+import { FinancialAdvances } from '../components/FinancialAdvances';
 import { TransactionModal } from '../components/TransactionModal';
 import { TimeTracking } from '../components/TimeTracking';
 import { EmployeeManagement } from '../components/EmployeeManagement';
 import { PayrollManagement } from '../components/PayrollManagement';
 import { RHConfig } from '../components/RHConfig';
 import { ProductionOrders } from '../components/ProductionOrders';
-import SalesCRM from '../components/SalesCRM';
+import { SalesCRM } from '../components/SalesCRM';
 import SalesDashboard from '../components/SalesDashboard';
 import SalesOrders from '../components/SalesOrders';
 import PurchasingOrders from '../components/PurchasingOrders';
@@ -227,6 +229,8 @@ const App: React.FC = () => {
         return <SalesPDV />;
       case ModuleId.VENDAS_CRM:
         return <SalesCRM />;
+      case ModuleId.VENDAS_LEADS:
+        return <LeadsManagement />;
       case ModuleId.VENDAS_PEDIDOS:
         return <SalesOrders />;
       case ModuleId.VENDAS_ORCAMENTOS:
@@ -288,6 +292,9 @@ const App: React.FC = () => {
         return <FinancialDashboard />;
       case ModuleId.LANCAMENTOS:
         return <Transactions />;
+      case ModuleId.FINANCEIRO_ADIANTAMENTOS:
+        const advanceFilter = activeSubItem === 'adiant_clientes' ? 'customer' : activeSubItem === 'adiant_fornecedores' ? 'supplier' : 'all';
+        return <FinancialAdvances initialFilter={advanceFilter as any} />;
       case ModuleId.PLANO_CONTAS:
         return <ChartOfAccounts />;
       case ModuleId.CONTABILIDADE:
