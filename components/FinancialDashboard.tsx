@@ -1,10 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { DollarSign, TrendingUp, TrendingDown, Activity, AlertCircle } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, Activity, AlertCircle, ShoppingBag, ShoppingCart } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
 import { useTransactions } from '@/src/context/TransactionContext';
+import { useSales } from '@/src/context/SalesContext';
+import { usePurchasing } from '@/src/context/PurchasingContext';
 
 export const FinancialDashboard: React.FC = () => {
   const { transactions, accounts } = useTransactions();
+  const { sales } = useSales();
+  const { purchases } = usePurchasing();
   const [filterType, setFilterType] = useState('this-month');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
   const [customRange, setCustomRange] = useState({ start: '', end: '' });
@@ -44,21 +48,85 @@ export const FinancialDashboard: React.FC = () => {
 
   // --- KPI Calculations ---
 
-  // 1. Entrada Total (Total Inflow) - Sum of all 'income' transactions
+  // 1. Entrada de Caixa (Cash Inflow) - Only completed income payments
   const totalRevenue = useMemo(() => {
     return filteredTransactions
       .filter(t => t.type === 'income' && !t.linkedTransactionId)
-      .reduce((sum, t) => sum + t.value, 0);
+      .flatMap(t => t.payments)
+      .filter(p => p.status === 'completed' && p.method !== 'Adiantamento')
+      .reduce((sum, p) => sum + p.value, 0);
   }, [filteredTransactions]);
 
-  // 2. Saídas (Total Outflows) - Sum of all 'expense' transactions
+  // 2. Saída de Caixa (Cash Outflow) - Only completed expense payments
   const totalExpenses = useMemo(() => {
     return filteredTransactions
       .filter(t => t.type === 'expense' && !t.linkedTransactionId)
-      .reduce((sum, t) => sum + t.value, 0);
+      .flatMap(t => t.payments)
+      .filter(p => p.status === 'completed' && p.method !== 'Adiantamento')
+      .reduce((sum, p) => sum + p.value, 0);
   }, [filteredTransactions]);
 
-  // 3. EBITDA (Simplified: Revenue - Expenses)
+  // 3. Total de Vendas (Total Sales) - Based on Sales Orders
+  const totalSales = useMemo(() => {
+    return sales
+      .filter(s => {
+        const [year, month, day] = s.date.split('-').map(Number);
+        const sDate = new Date(year, month - 1, day);
+        const now = new Date();
+        const sYear = sDate.getFullYear();
+        const sMonth = sDate.getMonth();
+
+        switch (filterType) {
+          case 'this-month':
+            return sYear === now.getFullYear() && sMonth === now.getMonth();
+          case 'last-month':
+            const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            return sYear === lastMonthDate.getFullYear() && sMonth === lastMonthDate.getMonth();
+          case 'this-year':
+            return sYear === now.getFullYear();
+          case 'month':
+            return sYear === now.getFullYear() && sMonth === parseInt(selectedMonth);
+          case 'custom':
+            if (!customRange.start || !customRange.end) return true;
+            return s.date >= customRange.start && s.date <= customRange.end;
+          default:
+            return true;
+        }
+      })
+      .reduce((sum, s) => sum + s.value, 0);
+  }, [sales, filterType, selectedMonth, customRange]);
+
+  // 4. Total de Compras (Total Purchases) - Based on Purchase Orders
+  const totalPurchases = useMemo(() => {
+    return purchases
+      .filter(p => {
+        const [year, month, day] = p.date.split('-').map(Number);
+        const pDate = new Date(year, month - 1, day);
+        const now = new Date();
+        const pYear = pDate.getFullYear();
+        const pMonth = pDate.getMonth();
+
+        switch (filterType) {
+          case 'this-month':
+            return pYear === now.getFullYear() && pMonth === now.getMonth();
+          case 'last-month':
+            const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            return pYear === lastMonthDate.getFullYear() && pMonth === lastMonthDate.getMonth();
+          case 'this-year':
+            return pYear === now.getFullYear();
+          case 'month':
+            return pYear === now.getFullYear() && pMonth === parseInt(selectedMonth);
+          case 'custom':
+            if (!customRange.start || !customRange.end) return true;
+            return p.date >= customRange.start && p.date <= customRange.end;
+          default:
+            return true;
+        }
+      })
+      .reduce((sum, p) => sum + p.value, 0);
+  }, [purchases, filterType, selectedMonth, customRange]);
+
+  // 5. EBITDA (Simplified: Revenue - Expenses)
   const ebitda = totalRevenue - totalExpenses;
   const ebitdaMargin = totalRevenue > 0 ? (ebitda / totalRevenue) * 100 : 0;
 
@@ -254,11 +322,41 @@ export const FinancialDashboard: React.FC = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-medium text-gray-500">Entrada Total</p>
+              <p className="text-sm font-medium text-gray-500">Total de Vendas</p>
+              <h3 className="text-2xl font-bold text-emerald-600 mt-1">R$ {totalSales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+            </div>
+            <div className="p-2 bg-emerald-100 rounded-lg">
+              <ShoppingCart className="text-emerald-600" size={20} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-sm">
+            <span className="text-gray-500">Volume total de pedidos</span>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Total de Compras</p>
+              <h3 className="text-2xl font-bold text-orange-600 mt-1">R$ {totalPurchases.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
+            </div>
+            <div className="p-2 bg-orange-100 rounded-lg">
+              <ShoppingBag className="text-orange-600" size={20} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-sm">
+            <span className="text-gray-500">Volume total de aquisições</span>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Entrada de Caixa</p>
               <h3 className="text-2xl font-bold text-gray-900 mt-1">R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
             </div>
             <div className="p-2 bg-emerald-100 rounded-lg">
@@ -266,17 +364,14 @@ export const FinancialDashboard: React.FC = () => {
             </div>
           </div>
           <div className="mt-4 flex items-center text-sm">
-            <span className="text-emerald-600 font-medium flex items-center">
-              +12.5%
-            </span>
-            <span className="text-gray-500 ml-2">vs. mês anterior</span>
+            <span className="text-gray-500">Dinheiro que entrou no caixa</span>
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-medium text-gray-500">Saídas</p>
+              <p className="text-sm font-medium text-gray-500">Saída de Caixa</p>
               <h3 className="text-2xl font-bold text-gray-900 mt-1">R$ {totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
             </div>
             <div className="p-2 bg-red-100 rounded-lg">
@@ -284,10 +379,7 @@ export const FinancialDashboard: React.FC = () => {
             </div>
           </div>
           <div className="mt-4 flex items-center text-sm">
-            <span className="text-red-600 font-medium flex items-center">
-              +4.2%
-            </span>
-            <span className="text-gray-500 ml-2">vs. mês anterior</span>
+            <span className="text-gray-500">Dinheiro que saiu do caixa</span>
           </div>
         </div>
 
@@ -312,7 +404,7 @@ export const FinancialDashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-medium text-gray-500">Contas a Receber (Pendente)</p>
+              <p className="text-sm font-medium text-gray-500">Contas a Receber</p>
               <h3 className="text-2xl font-bold text-gray-900 mt-1">R$ {accountsReceivable.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
             </div>
             <div className="p-2 bg-indigo-100 rounded-lg">
@@ -327,7 +419,7 @@ export const FinancialDashboard: React.FC = () => {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <div className="flex justify-between items-start">
             <div>
-              <p className="text-sm font-medium text-gray-500">Contas a Pagar (Pendente)</p>
+              <p className="text-sm font-medium text-gray-500">Contas a Pagar</p>
               <h3 className="text-2xl font-bold text-gray-900 mt-1">R$ {accountsPayable.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
             </div>
             <div className="p-2 bg-orange-100 rounded-lg">

@@ -264,6 +264,14 @@ export interface BOMItem {
 export interface Quote {
   id: string;
   client: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
   productName?: string;
   salesperson?: string;
   store?: string;
@@ -404,6 +412,7 @@ export interface SaleItem {
   discount: number;
   unitPrice: number;
   totalPrice: number;
+  notes?: string;
 }
 
 export interface Sale {

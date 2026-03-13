@@ -79,6 +79,14 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setQuotes(quotesData.map(q => ({
         id: q.id,
         client: q.client_name,
+        contactName: q.contact_name,
+        email: q.email,
+        phone: q.phone,
+        street: q.street,
+        number: q.number,
+        neighborhood: q.neighborhood,
+        city: q.city,
+        state: q.state,
         productName: q.product_name,
         date: q.date,
         expiryDate: q.expiry_date,
@@ -87,7 +95,14 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         items: q.items || [],
         bomItems: q.bom_items || [],
         profitMargin: Number(q.profit_margin),
-        discount: Number(q.discount)
+        discount: Number(q.discount),
+        notes: q.notes,
+        salesperson: q.salesperson,
+        store: q.store,
+        deliveryTime: q.delivery_time,
+        commission: Number(q.commission || 0),
+        otherExpenses: Number(q.other_expenses || 0),
+        saleType: q.sale_type
       })));
 
       // Fetch Sales Orders
@@ -292,6 +307,14 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .insert([{
           id: quote.id,
           client_name: quote.client,
+          contact_name: quote.contactName,
+          email: quote.email,
+          phone: quote.phone,
+          street: quote.street,
+          number: quote.number,
+          neighborhood: quote.neighborhood,
+          city: quote.city,
+          state: quote.state,
           product_name: quote.productName || (quote.items?.[0]?.name),
           date: quote.date,
           expiry_date: quote.expiryDate,
@@ -301,7 +324,13 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           bom_items: quote.bomItems,
           profit_margin: quote.profitMargin,
           discount: quote.discount,
-          notes: quote.notes
+          notes: quote.notes,
+          salesperson: quote.salesperson,
+          store: quote.store,
+          delivery_time: quote.deliveryTime,
+          commission: quote.commission,
+          other_expenses: quote.otherExpenses,
+          sale_type: quote.saleType
         }]);
       
       if (error) throw error;
@@ -322,6 +351,14 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .from('quotes')
         .update({
           client_name: quote.client,
+          contact_name: quote.contactName,
+          email: quote.email,
+          phone: quote.phone,
+          street: quote.street,
+          number: quote.number,
+          neighborhood: quote.neighborhood,
+          city: quote.city,
+          state: quote.state,
           product_name: quote.productName || (quote.items?.[0]?.name),
           date: quote.date,
           expiry_date: quote.expiryDate,
@@ -331,7 +368,13 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           bom_items: quote.bomItems,
           profit_margin: quote.profitMargin,
           discount: quote.discount,
-          notes: quote.notes
+          notes: quote.notes,
+          salesperson: quote.salesperson,
+          store: quote.store,
+          delivery_time: quote.deliveryTime,
+          commission: quote.commission,
+          other_expenses: quote.otherExpenses,
+          sale_type: quote.saleType
         })
         .eq('id', quote.id);
       

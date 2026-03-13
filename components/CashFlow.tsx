@@ -571,10 +571,19 @@ export const CashFlow: React.FC = () => {
     }), { entradas: 0, saidas: 0 });
   }, [chartData]);
 
-  const lastBalance = chartData.length > 0 ? chartData[chartData.length - 1].saldo : 
-    (selectedAccount === 'all' ? accounts.reduce((sum, a) => sum + a.balance, 0) : (accounts.find(a => a.name === selectedAccount)?.balance || 0));
-    
-  const lastProjectedBalance = chartData.length > 0 ? chartData[chartData.length - 1].projetado : lastBalance;
+  const lastBalance = useMemo(() => {
+    return transactions
+      .filter(t => t.status === 'completed')
+      .reduce((sum, t) => sum + (t.type === 'income' ? t.value : -t.value), 0);
+  }, [transactions]);
+
+  const totalPending = useMemo(() => {
+    return transactions
+      .filter(t => t.status !== 'completed')
+      .reduce((sum, t) => sum + (t.type === 'income' ? t.value : -t.value), 0);
+  }, [transactions]);
+
+  const lastProjectedBalance = lastBalance + totalPending;
 
   return (
     <div className="p-6 space-y-6">

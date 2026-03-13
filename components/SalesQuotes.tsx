@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   Plus, 
@@ -25,9 +25,14 @@ import {
   PlusCircle,
   Package,
   Layers,
-  Maximize2
+  Maximize2,
+  MapPin,
+  Upload,
+  FileCode
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import * as THREE from 'three';
+import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { useSales } from '../src/context/SalesContext';
 import { useProduction } from '../src/context/ProductionContext';
 import { useTransactions } from '../src/context/TransactionContext';
@@ -45,11 +50,164 @@ export const SalesQuotes: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+
+  // Effect to handle lead data from LeadsManagement
+  useEffect(() => {
+    const leadData = localStorage.getItem('vms_lead_to_quote');
+    if (leadData) {
+      try {
+        const lead = JSON.parse(leadData);
+        localStorage.removeItem('vms_lead_to_quote');
+        
+        setFormData({
+          id: Math.random().toString(36).substr(2, 9),
+          client: lead.company || '',
+          contactName: lead.contactName || '',
+          email: lead.email || '',
+          phone: lead.phone || '',
+          street: lead.street || '',
+          number: lead.number || '',
+          neighborhood: lead.neighborhood || '',
+          city: lead.city || '',
+          state: lead.state || '',
+          productName: lead.orderDescription || '',
+          date: new Date().toISOString().split('T')[0],
+          expiryDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          value: 0,
+          status: 'waiting_approval',
+          items: [],
+          bomItems: [],
+          profitMargin: 30,
+          discount: 0,
+          notes: `Lead original: ${lead.company}\nDescrição: ${lead.orderDescription || ''}`
+        });
+        setEditingQuote(null);
+        setShowModal(true);
+      } catch (error) {
+        console.error('Error parsing lead data:', error);
+      }
+    }
+  }, []);
   const [showExtractModal, setShowExtractModal] = useState(false);
   const [extractedPieces, setExtractedPieces] = useState<any[]>([]);
 
+  const handleObjUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const contents = e.target?.result as string;
+      const loader = new OBJLoader();
+      const object = loader.parse(contents);
+      
+      const pieces: any[] = [];
+      const meshes: THREE.Mesh[] = [];
+
+      object.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          meshes.push(child);
+        }
+      });
+
+      meshes.forEach((mesh, index) => {
+        mesh.geometry.computeBoundingBox();
+        const bbox = mesh.geometry.boundingBox!;
+        
+        // Get world dimensions
+        const size = new THREE.Vector3();
+        bbox.getSize(size);
+        
+        // Sort dimensions to identify thickness (usually smallest)
+        const dims = [size.x, size.y, size.z].sort((a, b) => a - b);
+        const thickness = dims[0];
+        const width = dims[2];
+        const height = dims[1];
+
+        // Identify which axis is the thickness axis
+        let thicknessAxis: 'x' | 'y' | 'z' = 'x';
+        if (size.y === thickness) thicknessAxis = 'y';
+        else if (size.z === thickness) thicknessAxis = 'z';
+
+        // Identify the 4 edge faces
+        // If thickness is Z, edges are along X and Y
+        // We need to check if these edges touch any other mesh
+        
+        // Simplified logic: 
+        // For each of the 4 edges, check if there's another mesh whose face is at the same position
+        const tape = [true, true, true, true]; // Default: all edges have tape
+
+        // Get world position of the mesh
+        const worldPos = new THREE.Vector3();
+        mesh.getWorldPosition(worldPos);
+
+        // Check each edge
+        // This is a simplified intersection check
+        meshes.forEach((otherMesh, otherIdx) => {
+          if (index === otherIdx) return;
+
+          otherMesh.geometry.computeBoundingBox();
+          const otherBbox = otherMesh.geometry.boundingBox!.clone().applyMatrix4(otherMesh.matrixWorld);
+          const thisBbox = bbox.clone().applyMatrix4(mesh.matrixWorld);
+
+          // Check if any face of otherMesh touches an edge of thisMesh
+          // For simplicity, we'll check if the bounding boxes are adjacent
+          // and if the "touching" area is significant.
+          
+          // This is a complex geometric task. 
+          // For now, we'll implement a proximity check for the 4 edges.
+          // Edges are: minX, maxX, minY, maxY (assuming Z is thickness)
+          
+          const epsilon = 1.0; // 1mm tolerance
+
+          // Check Left Edge (minX)
+          if (Math.abs(thisBbox.min.x - otherBbox.max.x) < epsilon) {
+            // Check if they overlap in Y and Z
+            const overlapY = Math.max(0, Math.min(thisBbox.max.y, otherBbox.max.y) - Math.max(thisBbox.min.y, otherBbox.min.y));
+            const overlapZ = Math.max(0, Math.min(thisBbox.max.z, otherBbox.max.z) - Math.max(thisBbox.min.z, otherBbox.min.z));
+            if (overlapY > 5 && overlapZ > 5) tape[0] = false;
+          }
+          // Check Right Edge (maxX)
+          if (Math.abs(thisBbox.max.x - otherBbox.min.x) < epsilon) {
+            const overlapY = Math.max(0, Math.min(thisBbox.max.y, otherBbox.max.y) - Math.max(thisBbox.min.y, otherBbox.min.y));
+            const overlapZ = Math.max(0, Math.min(thisBbox.max.z, otherBbox.max.z) - Math.max(thisBbox.min.z, otherBbox.min.z));
+            if (overlapY > 5 && overlapZ > 5) tape[1] = false;
+          }
+          // Check Bottom Edge (minY)
+          if (Math.abs(thisBbox.min.y - otherBbox.max.y) < epsilon) {
+            const overlapX = Math.max(0, Math.min(thisBbox.max.x, otherBbox.max.x) - Math.max(thisBbox.min.x, otherBbox.min.x));
+            const overlapZ = Math.max(0, Math.min(thisBbox.max.z, otherBbox.max.z) - Math.max(thisBbox.min.z, otherBbox.min.z));
+            if (overlapX > 5 && overlapZ > 5) tape[2] = false;
+          }
+          // Check Top Edge (maxY)
+          if (Math.abs(thisBbox.max.y - otherBbox.min.y) < epsilon) {
+            const overlapX = Math.max(0, Math.min(thisBbox.max.x, otherBbox.max.x) - Math.max(thisBbox.min.x, otherBbox.min.x));
+            const overlapZ = Math.max(0, Math.min(thisBbox.max.z, otherBbox.max.z) - Math.max(thisBbox.min.z, otherBbox.min.z));
+            if (overlapX > 5 && overlapZ > 5) tape[3] = false;
+          }
+        });
+
+        pieces.push({
+          name: mesh.name || `Peça ${index + 1}`,
+          width: width,
+          height: height,
+          thickness: thickness,
+          tape: tape
+        });
+      });
+
+      setExtractedPieces(pieces);
+    };
+    reader.readAsText(file);
+  };
+
   const initialQuoteState: Partial<Quote> = {
     client: '',
+    contactName: '',
+    email: '',
+    phone: '',
+    street: '',
+    number: '',
+    neighborhood: '',
+    city: '',
+    state: '',
     salesperson: '',
     store: STORES[0],
     bomItems: [],
@@ -128,7 +286,10 @@ export const SalesQuotes: React.FC = () => {
   const handleOpenModal = (quote?: Quote) => {
     if (quote) {
       setEditingQuote(quote);
-      setFormData(quote);
+      setFormData({
+        ...initialQuoteState,
+        ...quote
+      });
     } else {
       setEditingQuote(null);
       setFormData(initialQuoteState);
@@ -447,7 +608,11 @@ export const SalesQuotes: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredQuotes.map(quote => (
-                <tr key={quote.id} className="hover:bg-gray-50 transition-colors group">
+                <tr 
+                  key={quote.id} 
+                  className="hover:bg-gray-50 transition-colors group cursor-pointer"
+                  onClick={() => handleOpenModal(quote)}
+                >
                   <td className="px-6 py-4">
                     <div>
                       <p className="font-bold text-gray-800">{quote.id}</p>
@@ -474,21 +639,21 @@ export const SalesQuotes: React.FC = () => {
                       {quote.status !== 'approved' && quote.status !== 'rejected' && (
                         <>
                           <button 
-                            onClick={() => handleApprove(quote)}
+                            onClick={(e) => { e.stopPropagation(); handleApprove(quote); }}
                             className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all" 
                             title="Aprovar"
                           >
                             <Check size={18} />
                           </button>
                           <button 
-                            onClick={() => handleReject(quote)}
+                            onClick={(e) => { e.stopPropagation(); handleReject(quote); }}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all" 
                             title="Rejeitar"
                           >
                             <XCircle size={18} />
                           </button>
                           <button 
-                            onClick={() => handleSend(quote)}
+                            onClick={(e) => { e.stopPropagation(); handleSend(quote); }}
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" 
                             title="Enviar"
                           >
@@ -497,14 +662,14 @@ export const SalesQuotes: React.FC = () => {
                         </>
                       )}
                       <button 
-                        onClick={() => handleOpenModal(quote)}
+                        onClick={(e) => { e.stopPropagation(); handleOpenModal(quote); }}
                         className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" 
                         title="Editar"
                       >
                         <Edit2 size={18} />
                       </button>
                       <button 
-                        onClick={() => setShowDeleteConfirm(quote.id)}
+                        onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(quote.id); }}
                         className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" 
                         title="Excluir"
                       >
@@ -533,75 +698,176 @@ export const SalesQuotes: React.FC = () => {
             </div>
 
             <div className="p-6 overflow-y-auto flex-1 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Cliente</label>
-                  <input 
-                    type="text"
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
-                    placeholder="Nome do cliente"
-                    value={formData.client}
-                    onChange={(e) => setFormData({ ...formData, client: e.target.value })}
-                  />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Cliente / Empresa</label>
+                    <input 
+                      type="text"
+                      className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                      placeholder="Nome do cliente ou empresa"
+                      value={formData.client}
+                      onChange={(e) => setFormData({ ...formData, client: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Contato</label>
+                      <input 
+                        type="text"
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                        placeholder="Nome do contato"
+                        value={formData.contactName}
+                        onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Telefone</label>
+                      <input 
+                        type="text"
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                        placeholder="(00) 00000-0000"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">E-mail</label>
+                    <input 
+                      type="email"
+                      className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                      placeholder="email@exemplo.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Vendedor</label>
-                  <input 
-                    type="text"
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
-                    value={formData.salesperson}
-                    onChange={(e) => setFormData({ ...formData, salesperson: e.target.value })}
-                  />
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Vendedor</label>
+                      <input 
+                        type="text"
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                        value={formData.salesperson}
+                        onChange={(e) => setFormData({ ...formData, salesperson: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Loja</label>
+                      <select 
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-sm"
+                        value={formData.store}
+                        onChange={(e) => setFormData({...formData, store: e.target.value})}
+                      >
+                        {STORES.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Data de Emissão</label>
+                      <input 
+                        type="date"
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                        value={formData.date}
+                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Data de Validade</label>
+                      <input 
+                        type="date"
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                        value={formData.expiryDate}
+                        onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tipo de Venda</label>
+                      <select 
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-sm"
+                        value={formData.saleType}
+                        onChange={(e) => setFormData({...formData, saleType: e.target.value as any})}
+                      >
+                        <option value="pronta_entrega">A pronta entrega</option>
+                        <option value="encomenda">Por encomenda</option>
+                        <option value="prazo">A prazo</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Prazo de Entrega</label>
+                      <input 
+                        type="text"
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                        placeholder="Ex: 15 dias"
+                        value={formData.deliveryTime}
+                        onChange={(e) => setFormData({...formData, deliveryTime: e.target.value})}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Loja</label>
-                  <select 
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-sm"
-                    value={formData.store}
-                    onChange={(e) => setFormData({...formData, store: e.target.value})}
-                  >
-                    {STORES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+              </div>
+
+              {/* Address Section */}
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 space-y-4">
+                <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                  <MapPin size={16} className="text-emerald-600" />
+                  Endereço de Entrega / Cobrança
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="md:col-span-3">
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Rua / Logradouro</label>
+                    <input 
+                      type="text"
+                      className="w-full px-3 py-1.5 text-sm rounded border border-gray-200 outline-none focus:ring-1 focus:ring-emerald-500"
+                      value={formData.street}
+                      onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Número</label>
+                    <input 
+                      type="text"
+                      className="w-full px-3 py-1.5 text-sm rounded border border-gray-200 outline-none focus:ring-1 focus:ring-emerald-500"
+                      value={formData.number}
+                      onChange={(e) => setFormData({ ...formData, number: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Data de Emissão</label>
-                  <input 
-                    type="date"
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Data de Validade</label>
-                  <input 
-                    type="date"
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
-                    value={formData.expiryDate}
-                    onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Tipo de Venda</label>
-                  <select 
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-sm"
-                    value={formData.saleType}
-                    onChange={(e) => setFormData({...formData, saleType: e.target.value as any})}
-                  >
-                    <option value="pronta_entrega">A pronta entrega</option>
-                    <option value="encomenda">Por encomenda</option>
-                    <option value="prazo">A prazo</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Prazo de Entrega</label>
-                  <input 
-                    type="text"
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
-                    placeholder="Ex: 15 dias"
-                    value={formData.deliveryTime}
-                    onChange={(e) => setFormData({...formData, deliveryTime: e.target.value})}
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Bairro</label>
+                    <input 
+                      type="text"
+                      className="w-full px-3 py-1.5 text-sm rounded border border-gray-200 outline-none focus:ring-1 focus:ring-emerald-500"
+                      value={formData.neighborhood}
+                      onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Cidade</label>
+                    <input 
+                      type="text"
+                      className="w-full px-3 py-1.5 text-sm rounded border border-gray-200 outline-none focus:ring-1 focus:ring-emerald-500"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Estado (UF)</label>
+                    <input 
+                      type="text"
+                      className="w-full px-3 py-1.5 text-sm rounded border border-gray-200 outline-none focus:ring-1 focus:ring-emerald-500"
+                      value={formData.state}
+                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                      maxLength={2}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1136,6 +1402,159 @@ export const SalesQuotes: React.FC = () => {
               >
                 Apagar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Extract Modal */}
+      {showExtractModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-blue-600 text-white">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <FileCode size={24} />
+                Extração de Peças OBJ
+              </h2>
+              <button onClick={() => setShowExtractModal(false)} className="text-white/80 hover:text-white transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-8 overflow-y-auto flex-1">
+              {!extractedPieces.length ? (
+                <div 
+                  className="border-2 border-dashed border-gray-200 rounded-2xl p-12 flex flex-col items-center justify-center text-center space-y-4 hover:border-blue-400 hover:bg-blue-50 transition-all cursor-pointer group"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files[0];
+                    if (file && file.name.endsWith('.obj')) {
+                      handleObjUpload(file);
+                    } else {
+                      alert('Por favor, envie um arquivo .obj');
+                    }
+                  }}
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.obj';
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) handleObjUpload(file);
+                    };
+                    input.click();
+                  }}
+                >
+                  <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Upload size={32} />
+                  </div>
+                  <div>
+                    <p className="text-lg font-bold text-gray-800">Arraste seu arquivo .obj aqui</p>
+                    <p className="text-sm text-gray-500">Ou clique para selecionar do seu computador</p>
+                  </div>
+                  <div className="pt-4">
+                    <span className="text-xs font-medium text-gray-400 uppercase tracking-widest">Apenas arquivos .obj</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-bold text-gray-800">Peças Extraídas ({extractedPieces.length})</h3>
+                    <button 
+                      onClick={() => setExtractedPieces([])}
+                      className="text-xs text-blue-600 hover:underline font-medium"
+                    >
+                      Limpar e tentar outro arquivo
+                    </button>
+                  </div>
+                  
+                  <div className="bg-gray-50 rounded-xl border border-gray-100 overflow-hidden">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-gray-100 text-gray-500 font-bold uppercase text-[10px] tracking-wider">
+                        <tr>
+                          <th className="px-4 py-3">Peça</th>
+                          <th className="px-4 py-3 text-center">Dimensões (mm)</th>
+                          <th className="px-4 py-3 text-center">Fitas</th>
+                          <th className="px-4 py-3 text-right">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {extractedPieces.map((piece, idx) => (
+                          <tr key={idx} className="hover:bg-white transition-colors">
+                            <td className="px-4 py-3 font-medium text-gray-700">{piece.name}</td>
+                            <td className="px-4 py-3 text-center text-gray-500 tabular-nums">
+                              {Math.round(piece.width)} x {Math.round(piece.height)} x {Math.round(piece.thickness)}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <div className="flex justify-center gap-1">
+                                {piece.tape.map((t: boolean, i: number) => (
+                                  <div 
+                                    key={i} 
+                                    className={`w-2 h-2 rounded-full ${t ? 'bg-emerald-500' : 'bg-gray-200'}`}
+                                    title={`Borda ${i + 1}: ${t ? 'Com fita' : 'Sem fita'}`}
+                                  />
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <button 
+                                onClick={() => {
+                                  const newItem: SaleItem = {
+                                    productId: `EXT-${idx}`,
+                                    code: `EXT-${idx}`,
+                                    name: piece.name,
+                                    unit: 'un',
+                                    quantity: 1,
+                                    listPrice: 0,
+                                    discount: 0,
+                                    unitPrice: 0,
+                                    totalPrice: 0,
+                                    notes: `Dim: ${Math.round(piece.width)}x${Math.round(piece.height)}x${Math.round(piece.thickness)}mm | Fitas: ${piece.tape.map((t: boolean) => t ? 'S' : 'N').join('')}`
+                                  };
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    items: [...(prev.items || []), newItem]
+                                  }));
+                                  alert(`Peça ${piece.name} adicionada ao orçamento.`);
+                                }}
+                                className="text-emerald-600 hover:text-emerald-700 font-bold text-xs"
+                              >
+                                Adicionar
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                      const newItems = extractedPieces.map((piece, idx) => ({
+                        productId: `EXT-${idx}`,
+                        code: `EXT-${idx}`,
+                        name: piece.name,
+                        unit: 'un',
+                        quantity: 1,
+                        listPrice: 0,
+                        discount: 0,
+                        unitPrice: 0,
+                        totalPrice: 0,
+                        notes: `Dim: ${Math.round(piece.width)}x${Math.round(piece.height)}x${Math.round(piece.thickness)}mm | Fitas: ${piece.tape.map((t: boolean) => t ? 'S' : 'N').join('')}`
+                      }));
+                      setFormData(prev => ({
+                        ...prev,
+                        items: [...(prev.items || []), ...newItems]
+                      }));
+                      setShowExtractModal(false);
+                      setExtractedPieces([]);
+                    }}
+                    className="w-full py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100"
+                  >
+                    Adicionar Todas as Peças ({extractedPieces.length})
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

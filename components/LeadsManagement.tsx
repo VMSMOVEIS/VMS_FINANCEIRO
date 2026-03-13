@@ -52,12 +52,24 @@ export const LeadsManagement: React.FC = () => {
   // Effect to find last contact when company or phone changes
   useEffect(() => {
     if (newLead.company || newLead.phone) {
-      const existingLead = leads.find(l => 
+      // Find all leads that match company or phone
+      const matchingLeads = leads.filter(l => 
         (newLead.company && l.company.toLowerCase() === newLead.company.toLowerCase()) ||
         (newLead.phone && l.phone === newLead.phone)
       );
-      if (existingLead && existingLead.lastContact) {
-        setNewLead(prev => ({ ...prev, lastContact: existingLead.lastContact }));
+      
+      if (matchingLeads.length > 0) {
+        // Sort by date or lastContact to get the most recent one
+        const sortedLeads = [...matchingLeads].sort((a, b) => {
+          const dateA = a.lastContact || a.date;
+          const dateB = b.lastContact || b.date;
+          return new Date(dateB).getTime() - new Date(dateA).getTime();
+        });
+        
+        const latestLead = sortedLeads[0];
+        if (latestLead && latestLead.lastContact) {
+          setNewLead(prev => ({ ...prev, lastContact: latestLead.lastContact.split('T')[0] }));
+        }
       }
     }
   }, [newLead.company, newLead.phone, leads]);
@@ -102,6 +114,8 @@ export const LeadsManagement: React.FC = () => {
   };
 
   const handleSendToQuote = (lead: Lead) => {
+    // Save lead data to localStorage to be picked up by SalesQuotes
+    localStorage.setItem('vms_lead_to_quote', JSON.stringify(lead));
     // Navigate to Quotes module
     navigateTo(SectorId.VENDAS, ModuleId.VENDAS_ORCAMENTOS);
   };

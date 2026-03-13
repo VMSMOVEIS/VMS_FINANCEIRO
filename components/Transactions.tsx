@@ -83,57 +83,6 @@ export const Transactions: React.FC = () => {
         </button>
       </div>
 
-      {/* Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
-            <ArrowUpRight size={24} />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Total Entradas</p>
-            <p className="text-xl font-bold text-gray-900">
-              R$ {filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-red-50 text-red-600 rounded-lg">
-            <ArrowDownLeft size={24} />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Total Saídas</p>
-            <p className="text-xl font-bold text-gray-900">
-              R$ {filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.value, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-            <DollarSign size={24} />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Transferências</p>
-            <p className="text-xl font-bold text-gray-900">
-              R$ {filteredTransactions.filter(t => t.transactionTypeId === 'transferencia').reduce((sum, t) => sum + t.value, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4">
-          <div className="p-3 bg-gray-50 text-gray-600 rounded-lg">
-            <DollarSign size={24} />
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Saldo Período</p>
-            <p className="text-xl font-bold text-gray-900">
-              R$ {(
-                filteredTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0) -
-                filteredTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.value, 0)
-              ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Filters & Search */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center justify-between">
         <div className="relative flex-1 min-w-[300px]">
