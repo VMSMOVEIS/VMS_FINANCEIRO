@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { FileText, Book, Scale, Calculator, Calendar, Edit2, Trash2, PieChart, TrendingUp, FileBarChart, List, AlignLeft, ListTree } from 'lucide-react';
+import { FileText, Book, Scale, Calculator, Calendar, Edit2, Trash2, PieChart, TrendingUp, FileBarChart, List, AlignLeft, ListTree, AlertTriangle } from 'lucide-react';
 import { useTransactions } from '@/src/context/TransactionContext';
 import { useSales } from '@/src/context/SalesContext';
 import { usePurchasing } from '@/src/context/PurchasingContext';
@@ -396,7 +396,8 @@ const DREView = ({ transactions, accountPlans, entries, reportLevel, showZeroBal
           .reduce((sum, [_, val]) => sum + val, 0);
         return { ...p, balance };
       })
-      .filter(p => showZeroBalances || Math.abs(p.balance) > 0.01);
+      .filter(p => showZeroBalances || Math.abs(p.balance) > 0.01)
+      .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
     
     return { 
       revenue, 
@@ -521,7 +522,8 @@ const BalanceSheetView = ({ transactions, accounts, accountPlans, entries, repor
           .reduce((sum, [_, val]) => sum + val, 0);
         return { ...p, balance };
       })
-      .filter(p => showZeroBalances || Math.abs(p.balance) > 0.01);
+      .filter(p => showZeroBalances || Math.abs(p.balance) > 0.01)
+      .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
 
     return { 
       retainedEarnings,
@@ -533,9 +535,21 @@ const BalanceSheetView = ({ transactions, accounts, accountPlans, entries, repor
   const totalLiabilities = balances.details.filter(p => p.type === 'passivo' && p.code.split('.').length === 1 && p.code !== '3').reduce((sum, p) => sum + p.balance, 0);
   const totalEquity = balances.details.filter(p => p.code === '3').reduce((sum, p) => sum + p.balance, 0) + balances.retainedEarnings;
 
+  const hasNegativeBalances = balances.details.some(p => p.balance < -0.01);
+
   return (
     <div className="p-8">
       <h3 className="text-lg font-semibold text-gray-900 mb-6">Balanço Patrimonial</h3>
+      
+      {hasNegativeBalances && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3 text-amber-800">
+          <AlertTriangle size={20} className="text-amber-600" />
+          <p className="text-sm font-medium">
+            Atenção: Existem contas com saldo negativo ou invertido. Verifique os lançamentos no balancete para identificar possíveis erros de classificação ou lançamentos incorretos.
+          </p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Assets */}
         <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -556,14 +570,14 @@ const BalanceSheetView = ({ transactions, accounts, accountPlans, entries, repor
                       {p.name}
                     </td>
                     <td className="px-4 py-2 text-right">
-                      R$ {p.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {Math.abs(p.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
                 );
               })}
               <tr className="bg-blue-600 text-white font-bold">
                 <td className="px-4 py-3">TOTAL DO ATIVO</td>
-                <td className="px-4 py-3 text-right">R$ {totalAssets.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td className="px-4 py-3 text-right">R$ {Math.abs(totalAssets).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
               </tr>
             </tbody>
           </table>
@@ -588,7 +602,7 @@ const BalanceSheetView = ({ transactions, accounts, accountPlans, entries, repor
                       {p.name}
                     </td>
                     <td className="px-4 py-2 text-right">
-                      R$ {p.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      R$ {Math.abs(p.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </td>
                   </tr>
                 );
@@ -604,7 +618,7 @@ const BalanceSheetView = ({ transactions, accounts, accountPlans, entries, repor
               </tr>
               <tr className="bg-purple-600 text-white font-bold">
                 <td className="px-4 py-3">TOTAL DO PASSIVO + PL</td>
-                <td className="px-4 py-3 text-right">R$ {(totalLiabilities + totalEquity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                <td className="px-4 py-3 text-right">R$ {Math.abs(totalLiabilities + totalEquity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
               </tr>
             </tbody>
           </table>
