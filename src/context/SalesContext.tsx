@@ -377,10 +377,10 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           status: lead.status,
           source: lead.source,
           probability: lead.probability,
-          expected_close_date: lead.expectedCloseDate,
+          expected_close_date: lead.expectedCloseDate?.trim() || null,
           order_description: lead.orderDescription,
-          date: lead.date,
-          last_contact: lead.lastContact,
+          date: lead.date || new Date().toISOString().split('T')[0],
+          last_contact: lead.lastContact?.trim() || null,
           street: lead.street,
           number: lead.number,
           neighborhood: lead.neighborhood,
@@ -438,9 +438,9 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           status: lead.status,
           source: lead.source,
           probability: lead.probability,
-          expected_close_date: lead.expectedCloseDate,
+          expected_close_date: lead.expectedCloseDate?.trim() || null,
           order_description: lead.orderDescription,
-          last_contact: lead.lastContact || new Date().toISOString(),
+          last_contact: lead.lastContact?.trim() || new Date().toISOString(),
           street: lead.street,
           number: lead.number,
           neighborhood: lead.neighborhood,
@@ -477,28 +477,34 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const addCustomer = async (customer: Customer) => {
     if (!supabase) return;
     try {
+      const customerData: any = {
+        type: customer.type,
+        document_type: customer.documentType,
+        name: customer.name,
+        business_name: customer.businessName,
+        document: customer.document,
+        contact_name: customer.contactName,
+        email: customer.email,
+        phone: customer.phone,
+        status: customer.status,
+        address: customer.address,
+        street: customer.street,
+        number: customer.number,
+        neighborhood: customer.neighborhood,
+        city: customer.city,
+        state: customer.state,
+        zip_code: customer.zipCode,
+        lead_id: customer.lead_id
+      };
+
+      // Only include ID if it's provided and not empty
+      if (customer.id && customer.id.trim() !== "") {
+        customerData.id = customer.id;
+      }
+
       const { error } = await supabase
         .from('customers')
-        .insert([{
-          id: customer.id,
-          type: customer.type,
-          document_type: customer.documentType,
-          name: customer.name,
-          business_name: customer.businessName,
-          document: customer.document,
-          contact_name: customer.contactName,
-          email: customer.email,
-          phone: customer.phone,
-          status: customer.status,
-          address: customer.address,
-          street: customer.street,
-          number: customer.number,
-          neighborhood: customer.neighborhood,
-          city: customer.city,
-          state: customer.state,
-          zip_code: customer.zipCode,
-          lead_id: customer.lead_id
-        }]);
+        .insert([customerData]);
       if (error) throw error;
       await fetchData();
     } catch (error: any) {

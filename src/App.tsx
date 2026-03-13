@@ -39,14 +39,51 @@ import { DollarSign, LayoutDashboard, Briefcase, Factory, Package, ClipboardList
 
 const App: React.FC = () => {
   const { userProfile, companyProfile, isLoading, refreshData, transactions, notificationSettings } = useTransactions();
-  const [activeSector, setActiveSector] = useState<SectorId>(SectorId.FINANCEIRO);
-  const [activeModule, setActiveModule] = useState<ModuleId>(ModuleId.DASHBOARD);
-  // activeSubItem is kept for potential future use or deep linking, though mostly flattened now
-  const [activeSubItem, setActiveSubItem] = useState<string | null>(null);
-  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set()); 
+  
+  // Initialize state from localStorage
+  const [activeSector, setActiveSector] = useState<SectorId>(() => {
+    const saved = localStorage.getItem('vms_activeSector');
+    return (saved as SectorId) || SectorId.FINANCEIRO;
+  });
+  
+  const [activeModule, setActiveModule] = useState<ModuleId>(() => {
+    const saved = localStorage.getItem('vms_activeModule');
+    return (saved as ModuleId) || ModuleId.DASHBOARD;
+  });
+  
+  const [activeSubItem, setActiveSubItem] = useState<string | null>(() => {
+    return localStorage.getItem('vms_activeSubItem');
+  });
+
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('vms_expandedModules');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isNotificationsOpen, setNotificationsOpen] = useState(false);
   const [isPublicCatalog, setIsPublicCatalog] = useState(false);
+
+  // Save state to localStorage
+  useEffect(() => {
+    localStorage.setItem('vms_activeSector', activeSector);
+  }, [activeSector]);
+
+  useEffect(() => {
+    localStorage.setItem('vms_activeModule', activeModule);
+  }, [activeModule]);
+
+  useEffect(() => {
+    if (activeSubItem) {
+      localStorage.setItem('vms_activeSubItem', activeSubItem);
+    } else {
+      localStorage.removeItem('vms_activeSubItem');
+    }
+  }, [activeSubItem]);
+
+  useEffect(() => {
+    localStorage.setItem('vms_expandedModules', JSON.stringify(Array.from(expandedModules)));
+  }, [expandedModules]);
 
   useEffect(() => {
     if (window.location.pathname === '/catalogo-publico') {
@@ -371,6 +408,7 @@ const App: React.FC = () => {
             onClick={() => {
               setActiveSector(SectorId.FINANCEIRO);
               setActiveModule(ModuleId.DASHBOARD);
+              setActiveSubItem(null);
             }}
             className={`
               w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all
@@ -385,6 +423,7 @@ const App: React.FC = () => {
             onClick={() => {
               setActiveSector(SectorId.VENDAS);
               setActiveModule(ModuleId.VENDAS_DASHBOARD);
+              setActiveSubItem(null);
             }}
             className={`
               w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all duration-300
@@ -399,6 +438,7 @@ const App: React.FC = () => {
             onClick={() => {
               setActiveSector(SectorId.RH);
               setActiveModule(ModuleId.RH_DASHBOARD);
+              setActiveSubItem(null);
             }}
             className={`
               w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all
@@ -413,6 +453,7 @@ const App: React.FC = () => {
             onClick={() => {
               setActiveSector(SectorId.PRODUCAO);
               setActiveModule(ModuleId.PRODUCAO_DASHBOARD);
+              setActiveSubItem(null);
             }}
             className={`
               w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all duration-300
@@ -427,6 +468,7 @@ const App: React.FC = () => {
             onClick={() => {
               setActiveSector(SectorId.COMPRAS);
               setActiveModule(ModuleId.COMPRAS_DASHBOARD);
+              setActiveSubItem(null);
             }}
             className={`
               w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all duration-300
