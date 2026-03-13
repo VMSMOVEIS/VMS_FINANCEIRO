@@ -91,6 +91,18 @@ const App: React.FC = () => {
     }
   }, []);
   const notificationRef = useRef<HTMLDivElement>(null);
+  
+  // Navigation Event Listener
+  useEffect(() => {
+    const handleNavigate = (event: any) => {
+      const { sector, module, subItem } = event.detail;
+      if (sector) setActiveSector(sector);
+      if (module) setActiveModule(module);
+      if (subItem !== undefined) setActiveSubItem(subItem);
+    };
+    window.addEventListener('vms-navigate', handleNavigate);
+    return () => window.removeEventListener('vms-navigate', handleNavigate);
+  }, []);
 
   // Close notifications when clicking outside
   useEffect(() => {

@@ -16,7 +16,8 @@ import {
   Clock,
   XCircle,
   Trash2,
-  Edit2
+  Edit2,
+  CheckCircle
 } from 'lucide-react';
 import { useSales } from '../src/context/SalesContext';
 import { Customer } from '../types';
@@ -212,6 +213,16 @@ const SalesCustomers: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
+                      {customer.status === 'finalizar_cadastro' && (
+                        <button 
+                          onClick={() => handleOpenModal(customer)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-600 rounded-lg text-xs font-bold hover:bg-amber-100 transition-colors"
+                          title="Finalizar Cadastro"
+                        >
+                          <CheckCircle size={14} />
+                          Finalizar Cadastro
+                        </button>
+                      )}
                       <button 
                         onClick={() => handleOpenModal(customer)}
                         className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"

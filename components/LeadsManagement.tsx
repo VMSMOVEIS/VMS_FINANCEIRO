@@ -17,8 +17,9 @@ import {
   CheckCircle2,
   Trash2
 } from 'lucide-react';
-import { Lead, LeadStatus } from '../types';
+import { Lead, LeadStatus, ModuleId, SectorId } from '../types';
 import { useSales } from '../src/context/SalesContext';
+import { navigateTo } from '../src/lib/navigation';
 
 export const LeadsManagement: React.FC = () => {
   const { leads, addLead, deleteLead, updateLead } = useSales();
@@ -101,8 +102,8 @@ export const LeadsManagement: React.FC = () => {
   };
 
   const handleSendToQuote = (lead: Lead) => {
-    alert(`Lead ${lead.company} enviado para orçamento! (Funcionalidade em desenvolvimento)`);
-    // In a real app, this would create a quote record and navigate to the quotes module
+    // Navigate to Quotes module
+    navigateTo(SectorId.VENDAS, ModuleId.VENDAS_ORCAMENTOS);
   };
 
   const getStatusLabel = (status: LeadStatus) => {
@@ -223,10 +224,10 @@ export const LeadsManagement: React.FC = () => {
                     <button 
                       onClick={() => handleSendToQuote(lead)}
                       className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-bold hover:bg-emerald-100 transition-colors"
-                      title="Mandar para orçamento"
+                      title="Fazer orçamento"
                     >
                       <FileText size={14} />
-                      Mandar para orçamento
+                      Fazer orçamento
                     </button>
                     <button 
                       onClick={() => handleDeleteLead(lead.id)}
@@ -309,6 +310,15 @@ export const LeadsManagement: React.FC = () => {
                   {contactSuggestions.map(s => <option key={s} value={s} />)}
                 </datalist>
               </div>
+
+              {newLead.lastContact && (
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-center gap-2">
+                  <Calendar size={16} className="text-blue-600" />
+                  <p className="text-sm text-blue-800">
+                    Último contato em: <span className="font-bold">{new Intl.DateTimeFormat('pt-BR').format(new Date(newLead.lastContact))}</span>
+                  </p>
+                </div>
+              )}
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">

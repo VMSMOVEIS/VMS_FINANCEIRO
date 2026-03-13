@@ -392,27 +392,37 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       
       if (error) throw error;
 
-      // Automatically create a customer record
-      const { error: customerError } = await supabase
-        .from('customers')
-        .insert([{
-          name: lead.company,
-          document_type: 'CNPJ', // Default to CNPJ for company, can be changed later
-          document: '',
-          contact_name: lead.contactName,
-          email: lead.email,
-          phone: lead.phone,
-          status: 'finalizar_cadastro',
-          lead_id: leadData.id,
-          street: lead.street,
-          number: lead.number,
-          neighborhood: lead.neighborhood,
-          city: lead.city,
-          state: lead.state
-        }]);
+      // Check if customer already exists before creating
+      const existingCustomer = customers.find(c => 
+        c.name.toLowerCase() === lead.company.toLowerCase() || 
+        (lead.phone && c.phone === lead.phone)
+      );
 
-      if (customerError) {
-        console.warn('Error creating customer from lead:', customerError.message);
+      if (!existingCustomer) {
+        // Automatically create a customer record
+        const { error: customerError } = await supabase
+          .from('customers')
+          .insert([{
+            name: lead.company,
+            document_type: 'CNPJ', // Default to CNPJ for company, can be changed later
+            document: '',
+            contact_name: lead.contactName,
+            email: lead.email,
+            phone: lead.phone,
+            status: 'finalizar_cadastro',
+            lead_id: leadData.id,
+            street: lead.street,
+            number: lead.number,
+            neighborhood: lead.neighborhood,
+            city: lead.city,
+            state: lead.state
+          }]);
+
+        if (customerError) {
+          console.warn('Error creating customer from lead:', customerError.message);
+        }
+      } else {
+        console.log('Customer already exists, skipping automatic creation.');
       }
 
       await fetchData();
