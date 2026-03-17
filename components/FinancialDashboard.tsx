@@ -2,13 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { DollarSign, TrendingUp, TrendingDown, Activity, AlertCircle, ShoppingBag, ShoppingCart } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
 import { useTransactions } from '@/src/context/TransactionContext';
-import { useSales } from '@/src/context/SalesContext';
-import { usePurchasing } from '@/src/context/PurchasingContext';
 
 export const FinancialDashboard: React.FC = () => {
   const { transactions, accounts } = useTransactions();
-  const { sales } = useSales();
-  const { purchases } = usePurchasing();
   const [filterType, setFilterType] = useState('this-month');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
   const [customRange, setCustomRange] = useState({ start: '', end: '' });
@@ -66,65 +62,19 @@ export const FinancialDashboard: React.FC = () => {
       .reduce((sum, p) => sum + p.value, 0);
   }, [filteredTransactions]);
 
-  // 3. Total de Vendas (Total Sales) - Based on Sales Orders
+  // 3. Total de Vendas (Total Sales) - Based on Transaction History
   const totalSales = useMemo(() => {
-    return sales
-      .filter(s => {
-        const [year, month, day] = s.date.split('-').map(Number);
-        const sDate = new Date(year, month - 1, day);
-        const now = new Date();
-        const sYear = sDate.getFullYear();
-        const sMonth = sDate.getMonth();
+    return filteredTransactions
+      .filter(t => t.transactionTypeId === 'venda')
+      .reduce((sum, t) => sum + t.value, 0);
+  }, [filteredTransactions]);
 
-        switch (filterType) {
-          case 'this-month':
-            return sYear === now.getFullYear() && sMonth === now.getMonth();
-          case 'last-month':
-            const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            return sYear === lastMonthDate.getFullYear() && sMonth === lastMonthDate.getMonth();
-          case 'this-year':
-            return sYear === now.getFullYear();
-          case 'month':
-            return sYear === now.getFullYear() && sMonth === parseInt(selectedMonth);
-          case 'custom':
-            if (!customRange.start || !customRange.end) return true;
-            return s.date >= customRange.start && s.date <= customRange.end;
-          default:
-            return true;
-        }
-      })
-      .reduce((sum, s) => sum + s.value, 0);
-  }, [sales, filterType, selectedMonth, customRange]);
-
-  // 4. Total de Compras (Total Purchases) - Based on Purchase Orders
+  // 4. Total de Compras (Total Purchases) - Based on Transaction History
   const totalPurchases = useMemo(() => {
-    return purchases
-      .filter(p => {
-        const [year, month, day] = p.date.split('-').map(Number);
-        const pDate = new Date(year, month - 1, day);
-        const now = new Date();
-        const pYear = pDate.getFullYear();
-        const pMonth = pDate.getMonth();
-
-        switch (filterType) {
-          case 'this-month':
-            return pYear === now.getFullYear() && pMonth === now.getMonth();
-          case 'last-month':
-            const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            return pYear === lastMonthDate.getFullYear() && pMonth === lastMonthDate.getMonth();
-          case 'this-year':
-            return pYear === now.getFullYear();
-          case 'month':
-            return pYear === now.getFullYear() && pMonth === parseInt(selectedMonth);
-          case 'custom':
-            if (!customRange.start || !customRange.end) return true;
-            return p.date >= customRange.start && p.date <= customRange.end;
-          default:
-            return true;
-        }
-      })
-      .reduce((sum, p) => sum + p.value, 0);
-  }, [purchases, filterType, selectedMonth, customRange]);
+    return filteredTransactions
+      .filter(t => t.transactionTypeId === 'compra')
+      .reduce((sum, t) => sum + t.value, 0);
+  }, [filteredTransactions]);
 
   // 5. EBITDA (Simplified: Revenue - Expenses)
   const ebitda = totalRevenue - totalExpenses;

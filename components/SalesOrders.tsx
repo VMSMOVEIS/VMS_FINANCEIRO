@@ -27,6 +27,7 @@ import {
 import { useSales } from '../src/context/SalesContext';
 import { useTransactions } from '../src/context/TransactionContext';
 import { useProduction } from '../src/context/ProductionContext';
+import { useEmployees } from '../src/context/EmployeeContext';
 import { Sale, SaleItem } from '../types';
 
 const MOCK_ORDERS = [
@@ -78,13 +79,14 @@ const SalesOrders: React.FC = () => {
   const { sales, addSale, updateSaleStatus, updateSale, deleteSale, paymentMethods, isLoading } = useSales();
   const { accountPlans, transactions, addTransaction } = useTransactions();
   const { inventory } = useProduction();
+  const { employees } = useEmployees();
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Sale | null>(null);
   
   const initialOrderState: Partial<Sale> = {
     customer: '',
-    salesperson: '',
+    operator: '',
     store: STORES[0],
     date: new Date().toISOString().split('T')[0],
     effectiveDate: '',
@@ -419,9 +421,9 @@ const SalesOrders: React.FC = () => {
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
                     <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-600">
-                      {order.salesperson.substring(0, 2).toUpperCase()}
+                      {order.operator.substring(0, 2).toUpperCase()}
                     </div>
-                    <span className="text-sm text-gray-600">{order.salesperson}</span>
+                    <span className="text-sm text-gray-600">{order.operator}</span>
                   </div>
                 </td>
                 <td className="px-6 py-4 text-right">
@@ -499,13 +501,17 @@ const SalesOrders: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Vendedor</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
-                    value={newOrder.salesperson}
-                    onChange={(e) => setNewOrder({...newOrder, salesperson: e.target.value})}
-                  />
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Operador</label>
+                  <select 
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-sm"
+                    value={newOrder.operator}
+                    onChange={(e) => setNewOrder({...newOrder, operator: e.target.value})}
+                  >
+                    <option value="">Selecione...</option>
+                    {employees.filter(emp => emp.status === 'active').map(emp => (
+                      <option key={emp.id} value={emp.name}>{emp.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Loja</label>
@@ -960,8 +966,8 @@ const SalesOrders: React.FC = () => {
                   </p>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Vendedor</label>
-                  <p className="text-sm font-medium text-gray-900">{selectedOrder.salesperson}</p>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Operador</label>
+                  <p className="text-sm font-medium text-gray-900">{selectedOrder.operator}</p>
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Status</label>

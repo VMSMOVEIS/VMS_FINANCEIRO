@@ -97,11 +97,15 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         profitMargin: Number(q.profit_margin),
         discount: Number(q.discount),
         notes: q.notes,
-        salesperson: q.salesperson,
+        operator: q.salesperson,
         store: q.store,
         deliveryTime: q.delivery_time,
         commission: Number(q.commission || 0),
         otherExpenses: Number(q.other_expenses || 0),
+        shipping: Number(q.shipping || 0),
+        laborMinutes: Number(q.labor_minutes || 0),
+        laborCost: Number(q.labor_cost || 0),
+        indirectCosts: Number(q.indirect_costs || 0),
         saleType: q.sale_type
       })));
 
@@ -115,7 +119,7 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setSales(salesData.map(s => ({
         id: s.id,
         customer: s.customer_name,
-        salesperson: s.salesperson_name,
+        operator: s.salesperson_name,
         store: s.store,
         date: s.date,
         effectiveDate: s.effective_date,
@@ -206,7 +210,7 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .insert([{
           id: sale.id,
           customer_name: sale.customer,
-          salesperson_name: sale.salesperson,
+          salesperson_name: sale.operator,
           store: sale.store,
           date: sale.date,
           effective_date: sale.effectiveDate,
@@ -240,7 +244,7 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .from('sales_orders')
         .update({
           customer_name: sale.customer,
-          salesperson_name: sale.salesperson,
+          salesperson_name: sale.operator,
           store: sale.store,
           date: sale.date,
           effective_date: sale.effectiveDate,
@@ -325,11 +329,15 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           profit_margin: quote.profitMargin,
           discount: quote.discount,
           notes: quote.notes,
-          salesperson: quote.salesperson,
+          operator: quote.operator,
           store: quote.store,
           delivery_time: quote.deliveryTime,
           commission: quote.commission,
           other_expenses: quote.otherExpenses,
+          shipping: quote.shipping,
+          labor_minutes: quote.laborMinutes,
+          labor_cost: quote.laborCost,
+          indirect_costs: quote.indirectCosts,
           sale_type: quote.saleType
         }]);
       
@@ -369,11 +377,15 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           profit_margin: quote.profitMargin,
           discount: quote.discount,
           notes: quote.notes,
-          salesperson: quote.salesperson,
+          operator: quote.operator,
           store: quote.store,
           delivery_time: quote.deliveryTime,
           commission: quote.commission,
           other_expenses: quote.otherExpenses,
+          shipping: quote.shipping,
+          labor_minutes: quote.laborMinutes,
+          labor_cost: quote.laborCost,
+          indirect_costs: quote.indirectCosts,
           sale_type: quote.saleType
         })
         .eq('id', quote.id);

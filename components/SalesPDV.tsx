@@ -125,7 +125,7 @@ export const SalesPDV: React.FC = () => {
     addSale({
       id: saleId,
       customer: customerCPF || 'Consumidor Final',
-      salesperson: salesperson?.name || 'Não informado',
+      operator: salesperson?.name || 'Não informado',
       date: new Date().toISOString(),
       effectiveDate: new Date().toISOString(),
       dueDate: isPartial ? dueDate : undefined,
@@ -423,7 +423,7 @@ export const SalesPDV: React.FC = () => {
                   <tr className="bg-gray-50 border-b border-gray-100">
                     <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Venda</th>
                     <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Data</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Vendedor</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Operador</th>
                     <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Cliente</th>
                     <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Total</th>
                     <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Ações</th>
@@ -439,7 +439,7 @@ export const SalesPDV: React.FC = () => {
                         {new Date(sale.date).toLocaleString('pt-BR')}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {sale.salesperson}
+                        {sale.operator}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {sale.customer}

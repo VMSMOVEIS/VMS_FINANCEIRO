@@ -84,6 +84,7 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
     width: undefined,
     baseMaterial: '',
     productOrigin: '',
+    productionTimePerUnit: 0,
     status: 'active'
   });
 
@@ -169,6 +170,7 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
         width: item.width,
         baseMaterial: item.baseMaterial || '',
         productOrigin: item.productOrigin || '',
+        productionTimePerUnit: item.productionTimePerUnit || 0,
         status: item.status || 'active'
       });
     } else {
@@ -229,6 +231,7 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
         width: undefined,
         baseMaterial: '',
         productOrigin: '',
+        productionTimePerUnit: 0,
         status: 'active'
       });
     }
@@ -343,6 +346,9 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Marca</th>
                 )}
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Saldo</th>
+                {isMP && (
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">T. Produção</th>
+                )}
                 {!isMP && (
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Preço de Venda</th>
                 )}
@@ -398,6 +404,11 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
                           </div>
                         )}
                       </td>
+                    {isMP && (
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-gray-600">{item.productionTimePerUnit || 0} min/{item.unit}</span>
+                      </td>
+                    )}
                     {!isMP && (
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-gray-900">
@@ -628,6 +639,16 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
                               type="number" 
                               value={formData.width || ''}
                               onChange={(e) => setFormData({...formData, width: Number(e.target.value)})}
+                              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm" 
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Tempo de Produção (min/{formData.unit})</label>
+                            <input 
+                              type="number" 
+                              step="0.1"
+                              value={formData.productionTimePerUnit || ''}
+                              onChange={(e) => setFormData({...formData, productionTimePerUnit: Number(e.target.value)})}
                               className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm" 
                             />
                           </div>

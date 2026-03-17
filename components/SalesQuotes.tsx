@@ -36,6 +36,7 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { useSales } from '../src/context/SalesContext';
 import { useProduction } from '../src/context/ProductionContext';
 import { useTransactions } from '../src/context/TransactionContext';
+import { useEmployees } from '../src/context/EmployeeContext';
 import { Quote, BOMItem, ProductionOrder, Sale, SaleItem } from '../types';
 
 const STORES = ['Loja Principal', 'Showroom Centro', 'Loja Online', 'Filial Sul'];
@@ -44,6 +45,7 @@ export const SalesQuotes: React.FC = () => {
   const { quotes, addQuote, updateQuote, deleteQuote, addSale, isLoading } = useSales();
   const { addProductionOrder, inventory } = useProduction();
   const { accountPlans } = useTransactions();
+  const { employees } = useEmployees();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -208,7 +210,7 @@ export const SalesQuotes: React.FC = () => {
     neighborhood: '',
     city: '',
     state: '',
-    salesperson: '',
+    operator: '',
     store: STORES[0],
     bomItems: [],
     items: [],
@@ -219,6 +221,10 @@ export const SalesQuotes: React.FC = () => {
     deliveryTime: '',
     commission: 0,
     otherExpenses: 0,
+    shipping: 0,
+    laborMinutes: 0,
+    laborCost: 0,
+    indirectCosts: 0,
     notes: ''
   };
 
@@ -326,8 +332,23 @@ export const SalesQuotes: React.FC = () => {
   };
 
   const calculateTotalCost = () => {
-    return formData.bomItems?.reduce((acc, item) => acc + (item.quantity * item.cost), 0) || 0;
+    const materialCost = formData.bomItems?.reduce((acc, item) => acc + (item.quantity * item.cost), 0) || 0;
+    const laborCost = formData.laborCost || 0;
+    const indirectCosts = formData.indirectCosts || 0;
+    const shipping = formData.shipping || 0;
+    return materialCost + laborCost + indirectCosts + shipping;
   };
+
+  const calculateTotalLaborMinutes = () => {
+    return formData.bomItems?.reduce((acc, item) => acc + (item.quantity * (item.productionTime || 0)), 0) || 0;
+  };
+
+  useEffect(() => {
+    const totalMinutes = calculateTotalLaborMinutes();
+    if (formData.laborMinutes !== totalMinutes) {
+      setFormData(prev => ({ ...prev, laborMinutes: totalMinutes }));
+    }
+  }, [formData.bomItems]);
 
   const calculateFinalPrice = () => {
     const cost = calculateTotalCost();
@@ -357,7 +378,7 @@ export const SalesQuotes: React.FC = () => {
       items: formData.items || [],
       profitMargin: formData.profitMargin || 0,
       discount: formData.discount || 0,
-      value: formData.value || 0,
+      value: calculateFinalPrice(),
       status: formData.status as any || 'waiting_approval'
     };
 
@@ -383,7 +404,7 @@ export const SalesQuotes: React.FC = () => {
       ...quote,
       id: quote.id, // Keeping the same ID but it already has ORC prefix
       customer: quote.client,
-      salesperson: quote.salesperson || 'Sistema',
+      operator: quote.operator || 'Sistema',
       date: new Date().toISOString(),
       value: quote.value,
       status: 'waiting_production',
@@ -747,13 +768,17 @@ export const SalesQuotes: React.FC = () => {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Vendedor</label>
-                      <input 
-                        type="text"
-                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
-                        value={formData.salesperson}
-                        onChange={(e) => setFormData({ ...formData, salesperson: e.target.value })}
-                      />
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Operador</label>
+                      <select 
+                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none bg-white text-sm"
+                        value={formData.operator}
+                        onChange={(e) => setFormData({ ...formData, operator: e.target.value })}
+                      >
+                        <option value="">Selecione o operador</option>
+                        {employees.filter(e => e.status === 'active').map(emp => (
+                          <option key={emp.id} value={emp.name}>{emp.name} ({emp.role})</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Loja</label>
@@ -875,14 +900,6 @@ export const SalesQuotes: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Itens do Orçamento</h3>
-                  <button 
-                    type="button"
-                    onClick={() => setShowExtractModal(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition-all border border-blue-200"
-                  >
-                    <FileJson size={14} />
-                    Extrair Peças OBJ
-                  </button>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-6 gap-3 bg-gray-50 p-4 rounded-xl border border-gray-100">
@@ -944,12 +961,20 @@ export const SalesQuotes: React.FC = () => {
                       }}
                     />
                   </div>
-                  <div className="flex items-end">
+                  <div className="flex items-end gap-2">
                     <button 
                       onClick={handleAddItem}
-                      className="w-full bg-emerald-600 text-white py-2 rounded-lg font-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 text-sm"
+                      className="flex-1 bg-emerald-600 text-white py-2 rounded-lg font-bold hover:bg-emerald-700 transition-all flex items-center justify-center gap-2 text-sm"
                     >
                       <Plus size={16} /> Add
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setShowExtractModal(true)}
+                      className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-all border border-blue-200 flex items-center justify-center"
+                      title="Extrair Peças OBJ"
+                    >
+                      <FileJson size={20} />
                     </button>
                   </div>
                 </div>
@@ -1005,8 +1030,9 @@ export const SalesQuotes: React.FC = () => {
                     <thead className="bg-gray-100 text-gray-500 font-bold uppercase tracking-wider">
                       <tr>
                         <th className="px-4 py-2 text-left">Material</th>
-                        <th className="px-4 py-2 text-center w-24">Qtd</th>
-                        <th className="px-4 py-2 text-center w-24">Unid</th>
+                        <th className="px-4 py-2 text-center w-20">Qtd</th>
+                        <th className="px-4 py-2 text-center w-20">Unid</th>
+                        <th className="px-4 py-2 text-center w-24">Tempo (min)</th>
                         <th className="px-4 py-2 text-right w-32">Custo Unit.</th>
                         <th className="px-4 py-2 text-right w-32">Total</th>
                         <th className="px-4 py-2 text-center w-16"></th>
@@ -1043,6 +1069,14 @@ export const SalesQuotes: React.FC = () => {
                           <td className="px-4 py-2">
                             <input 
                               type="number"
+                              className="w-full bg-transparent outline-none text-center focus:text-emerald-600"
+                              value={item.productionTime || 0}
+                              onChange={(e) => handleBOMItemChange(item.id, 'productionTime', parseFloat(e.target.value) || 0)}
+                            />
+                          </td>
+                          <td className="px-4 py-2">
+                            <input 
+                              type="number"
                               className="w-full bg-transparent outline-none text-right focus:text-emerald-600"
                               value={item.cost}
                               onChange={(e) => handleBOMItemChange(item.id, 'cost', parseFloat(e.target.value) || 0)}
@@ -1071,14 +1105,92 @@ export const SalesQuotes: React.FC = () => {
                     </tbody>
                     <tfoot className="bg-gray-100 font-bold">
                       <tr>
-                        <td colSpan={4} className="px-4 py-2 text-right uppercase text-gray-500">Custo Total de Materiais:</td>
+                        <td colSpan={5} className="px-4 py-2 text-right uppercase text-gray-500">Custo Total de Materiais:</td>
                         <td className="px-4 py-2 text-right text-gray-900">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateTotalCost())}
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(formData.bomItems?.reduce((acc, item) => acc + (item.quantity * item.cost), 0) || 0)}
                         </td>
                         <td></td>
                       </tr>
                     </tfoot>
                   </table>
+                </div>
+              </div>
+
+              {/* Additional Costs Section */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Frete (R$)</label>
+                  <input 
+                    type="number"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 outline-none text-sm"
+                    value={formData.shipping}
+                    onChange={(e) => setFormData({ ...formData, shipping: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Mão de Obra (R$)</label>
+                  <input 
+                    type="number"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 outline-none text-sm"
+                    value={formData.laborCost}
+                    onChange={(e) => setFormData({ ...formData, laborCost: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Custos Indiretos (R$)</label>
+                  <input 
+                    type="number"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 outline-none text-sm"
+                    value={formData.indirectCosts}
+                    onChange={(e) => setFormData({ ...formData, indirectCosts: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Outras Despesas (R$)</label>
+                  <input 
+                    type="number"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 outline-none text-sm"
+                    value={formData.otherExpenses}
+                    onChange={(e) => setFormData({ ...formData, otherExpenses: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+              </div>
+
+              {/* Summary Section */}
+              <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 space-y-4">
+                <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wider flex items-center gap-2">
+                  <FileText size={18} />
+                  Resumo de Custos
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-blue-400 uppercase">Materiais</p>
+                    <p className="text-lg font-bold text-blue-900">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(formData.bomItems?.reduce((acc, item) => acc + (item.quantity * item.cost), 0) || 0)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-blue-400 uppercase">Mão de Obra</p>
+                    <p className="text-lg font-bold text-blue-900">{formData.laborMinutes || 0} min</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-blue-400 uppercase">Custo M.O.</p>
+                    <p className="text-lg font-bold text-blue-900">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(formData.laborCost || 0)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-blue-400 uppercase">Custos Indiretos</p>
+                    <p className="text-lg font-bold text-blue-900">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((formData.indirectCosts || 0) + (formData.otherExpenses || 0))}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-blue-400 uppercase">Frete</p>
+                    <p className="text-lg font-bold text-blue-900">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(formData.shipping || 0)}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -1149,7 +1261,39 @@ export const SalesQuotes: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6">
-              <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
+              {extractedPieces.length === 0 ? (
+                <div 
+                  className="border-2 border-dashed border-blue-200 rounded-2xl p-12 flex flex-col items-center justify-center bg-blue-50/30 hover:bg-blue-50 transition-all cursor-pointer"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files[0];
+                    if (file && file.name.endsWith('.obj')) {
+                      handleObjUpload(file);
+                    }
+                  }}
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.obj';
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) handleObjUpload(file);
+                    };
+                    input.click();
+                  }}
+                >
+                  <div className="p-4 bg-blue-100 text-blue-600 rounded-full mb-4">
+                    <Upload size={32} />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">Arraste seu arquivo .OBJ aqui</h3>
+                  <p className="text-sm text-gray-500 text-center max-w-xs">
+                    Ou clique para selecionar o arquivo do seu computador para extrair as peças automaticamente.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="bg-gray-100 border-b border-gray-200">
@@ -1325,7 +1469,9 @@ export const SalesQuotes: React.FC = () => {
                 <PlusCircle size={16} />
                 Adicionar Peça
               </button>
-            </div>
+                </>
+            )}
+          </div>
 
             <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
               <div className="flex gap-4 text-xs">

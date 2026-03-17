@@ -302,7 +302,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const updateTransaction = async (id: number, updatedTransaction: Partial<Transaction>) => {
-    if (!supabase) return;
+    if (!supabase || !id) return;
     try {
       // 1. Update the transaction record
       const { error: transError } = await supabase
@@ -367,7 +367,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const deleteTransaction = async (id: number) => {
-    if (!supabase) return;
+    if (!supabase || !id) return;
     try {
       const { error } = await supabase
         .from('transactions')
@@ -407,7 +407,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const updateAccount = async (id: string, updatedAccount: Partial<Account>) => {
-    if (!supabase) return;
+    if (!supabase || !id) return;
     try {
       const { error } = await supabase
         .from('accounts')
@@ -428,7 +428,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const deleteAccount = async (id: string) => {
-    if (!supabase) return;
+    if (!supabase || !id) return;
     try {
       const { error } = await supabase
         .from('accounts')
@@ -459,7 +459,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const updatePaymentMethod = async (id: string, updatedMethod: Partial<PaymentMethod>) => {
-    if (!supabase) return;
+    if (!supabase || !id) return;
     try {
       const { error } = await supabase
         .from('payment_methods')
@@ -477,7 +477,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const deletePaymentMethod = async (id: string) => {
-    if (!supabase) return;
+    if (!supabase || !id) return;
     try {
       const { error } = await supabase
         .from('payment_methods')
@@ -509,7 +509,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const updateAccountPlan = async (id: string, plan: Partial<AccountPlan>) => {
-    if (!supabase) return;
+    if (!supabase || !id) return;
     try {
       const { error } = await supabase
         .from('account_plans')
@@ -528,7 +528,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const deleteAccountPlan = async (id: string) => {
-    if (!supabase) return;
+    if (!supabase || !id) return;
     try {
       const { error } = await supabase
         .from('account_plans')
@@ -739,7 +739,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const updateTax = async (id: string, updatedTax: Partial<Tax>) => {
-    if (!supabase) return;
+    if (!supabase || !id) return;
     try {
       const { error } = await supabase
         .from('taxes')
@@ -762,7 +762,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const deleteTax = async (id: string) => {
-    if (!supabase) return;
+    if (!supabase || !id) return;
     try {
       const { error } = await supabase
         .from('taxes')

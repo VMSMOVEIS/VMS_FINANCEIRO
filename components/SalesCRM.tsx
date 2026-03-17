@@ -360,7 +360,7 @@ export const SalesCRM: React.FC = () => {
               columnItems = sales.filter(s => s.status === 'completed').map(s => ({
                 id: s.id,
                 title: s.customer,
-                subtitle: `Vendedor: ${s.salesperson}`,
+                subtitle: `Operador: ${s.operator}`,
                 value: s.value,
                 probability: 100,
                 date: s.date,

@@ -386,7 +386,7 @@ export const TransactionModal: React.FC = () => {
           linkedPaymentId: formData.linkedPaymentId
         };
       
-      if (editingTransaction) {
+      if (editingTransaction && editingTransaction.id) {
         await updateTransaction(editingTransaction.id, transaction);
       } else {
         await addTransaction(transaction);

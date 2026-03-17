@@ -259,6 +259,7 @@ export interface BOMItem {
   quantity: number;
   unit: string;
   cost: number;
+  productionTime?: number; // in minutes
 }
 
 export interface Quote {
@@ -273,7 +274,7 @@ export interface Quote {
   city?: string;
   state?: string;
   productName?: string;
-  salesperson?: string;
+  operator?: string;
   store?: string;
   date: string;
   expiryDate: string;
@@ -284,6 +285,10 @@ export interface Quote {
   deliveryTime?: string;
   otherExpenses?: number;
   commission?: number;
+  shipping?: number;
+  laborMinutes?: number;
+  laborCost?: number;
+  indirectCosts?: number;
   value: number; // Final Price
   status: 'draft' | 'waiting_approval' | 'sent' | 'approved' | 'rejected' | 'expired';
   paymentStatus?: 'paid' | 'pending' | 'partial';
@@ -353,6 +358,7 @@ export interface InventoryItem {
   width?: number;
   baseMaterial?: string;
   productOrigin?: string;
+  productionTimePerUnit?: number; // Tempo de produção por unidade (ex: min/m2)
   status?: 'active' | 'inactive';
   updatedAt?: string;
 }
@@ -418,7 +424,7 @@ export interface SaleItem {
 export interface Sale {
   id: string;
   customer: string;
-  salesperson: string;
+  operator: string;
   store?: string;
   date: string;
   effectiveDate?: string;

@@ -70,14 +70,14 @@ const SalesDashboard: React.FC = () => {
     };
   });
 
-  // Salesperson data
-  const salespersonMap = new Map<string, number>();
+  // Operator data
+  const operatorMap = new Map<string, number>();
   sales.forEach(s => {
-    const current = salespersonMap.get(s.salesperson) || 0;
-    salespersonMap.set(s.salesperson, current + s.value);
+    const current = operatorMap.get(s.operator) || 0;
+    operatorMap.set(s.operator, current + s.value);
   });
 
-  const salespersonData = Array.from(salespersonMap.entries())
+  const operatorData = Array.from(operatorMap.entries())
     .map(([name, sales]) => ({ name, sales }))
     .sort((a, b) => b.sales - a.sales)
     .slice(0, 5);
@@ -191,18 +191,18 @@ const SalesDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Top Salespeople */}
+        {/* Top Operators */}
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
               <Award className="text-amber-500" size={20} />
-              Ranking de Vendedores
+              Ranking de Operadores
             </h3>
           </div>
           <div className="h-[300px]">
-            {salespersonData.length > 0 ? (
+            {operatorData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={salespersonData} layout="vertical" margin={{ left: 40, right: 40 }}>
+                <BarChart data={operatorData} layout="vertical" margin={{ left: 40, right: 40 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f3f4f6" />
                   <XAxis type="number" hide />
                   <YAxis 
