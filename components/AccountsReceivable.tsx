@@ -2,28 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Download, Edit, Trash2, FileText, Check } from 'lucide-react';
 import { useTransactions } from '@/src/context/TransactionContext';
 
-interface AccountsReceivableProps {
-  initialTab?: 'geral' | 'adiantamentos';
-}
-
-export const AccountsReceivable: React.FC<AccountsReceivableProps> = ({ initialTab = 'geral' }) => {
-  const { transactions, deleteTransaction, updateTransaction, openModal } = useTransactions();
-  const [activeTab, setActiveTab] = useState<'geral' | 'adiantamentos'>(initialTab);
+export const AccountsReceivable: React.FC = () => {
+  const { transactions, deleteTransaction, openModal } = useTransactions();
   const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
 
   const receivables = transactions.flatMap(t => 
     t.payments
       .filter(p => {
-        if (activeTab === 'adiantamentos') {
-           return t.transactionTypeId === 'adiantamento_cliente';
-        }
         // General: Income payments that are specifically marked for Accounts Receivable
         // OR transactions explicitly typed as 'duplicata_receber' (to keep them visible after payment)
-        return t.type === 'income' && t.transactionTypeId !== 'transferencia' && (p.destination === 'Contas a Receber' || t.transactionTypeId === 'duplicata_receber');
+        // Exclude advances (adiantamento_cliente)
+        return t.type === 'income' && 
+               t.transactionTypeId !== 'transferencia' && 
+               t.transactionTypeId !== 'adiantamento_cliente' &&
+               (p.destination === 'Contas a Receber' || t.transactionTypeId === 'duplicata_receber');
       })
       .map(p => ({
         ...p,
@@ -57,12 +49,6 @@ export const AccountsReceivable: React.FC<AccountsReceivableProps> = ({ initialT
     if (transaction) openModal(transaction);
   };
 
-  const handleComplete = async (id: number) => {
-    if (window.confirm('Deseja marcar este adiantamento como realizado/compensado?')) {
-      await updateTransaction(id, { status: 'completed' });
-    }
-  };
-
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -87,34 +73,6 @@ export const AccountsReceivable: React.FC<AccountsReceivableProps> = ({ initialT
           <Plus size={18} />
           <span>Adicionar Conta</span>
         </button>
-      </div>
-
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab('geral')}
-            className={`
-              whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'geral'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-            `}
-          >
-            Visão Geral
-          </button>
-          <button
-            onClick={() => setActiveTab('adiantamentos')}
-            className={`
-              whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm
-              ${activeTab === 'adiantamentos'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
-            `}
-          >
-            Adiantamentos
-          </button>
-        </nav>
       </div>
 
       {/* Filters */}
@@ -194,23 +152,11 @@ export const AccountsReceivable: React.FC<AccountsReceivableProps> = ({ initialT
                         ? 'bg-blue-100 text-blue-700'
                         : 'bg-yellow-100 text-yellow-700'
                     }`}>
-                      {activeTab === 'adiantamentos' 
-                        ? (item.transactionStatus === 'completed' ? 'Realizado' : 'A compensar')
-                        : (item.transactionStatus === 'completed' ? 'Recebido' : 'A Receber')
-                      }
+                      {item.transactionStatus === 'completed' ? 'Recebido' : 'A Receber'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
-                      {activeTab === 'adiantamentos' && item.transactionStatus === 'a_compensar' && (
-                        <button 
-                          onClick={() => handleComplete(item.transactionId)}
-                          className="p-1.5 hover:bg-emerald-50 rounded text-gray-400 hover:text-emerald-600 transition-colors"
-                          title="Marcar como Realizado"
-                        >
-                          <Check size={16} />
-                        </button>
-                      )}
                       <button 
                         onClick={() => handleEdit(item.transactionId)}
                         className="p-1.5 hover:bg-blue-50 rounded text-gray-400 hover:text-blue-600 transition-colors"

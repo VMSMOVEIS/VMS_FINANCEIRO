@@ -204,14 +204,12 @@ const App: React.FC = () => {
 
     // Handle Sub-items for Accounts Payable
     if (activeModule === ModuleId.CONTAS_PAGAR) {
-      const tab = activeSubItem === 'cp_adiantamentos' ? 'adiantamentos' : 'geral';
-      return <AccountsPayable initialTab={tab} />;
+      return <AccountsPayable />;
     }
 
     // Handle Sub-items for Accounts Receivable
     if (activeModule === ModuleId.CONTAS_RECEBER) {
-      const tab = activeSubItem === 'cr_adiantamentos' ? 'adiantamentos' : 'geral';
-      return <AccountsReceivable initialTab={tab} />;
+      return <AccountsReceivable />;
     }
 
     switch (activeModule) {

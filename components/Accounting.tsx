@@ -24,7 +24,7 @@ export const Accounting: React.FC<AccountingProps> = ({ initialView = 'contab_dr
     }
   }, [initialView]);
 
-  const entries = useMemo(() => generateAccountingEntries(transactions, accountPlans, sales, purchases), [transactions, accountPlans, sales, purchases]);
+  const entries = useMemo(() => generateAccountingEntries(transactions, accountPlans, sales, purchases, accounts), [transactions, accountPlans, sales, purchases, accounts]);
 
   const renderContent = () => {
     const commonProps = { transactions, accountPlans, entries, reportLevel, showZeroBalances };
@@ -152,98 +152,125 @@ const TabButton = ({ id, label, icon: Icon, active, onClick }: any) => (
 );
 
 // Helper to generate accounting entries from transactions using the Chart of Accounts
-const generateAccountingEntries = (transactions: any[], accountPlans: any[], sales: any[] = [], purchases: any[] = []) => {
+const generateAccountingEntries = (transactions: any[], accountPlans: any[], sales: any[] = [], purchases: any[] = [], accounts: any[] = []) => {
   const entries: any[] = [];
   let entryId = 1;
 
-  const findPlan = (name: string) => accountPlans.find(p => p.name === name || p.id === name);
-  const getLabel = (name: string) => {
-    const p = findPlan(name);
-    return p ? `${p.code} - ${p.name}` : name;
+  const findPlan = (identifier: string) => {
+    if (!identifier) return null;
+    return accountPlans.find(p => 
+      p.code === identifier || 
+      p.name === identifier || 
+      p.id === identifier ||
+      (typeof identifier === 'string' && identifier.includes(' - ') && p.code === identifier.split(' - ')[0])
+    );
   };
 
-  // Default accounts if not found
-  const planReceivables = findPlan('Clientes') || findPlan('Contas a Receber') || { code: '1.1.02.01', name: 'Clientes' };
-  const planPayables = findPlan('Fornecedores') || { code: '2.1.01', name: 'Fornecedores' };
-  const planCash = findPlan('Caixa') || findPlan('Banco Conta Corrente') || findPlan('Caixa e Equivalentes de Caixa') || { code: '1.1.01.01', name: 'Caixa' };
+  const getLabel = (plan: any) => {
+    if (!plan) return 'Sem Classificação';
+    return `${plan.code} - ${plan.name}`;
+  };
 
-  // Process Sales Orders (Accrual Basis)
+  // Default accounts
+  const planReceivables = findPlan('1.1.02') || findPlan('Clientes') || findPlan('Contas a Receber') || { code: '1.1.02.01', name: 'Clientes' };
+  const planPayables = findPlan('2.1.01') || findPlan('Fornecedores') || findPlan('Contas a Pagar') || { code: '2.1.01.01', name: 'Fornecedores' };
+  const planCash = findPlan('1.1.01.01') || findPlan('Caixa') || { code: '1.1.01.01', name: 'Caixa' };
+  const planOpeningBalance = findPlan('3.1.01') || findPlan('Capital Social') || { code: '3.1.01', name: 'Capital Social' };
+
+  // 0. Calculate Opening Balances to reconcile with current account balances
+  if (accounts.length > 0) {
+    accounts.forEach(acc => {
+      const accPlan = findPlan(acc.name) || findPlan(acc.id);
+      if (!accPlan) return;
+
+      let netMovements = 0;
+      transactions.forEach(t => {
+        t.payments.forEach((p: any) => {
+          if (p.status === 'completed') {
+            if (p.destination === acc.name || p.destination === acc.id) netMovements += p.value;
+            if (p.source === acc.name || p.source === acc.id) netMovements -= p.value;
+          }
+        });
+      });
+
+      const openingBalance = acc.balance - netMovements;
+      if (Math.abs(openingBalance) > 0.01) {
+        entries.push({
+          id: entryId++,
+          transactionId: 0,
+          date: '2026-01-01',
+          description: `Saldo Inicial - ${acc.name}`,
+          debit: openingBalance > 0 ? getLabel(accPlan) : getLabel(planOpeningBalance),
+          credit: openingBalance > 0 ? getLabel(planOpeningBalance) : getLabel(accPlan),
+          value: Math.abs(openingBalance)
+        });
+      }
+    });
+  }
+
+  // 1. Process Sales Orders (Accrual)
   sales.forEach(s => {
-    if (s.status === 'completed' && s.effectiveDate) {
-      const revenuePlan = findPlan(s.accountPlanId) || findPlan('Venda de Mercadorias') || { code: '4.1.01.01', name: 'Venda de Mercadorias' };
-      const revenueLabel = `${revenuePlan.code} - ${revenuePlan.name}`;
+    if (s.status === 'completed' || s.status === 'shipped') {
+      const revenuePlan = findPlan(s.accountPlanId) || findPlan('4.1.01.01') || findPlan('Venda de Mercadorias') || { code: '4.1.01.01', name: 'Venda de Mercadorias' };
       
-      // If paid, debit Cash/Bank, otherwise debit Accounts Receivable
-      const isPaid = s.paymentStatus === 'paid';
-      const debitPlan = isPaid ? (findPlan(s.paymentMethod) || planCash) : planReceivables;
-      const debitLabel = `${debitPlan.code} - ${debitPlan.name}`;
-
       entries.push({
         id: entryId++,
         transactionId: s.id,
-        date: s.effectiveDate,
-        description: `Venda Concluída - ${s.id} - ${s.customer}`,
-        debit: debitLabel,
-        credit: revenueLabel,
+        date: s.effectiveDate || s.date,
+        description: `Venda - ${s.customer}`,
+        debit: getLabel(planReceivables),
+        credit: getLabel(revenuePlan),
         value: s.value
       });
 
-      // Add COGS entry if estimatedCost is present
-      if (s.estimatedCost && s.estimatedCost > 0) {
-        const cogsPlan = findPlan('Custo das Mercadorias Vendidas') || findPlan('CUSTOS DE PRODUÇÃO') || { code: '5.1.01', name: 'CMV' };
-        const inventoryPlan = findPlan('Produtos Acabados') || findPlan('Estoques') || { code: '1.1.03.10', name: 'Estoques' };
-        
+      if (s.estimatedCost > 0) {
+        const cogsPlan = findPlan('5.1.01') || findPlan('CMV') || { code: '5.1.01', name: 'CMV' };
+        const inventoryPlan = findPlan('1.1.03') || findPlan('Estoques') || { code: '1.1.03.01', name: 'Estoques' };
         entries.push({
           id: entryId++,
           transactionId: s.id,
-          date: s.effectiveDate,
-          description: `Baixa de Estoque (CMV) - ${s.id}`,
-          debit: `${cogsPlan.code} - ${cogsPlan.name}`,
-          credit: `${inventoryPlan.code} - ${inventoryPlan.name}`,
+          date: s.effectiveDate || s.date,
+          description: `CMV - Venda ${s.id}`,
+          debit: getLabel(cogsPlan),
+          credit: getLabel(inventoryPlan),
           value: s.estimatedCost
         });
       }
     }
   });
 
-  // Process Purchase Orders (Accrual Basis)
+  // 2. Process Purchase Orders (Accrual)
   purchases.forEach(p => {
-    if (p.status === 'completed' && p.effectiveDate) {
-      const expensePlan = findPlan(p.accountPlanId) || findPlan('Compras de Mercadorias') || { code: '5.1.01.01', name: 'Compras de Mercadorias' };
-      const expenseLabel = `${expensePlan.code} - ${expensePlan.name}`;
+    if (p.status === 'completed' || p.status === 'received') {
+      const inventoryPlan = findPlan(p.accountPlanId) || findPlan('1.1.03') || findPlan('Estoques') || { code: '1.1.03.01', name: 'Estoques' };
       
-      // If paid, credit Cash/Bank, otherwise credit Accounts Payable
-      const isPaid = p.paymentStatus === 'paid';
-      const creditPlan = isPaid ? (findPlan(p.paymentMethod) || planCash) : planPayables;
-      const creditLabel = `${creditPlan.code} - ${creditPlan.name}`;
-
       entries.push({
         id: entryId++,
         transactionId: p.id,
-        date: p.effectiveDate,
-        description: `Compra Concluída - ${p.id} - ${p.supplier}`,
-        debit: expenseLabel,
-        credit: creditLabel,
+        date: p.effectiveDate || p.date,
+        description: `Compra - ${p.supplier}`,
+        debit: getLabel(inventoryPlan),
+        credit: getLabel(planPayables),
         value: p.value
       });
     }
   });
 
+  // 3. Process Transactions
   transactions.forEach(t => {
-    // Handle Transfers
+    // Transfers
     if (t.type === 'transfer') {
       t.payments.forEach((p: any) => {
         if (p.status === 'completed') {
           const sourcePlan = findPlan(p.source) || planCash;
           const destPlan = findPlan(p.destination) || planCash;
-          
           entries.push({
             id: entryId++,
             transactionId: t.id,
             date: p.dueDate || t.date,
             description: `Transferência - ${t.description}`,
-            debit: `${destPlan.code} - ${destPlan.name}`,
-            credit: `${sourcePlan.code} - ${sourcePlan.name}`,
+            debit: getLabel(destPlan),
+            credit: getLabel(sourcePlan),
             value: p.value
           });
         }
@@ -251,77 +278,43 @@ const generateAccountingEntries = (transactions: any[], accountPlans: any[], sal
       return;
     }
 
-    // 1. Initial Recognition (Accrual Basis) for manual transactions
-    // Only if not linked to a sale/purchase (which are handled above)
-    if (!t.linkedTransactionId && t.status === 'completed') {
+    // Recognition (Accrual) for manual transactions
+    if (!t.linkedTransactionId) {
       const categoryPlan = findPlan(t.accountPlanId) || findPlan(t.categoryCode) || findPlan(t.category);
-      const categoryLabel = categoryPlan ? `${categoryPlan.code} - ${categoryPlan.name}` : t.category;
       
-      if (t.transactionTypeId === 'adiantamento_cliente') {
-        const advanceLiabilityPlan = findPlan('Adiantamento de Clientes') || { code: '2.1.05', name: 'Adiantamento de Clientes' };
+      if (t.type === 'income') {
         entries.push({
           id: entryId++,
           transactionId: t.id,
           date: t.date,
-          description: `Recebimento de Adiantamento - ${t.description}`,
-          debit: `${planCash.code} - ${planCash.name}`,
-          credit: `${advanceLiabilityPlan.code} - ${advanceLiabilityPlan.name}`,
-          value: t.value
-        });
-      } else if (t.transactionTypeId === 'adiantamento_fornecedor') {
-        const advanceAssetPlan = findPlan('Adiantamento a Fornecedores') || { code: '1.1.04.02', name: 'Adiantamento a Fornecedores' };
-        entries.push({
-          id: entryId++,
-          transactionId: t.id,
-          date: t.date,
-          description: `Pagamento de Adiantamento - ${t.description}`,
-          debit: `${advanceAssetPlan.code} - ${advanceAssetPlan.name}`,
-          credit: `${planCash.code} - ${planCash.name}`,
-          value: t.value
-        });
-      } else if (t.type === 'income') {
-        // If it's a direct income (not from a sale order), recognize revenue
-        entries.push({
-          id: entryId++,
-          transactionId: t.id,
-          date: t.date,
-          description: `Receita Direta - ${t.description}`,
-          debit: `${planCash.code} - ${planCash.name}`,
-          credit: categoryLabel,
+          description: `Reconhecimento Receita - ${t.description}`,
+          debit: getLabel(planReceivables),
+          credit: getLabel(categoryPlan),
           value: t.value
         });
       } else if (t.type === 'expense') {
-        // If it's a direct expense (not from a purchase order), recognize expense
         entries.push({
           id: entryId++,
           transactionId: t.id,
           date: t.date,
-          description: `Despesa Direta - ${t.description}`,
-          debit: categoryLabel,
-          credit: `${planCash.code} - ${planCash.name}`,
+          description: `Reconhecimento Despesa - ${t.description}`,
+          debit: getLabel(categoryPlan),
+          credit: getLabel(planPayables),
           value: t.value
         });
       }
     }
 
-    // 2. Payments/Receipts (Cash Basis) for linked transactions (Settling AR/AP)
-    // This part is tricky because we need to know if it's settling a previous accrual
-    // For now, let's assume if it has payments, it's a cash movement.
-    // If it's NOT a direct income/expense (handled above), it might be settling AR/AP.
-    // But wait, the current system doesn't clearly link Transactions to Sales Orders in a way that we can easily tell.
-    // So I'll stick to the logic that if it's a Transaction with payments, it's a cash movement.
-
-    // 2. Payments/Receipts (Cash Basis)
+    // Payments (Settlement)
     t.payments.forEach((p: any) => {
       if (p.status === 'completed') {
+        // Avoid double counting if this payment is already represented by another transaction
         const isSettledByOther = transactions.some(other => 
           other.linkedTransactionId === t.id && other.linkedPaymentId === p.id
         );
-        
         if (isSettledByOther) return;
 
-        const bankPlan = findPlan(p.destination || p.source) || planCash;
-        const bankLabel = `${bankPlan.code} - ${bankPlan.name}`;
+        const bankPlan = findPlan(p.destination) || findPlan(p.source) || planCash;
 
         if (t.type === 'income') {
           entries.push({
@@ -329,8 +322,8 @@ const generateAccountingEntries = (transactions: any[], accountPlans: any[], sal
             transactionId: t.id,
             date: p.dueDate || t.date,
             description: `Recebimento - ${t.description}`,
-            debit: bankLabel,
-            credit: `${planReceivables.code} - ${planReceivables.name}`,
+            debit: getLabel(bankPlan),
+            credit: getLabel(planReceivables),
             value: p.value
           });
         } else if (t.type === 'expense') {
@@ -339,8 +332,8 @@ const generateAccountingEntries = (transactions: any[], accountPlans: any[], sal
             transactionId: t.id,
             date: p.dueDate || t.date,
             description: `Pagamento - ${t.description}`,
-            debit: `${planPayables.code} - ${planPayables.name}`,
-            credit: bankLabel,
+            debit: getLabel(planPayables),
+            credit: getLabel(bankPlan),
             value: p.value
           });
         }
@@ -372,7 +365,11 @@ const DREView = ({ transactions, accountPlans, entries, reportLevel, showZeroBal
 
     const getGroupBalance = (prefix: string) => {
       return Object.entries(balances)
-        .filter(([code]) => code.startsWith(prefix))
+        .filter(([code]) => {
+          const plan = accountPlans.find(p => p.code === code);
+          const isAnalytic = plan?.level === 'analitica' || code.split('.').length === 4;
+          return isAnalytic && (code === prefix || code.startsWith(prefix + '.'));
+        })
         .reduce((sum, [_, val]) => sum + val, 0);
     };
 
@@ -392,7 +389,11 @@ const DREView = ({ transactions, accountPlans, entries, reportLevel, showZeroBal
       .filter(p => p.code.split('.').length <= maxParts)
       .map(p => {
         const balance = Object.entries(balances)
-          .filter(([code]) => code.startsWith(p.code))
+          .filter(([code]) => {
+            const plan = accountPlans.find(ap => ap.code === code);
+            const isAnalytic = plan?.level === 'analitica' || code.split('.').length === 4;
+            return isAnalytic && (code === p.code || code.startsWith(p.code + '.'));
+          })
           .reduce((sum, [_, val]) => sum + val, 0);
         return { ...p, balance };
       })
@@ -471,15 +472,7 @@ const BalanceSheetView = ({ transactions, accounts, accountPlans, entries, repor
     const accountBalances: Record<string, number> = {};
     accountPlans.forEach(p => accountBalances[p.code] = 0);
 
-    // Initial balances from accounts (Cash/Bank)
-    accounts.forEach(acc => {
-      const plan = accountPlans.find(p => p.name === acc.name);
-      if (plan) {
-        accountBalances[plan.code] = acc.balance;
-      }
-    });
-
-    // Process entries
+    // Process entries (including Opening Balances generated in generateAccountingEntries)
     entries.forEach(entry => {
       const debitCode = entry.debit.split(' - ')[0];
       const creditCode = entry.credit.split(' - ')[0];
@@ -501,7 +494,11 @@ const BalanceSheetView = ({ transactions, accounts, accountPlans, entries, repor
     // Retained Earnings (Revenue - Costs - Expenses)
     const getGroupBalance = (prefix: string) => {
       return Object.entries(accountBalances)
-        .filter(([code]) => code.startsWith(prefix))
+        .filter(([code]) => {
+          const plan = accountPlans.find(p => p.code === code);
+          const isAnalytic = plan?.level === 'analitica' || code.split('.').length === 4;
+          return isAnalytic && (code === prefix || code.startsWith(prefix + '.'));
+        })
         .reduce((sum, [_, val]) => sum + val, 0);
     };
     const revenue = getGroupBalance('4');
@@ -514,11 +511,15 @@ const BalanceSheetView = ({ transactions, accounts, accountPlans, entries, repor
     const maxParts = levelMap[reportLevel] || 4;
 
     const filteredDetails = accountPlans
-      .filter(p => (p.type === 'ativo' || p.type === 'passivo'))
+      .filter(p => (p.type === 'ativo' || p.type === 'passivo' || p.type === 'patrimonio_liquido'))
       .filter(p => p.code.split('.').length <= maxParts)
       .map(p => {
         const balance = Object.entries(accountBalances)
-          .filter(([code]) => code.startsWith(p.code))
+          .filter(([code]) => {
+            const plan = accountPlans.find(ap => ap.code === code);
+            const isAnalytic = plan?.level === 'analitica' || code.split('.').length === 4;
+            return isAnalytic && (code === p.code || code.startsWith(p.code + '.'));
+          })
           .reduce((sum, [_, val]) => sum + val, 0);
         return { ...p, balance };
       })
@@ -532,8 +533,8 @@ const BalanceSheetView = ({ transactions, accounts, accountPlans, entries, repor
   }, [entries, accountPlans, accounts, reportLevel, showZeroBalances]);
 
   const totalAssets = balances.details.filter(p => p.type === 'ativo' && p.code.split('.').length === 1).reduce((sum, p) => sum + p.balance, 0);
-  const totalLiabilities = balances.details.filter(p => p.type === 'passivo' && p.code.split('.').length === 1 && p.code !== '3').reduce((sum, p) => sum + p.balance, 0);
-  const totalEquity = balances.details.filter(p => p.code === '3').reduce((sum, p) => sum + p.balance, 0) + balances.retainedEarnings;
+  const totalLiabilities = balances.details.filter(p => p.type === 'passivo' && p.code.split('.').length === 1).reduce((sum, p) => sum + p.balance, 0);
+  const totalEquity = balances.details.filter(p => p.type === 'patrimonio_liquido' && p.code.split('.').length === 1).reduce((sum, p) => sum + p.balance, 0) + balances.retainedEarnings;
 
   const hasNegativeBalances = balances.details.some(p => p.balance < -0.01);
 
@@ -593,7 +594,7 @@ const BalanceSheetView = ({ transactions, accounts, accountPlans, entries, repor
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {balances.details.filter(p => p.type === 'passivo').map((p, idx) => {
+              {balances.details.filter(p => p.type === 'passivo' || p.type === 'patrimonio_liquido').map((p, idx) => {
                 const parts = p.code.split('.').length;
                 return (
                   <tr key={idx} className={`${parts === 1 ? 'bg-gray-50 font-bold' : parts === 2 ? 'font-semibold' : ''}`}>
@@ -648,7 +649,11 @@ const TrialBalanceView = ({ entries, accountPlans, reportLevel, showZeroBalances
       .filter(p => p.code.split('.').length <= maxParts)
       .map(p => {
         const relevantBalances = Object.entries(accountBalances)
-          .filter(([code]) => code.startsWith(p.code));
+          .filter(([code]) => {
+            const plan = accountPlans.find(ap => ap.code === code);
+            const isAnalytic = plan?.level === 'analitica' || code.split('.').length === 4;
+            return isAnalytic && (code === p.code || code.startsWith(p.code + '.'));
+          });
         
         const debit = relevantBalances.reduce((sum, [_, val]) => sum + val.debit, 0);
         const credit = relevantBalances.reduce((sum, [_, val]) => sum + val.credit, 0);
@@ -848,7 +853,7 @@ const DFCView = ({ transactions, accounts, accountPlans, entries, reportLevel, s
     // Investing Activities: Cash in/out from accounts with codes starting with 1.2 (Non-current assets)
     // Financing Activities: Cash in/out from accounts with codes starting with 2.2 (Non-current liabilities) or 2.3 (Equity)
 
-    const cashAccounts = accountPlans.filter(p => p.code.startsWith('1.1.01')).map(p => `${p.code} - ${p.name}`);
+    const cashAccounts = accountPlans.filter(p => p.code === '1.1.01' || p.code.startsWith('1.1.01.')).map(p => `${p.code} - ${p.name}`);
 
     let netOperating = 0;
     let netInvesting = 0;
@@ -863,11 +868,18 @@ const DFCView = ({ transactions, accounts, accountPlans, entries, reportLevel, s
         const otherCode = otherSide.split(' - ')[0];
         const value = isDebitCash ? entry.value : -entry.value;
 
-        if (otherCode.startsWith('4') || otherCode.startsWith('5') || otherCode.startsWith('6') || otherCode.startsWith('1.1.02') || otherCode.startsWith('2.1.01')) {
+        const isOperating = otherCode.startsWith('4.') || otherCode.startsWith('5.') || otherCode.startsWith('6.') || 
+                           otherCode.startsWith('1.1.02.') || otherCode.startsWith('2.1.01.') ||
+                           ['4', '5', '6', '1.1.02', '2.1.01'].includes(otherCode);
+        
+        const isInvesting = otherCode.startsWith('1.2.') || otherCode === '1.2';
+        const isFinancing = otherCode.startsWith('2.1.04.') || otherCode === '2.1.04' || otherCode.startsWith('3.') || otherCode === '3';
+
+        if (isOperating) {
           netOperating += value;
-        } else if (otherCode.startsWith('1.2')) {
+        } else if (isInvesting) {
           netInvesting += value;
-        } else if (otherCode.startsWith('2.1.04') || otherCode.startsWith('3')) {
+        } else if (isFinancing) {
           netFinancing += value;
         }
       }
@@ -932,57 +944,42 @@ const DFCView = ({ transactions, accounts, accountPlans, entries, reportLevel, s
 
 const DMPLView = ({ transactions, accountPlans, entries, reportLevel, showZeroBalances }: { transactions: any[], accountPlans: any[], entries: any[], reportLevel: string, showZeroBalances: boolean }) => {
   const dmplData = useMemo(() => {
+    const balances: Record<string, number> = {};
+    accountPlans.forEach(p => balances[p.code] = 0);
+
+    entries.forEach(entry => {
+      const debitCode = entry.debit.split(' - ')[0];
+      const creditCode = entry.credit.split(' - ')[0];
+      
+      const debitPlan = accountPlans.find(p => p.code === debitCode);
+      const creditPlan = accountPlans.find(p => p.code === creditCode);
+
+      if (debitPlan) {
+        if (debitPlan.type === 'ativo' || debitPlan.type === 'despesa') balances[debitCode] += entry.value;
+        else balances[debitCode] -= entry.value;
+      }
+
+      if (creditPlan) {
+        if (creditPlan.type === 'passivo' || creditPlan.type === 'receita') balances[creditCode] += entry.value;
+        else balances[creditCode] -= entry.value;
+      }
+    });
+
     const getGroupBalance = (prefix: string) => {
-      const balances: Record<string, number> = {};
-      accountPlans.forEach(p => balances[p.code] = 0);
-
-      entries.forEach(entry => {
-        const debitCode = entry.debit.split(' - ')[0];
-        const creditCode = entry.credit.split(' - ')[0];
-        
-        const debitPlan = accountPlans.find(p => p.code === debitCode);
-        const creditPlan = accountPlans.find(p => p.code === creditCode);
-
-        if (debitPlan?.code.startsWith(prefix)) {
-          if (debitPlan.type === 'ativo' || debitPlan.type === 'despesa') balances[debitCode] += entry.value;
-          else balances[debitCode] -= entry.value;
-        }
-        if (creditPlan?.code.startsWith(prefix)) {
-          if (creditPlan.type === 'passivo' || creditPlan.type === 'receita') balances[creditCode] += entry.value;
-          else balances[creditCode] -= entry.value;
-        }
-      });
-
       return Object.entries(balances)
-        .filter(([code]) => code.startsWith(prefix))
+        .filter(([code]) => {
+          const plan = accountPlans.find(p => p.code === code);
+          const isAnalytic = plan?.level === 'analitica' || code.split('.').length === 4;
+          return isAnalytic && (code === prefix || code.startsWith(prefix + '.'));
+        })
         .reduce((sum, [_, val]) => sum + val, 0);
     };
 
     const capital = getGroupBalance('3.1');
     const reserves = getGroupBalance('3.4');
     
-    const revenue = accountPlans
-      .filter(p => p.type === 'receita')
-      .reduce((sum, p) => {
-        const b = entries.reduce((s, e) => {
-          if (e.credit.startsWith(p.code)) return s + e.value;
-          if (e.debit.startsWith(p.code)) return s - e.value;
-          return s;
-        }, 0);
-        return sum + b;
-      }, 0);
-
-    const expenses = accountPlans
-      .filter(p => p.type === 'despesa')
-      .reduce((sum, p) => {
-        const b = entries.reduce((s, e) => {
-          if (e.debit.startsWith(p.code)) return s + e.value;
-          if (e.credit.startsWith(p.code)) return s - e.value;
-          return s;
-        }, 0);
-        return sum + b;
-      }, 0);
-
+    const revenue = getGroupBalance('4');
+    const expenses = getGroupBalance('5') + getGroupBalance('6');
     const profit = revenue - expenses;
 
     return { capital, reserves, profit };
@@ -1165,30 +1162,40 @@ const NotesView = () => (
 
 const DLPAView = ({ transactions, accountPlans, entries, reportLevel, showZeroBalances }: { transactions: any[], accountPlans: any[], entries: any[], reportLevel: string, showZeroBalances: boolean }) => {
   const dlpaData = useMemo(() => {
+    const balances: Record<string, number> = {};
+    accountPlans.forEach(p => balances[p.code] = 0);
+
+    entries.forEach(entry => {
+      const debitCode = entry.debit.split(' - ')[0];
+      const creditCode = entry.credit.split(' - ')[0];
+      
+      const debitPlan = accountPlans.find(p => p.code === debitCode);
+      const creditPlan = accountPlans.find(p => p.code === creditCode);
+
+      if (debitPlan) {
+        if (debitPlan.type === 'ativo' || debitPlan.type === 'despesa') balances[debitCode] += entry.value;
+        else balances[debitCode] -= entry.value;
+      }
+
+      if (creditPlan) {
+        if (creditPlan.type === 'passivo' || creditPlan.type === 'receita') balances[creditCode] += entry.value;
+        else balances[creditCode] -= entry.value;
+      }
+    });
+
+    const getGroupBalance = (prefix: string) => {
+      return Object.entries(balances)
+        .filter(([code]) => {
+          const plan = accountPlans.find(p => p.code === code);
+          const isAnalytic = plan?.level === 'analitica' || code.split('.').length === 4;
+          return isAnalytic && (code === prefix || code.startsWith(prefix + '.'));
+        })
+        .reduce((sum, [_, val]) => sum + val, 0);
+    };
+
     const previousBalance = 0;
-    
-    const revenue = accountPlans
-      .filter(p => p.type === 'receita')
-      .reduce((sum, p) => {
-        const b = entries.reduce((s, e) => {
-          if (e.credit.startsWith(p.code)) return s + e.value;
-          if (e.debit.startsWith(p.code)) return s - e.value;
-          return s;
-        }, 0);
-        return sum + b;
-      }, 0);
-
-    const expenses = accountPlans
-      .filter(p => p.type === 'despesa')
-      .reduce((sum, p) => {
-        const b = entries.reduce((s, e) => {
-          if (e.debit.startsWith(p.code)) return s + e.value;
-          if (e.credit.startsWith(p.code)) return s - e.value;
-          return s;
-        }, 0);
-        return sum + b;
-      }, 0);
-
+    const revenue = getGroupBalance('4');
+    const expenses = getGroupBalance('5') + getGroupBalance('6');
     const profit = revenue - expenses;
     const dividends = 0; 
     const finalBalance = previousBalance + profit - dividends;
@@ -1244,28 +1251,39 @@ const DLPAView = ({ transactions, accountPlans, entries, reportLevel, showZeroBa
 
 const DRAView = ({ transactions, accountPlans, entries, reportLevel, showZeroBalances }: { transactions: any[], accountPlans: any[], entries: any[], reportLevel: string, showZeroBalances: boolean }) => {
   const draData = useMemo(() => {
-    const revenue = accountPlans
-      .filter(p => p.type === 'receita')
-      .reduce((sum, p) => {
-        const b = entries.reduce((s, e) => {
-          if (e.credit.startsWith(p.code)) return s + e.value;
-          if (e.debit.startsWith(p.code)) return s - e.value;
-          return s;
-        }, 0);
-        return sum + b;
-      }, 0);
+    const balances: Record<string, number> = {};
+    accountPlans.forEach(p => balances[p.code] = 0);
 
-    const expenses = accountPlans
-      .filter(p => p.type === 'despesa')
-      .reduce((sum, p) => {
-        const b = entries.reduce((s, e) => {
-          if (e.debit.startsWith(p.code)) return s + e.value;
-          if (e.credit.startsWith(p.code)) return s - e.value;
-          return s;
-        }, 0);
-        return sum + b;
-      }, 0);
+    entries.forEach(entry => {
+      const debitCode = entry.debit.split(' - ')[0];
+      const creditCode = entry.credit.split(' - ')[0];
+      
+      const debitPlan = accountPlans.find(p => p.code === debitCode);
+      const creditPlan = accountPlans.find(p => p.code === creditCode);
 
+      if (debitPlan) {
+        if (debitPlan.type === 'ativo' || debitPlan.type === 'despesa') balances[debitCode] += entry.value;
+        else balances[debitCode] -= entry.value;
+      }
+
+      if (creditPlan) {
+        if (creditPlan.type === 'passivo' || creditPlan.type === 'receita') balances[creditCode] += entry.value;
+        else balances[creditCode] -= entry.value;
+      }
+    });
+
+    const getGroupBalance = (prefix: string) => {
+      return Object.entries(balances)
+        .filter(([code]) => {
+          const plan = accountPlans.find(p => p.code === code);
+          const isAnalytic = plan?.level === 'analitica' || code.split('.').length === 4;
+          return isAnalytic && (code === prefix || code.startsWith(prefix + '.'));
+        })
+        .reduce((sum, [_, val]) => sum + val, 0);
+    };
+
+    const revenue = getGroupBalance('4');
+    const expenses = getGroupBalance('5') + getGroupBalance('6');
     const profit = revenue - expenses;
     const otherComprehensiveIncome = 0;
     return { profit, otherComprehensiveIncome };

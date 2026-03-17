@@ -374,6 +374,7 @@ export const TransactionModal: React.FC = () => {
           date: formData.date || '',
           description: formData.description || '',
           category: isTransfer ? null : (formData.category || null),
+          categoryCode: isTransfer ? null : (formData.categoryCode || null),
           value: Number(formData.value) || 0,
           type: formData.type as 'income' | 'expense' | 'transfer',
           transactionTypeId: formData.transactionTypeId || '',
