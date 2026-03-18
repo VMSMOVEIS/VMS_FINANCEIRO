@@ -424,6 +424,58 @@ export const TransactionModal: React.FC = () => {
           }
         }
       }
+      // If this is a new transaction, handle separate launches for discounts and surcharges
+      if (!editingTransaction && formData.payments) {
+        for (const p of formData.payments) {
+          if (p.discount && p.discount > 0) {
+            const discountTransaction: Omit<Transaction, 'id'> = {
+              date: p.dueDate,
+              description: `Desconto: ${formData.description}`,
+              value: p.discount,
+              type: formData.type === 'income' ? 'expense' : 'income',
+              transactionTypeId: formData.type === 'income' ? 'pagamento' : 'recebimento',
+              category: formData.type === 'income' ? 'Descontos Concedidos' : 'Descontos Obtidos',
+              categoryCode: formData.type === 'income' ? '6.2.05' : '4.2.02',
+              documentType: 'Outros',
+              customerName: formData.customerName,
+              payments: [{
+                id: String(Date.now() + Math.random()),
+                method: p.method,
+                value: p.discount,
+                dueDate: p.dueDate,
+                destination: p.destination,
+                status: 'completed'
+              }],
+              status: 'completed'
+            };
+            await addTransaction(discountTransaction);
+          }
+          if (p.surcharge && p.surcharge > 0) {
+            const surchargeTransaction: Omit<Transaction, 'id'> = {
+              date: p.dueDate,
+              description: `Acréscimo/Juros: ${formData.description}`,
+              value: p.surcharge,
+              type: formData.type === 'income' ? 'income' : 'expense',
+              transactionTypeId: formData.type === 'income' ? 'recebimento' : 'pagamento',
+              category: formData.type === 'income' ? 'Juros Recebidos' : 'Juros Pagos',
+              categoryCode: formData.type === 'income' ? '4.2.03' : '6.3.01',
+              documentType: 'Outros',
+              customerName: formData.customerName,
+              payments: [{
+                id: String(Date.now() + Math.random()),
+                method: p.method,
+                value: p.surcharge,
+                dueDate: p.dueDate,
+                destination: p.destination,
+                status: 'completed'
+              }],
+              status: 'completed'
+            };
+            await addTransaction(surchargeTransaction);
+          }
+        }
+      }
+
       closeModal();
     } catch (error) {
       console.error('Error submitting transaction:', error);
@@ -434,7 +486,7 @@ export const TransactionModal: React.FC = () => {
 
   if (!isModalOpen) return null;
 
-  const totalPayments = formData.payments?.reduce((sum, p) => sum + p.value, 0) || 0;
+  const totalPayments = formData.payments?.reduce((sum, p) => sum + p.value + (p.discount || 0) - (p.surcharge || 0), 0) || 0;
   const remainingValue = (formData.value || 0) - totalPayments;
   const isTransfer = formData.transactionTypeId === 'transferencia';
   const isDuplicata = formData.transactionTypeId?.includes('duplicata');
@@ -783,7 +835,29 @@ export const TransactionModal: React.FC = () => {
                       />
                     </div>
 
-                    <div className="col-span-3">
+                    <div className="col-span-1">
+                      <label className="text-xs text-gray-500 block mb-1">Desc.</label>
+                      <input
+                        type="number"
+                        value={payment.discount || ''}
+                        onChange={(e) => updatePayment(index, 'discount', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                        className="w-full text-xs p-2 border rounded bg-green-50"
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div className="col-span-1">
+                      <label className="text-xs text-gray-500 block mb-1">Acrés.</label>
+                      <input
+                        type="number"
+                        value={payment.surcharge || ''}
+                        onChange={(e) => updatePayment(index, 'surcharge', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                        className="w-full text-xs p-2 border rounded bg-red-50"
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div className="col-span-2">
                       <label className="text-xs text-gray-500 block mb-1">Forma</label>
                       <select
                         value={payment.method}
@@ -815,7 +889,7 @@ export const TransactionModal: React.FC = () => {
                       />
                     </div>
 
-                    <div className="col-span-4">
+                    <div className="col-span-3">
                        <label className="text-xs text-gray-500 block mb-1">Destino</label>
                        <select
                          value={payment.destination}

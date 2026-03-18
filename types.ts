@@ -5,7 +5,8 @@ export enum SectorId {
   RH = 'rh',
   PRODUCAO = 'producao',
   VENDAS = 'vendas',
-  COMPRAS = 'compras'
+  COMPRAS = 'compras',
+  PROJETOS = 'projetos'
 }
 
 export enum ModuleId {
@@ -31,6 +32,12 @@ export enum ModuleId {
   RH_RECRUTAMENTO = 'rh_recrutamento',
   RH_TREINAMENTO = 'rh_treinamento',
   RH_BENEFICIOS = 'rh_beneficios',
+  RH_DESEMPENHO = 'rh_desempenho',
+  RH_CLIMA = 'rh_clima',
+  RH_OFFBOARDING = 'rh_offboarding',
+  RH_ORGANOGRAMA = 'rh_organograma',
+  RH_DOCUMENTOS = 'rh_documentos',
+  RH_PORTAL = 'rh_portal',
   RH_PONTO = 'rh_ponto',
   RH_CONFIG = 'rh_config',
   
@@ -61,7 +68,17 @@ export enum ModuleId {
   COMPRAS_PEDIDOS = 'compras_pedidos',
   COMPRAS_FORNECEDORES = 'compras_fornecedores',
   COMPRAS_COTACAO = 'compras_cotacao',
-  COMPRAS_CONFIG = 'compras_config'
+  COMPRAS_CONFIG = 'compras_config',
+
+  // Projetos Modules
+  PROJETOS_DASHBOARD = 'projetos_dashboard',
+  PROJETOS_QUADROS = 'projetos_quadros',
+  PROJETOS_TAREFAS = 'projetos_tarefas',
+  PROJETOS_CALENDARIO = 'projetos_calendario',
+  PROJETOS_TIMELINE = 'projetos_timeline',
+  PROJETOS_TREINAMENTOS = 'projetos_treinamentos',
+  PROJETOS_DOCS = 'projetos_docs',
+  PROJETOS_CONFIG = 'projetos_config'
 }
 
 export interface SubMenuItem {
@@ -97,6 +114,8 @@ export interface Payment {
   id: string;
   method: string; // Changed from literal union to string to support custom methods
   value: number;
+  discount?: number;
+  surcharge?: number;
   dueDate: string;
   bankId?: string; // Linked Bank Account ID
   destination: string; // Account ID or Name
@@ -481,4 +500,135 @@ export interface StockConfigItem {
   id: string;
   name: string;
   type: 'mp_category' | 'location' | 'uom' | 'purchase_unit' | 'consumption_unit' | 'pa_category';
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  description?: string;
+  ownerId: string;
+  members: string[]; // User IDs
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  workspaceId: string;
+  clientId?: string;
+  startDate?: string;
+  deadline?: string;
+  status: 'active' | 'completed' | 'paused';
+  ownerId: string;
+  members: string[]; // User IDs
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Subtask {
+  id: string;
+  taskId: string;
+  title: string;
+  completed: boolean;
+  createdAt: string;
+}
+
+export interface Comment {
+  id: string;
+  taskId: string;
+  userId: string;
+  userName: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface Attachment {
+  id: string;
+  taskId: string;
+  name: string;
+  url: string;
+  type: string; // image, pdf, etc.
+  size: number;
+  createdAt: string;
+}
+
+export interface ProjectLog {
+  id: string;
+  projectId?: string;
+  taskId?: string;
+  userId: string;
+  action: string;
+  details?: string;
+  createdAt: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  status: 'todo' | 'in_progress' | 'review' | 'done' | 'overdue' | 'blocked';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  assigneeId?: string;
+  assigneeName?: string;
+  reporterId?: string;
+  projectId: string;
+  workspaceId: string;
+  boardId?: string;
+  columnId?: string;
+  startDate?: string;
+  deadline?: string;
+  estimatedHours?: number;
+  actualHours?: number;
+  isTimerRunning?: boolean;
+  timerStartedAt?: string;
+  productionStage?: 'corte' | 'montagem' | 'acabamento' | 'entrega';
+  checklist: { id: string; text: string; completed: boolean }[];
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BoardColumn {
+  id: string;
+  title: string;
+  order: number;
+  color?: string;
+}
+
+export interface Board {
+  id: string;
+  title: string;
+  name?: string; // For compatibility
+  description?: string;
+  projectId: string;
+  columns: BoardColumn[];
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface ProjectDoc {
+  id: string;
+  title: string;
+  content: string; // Markdown or HTML
+  authorId: string;
+  boardId?: string;
+  tags?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Training {
+  id: string;
+  title: string;
+  description: string;
+  content?: string;
+  contentUrl?: string;
+  videoUrl?: string;
+  duration?: number | string; // in minutes
+  category: string;
+  authorId?: string;
+  createdAt: string;
+  updatedAt?: string;
 }

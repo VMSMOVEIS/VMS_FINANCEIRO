@@ -6,6 +6,7 @@ import {
   ArrowUpCircle, 
   TrendingUp,
   Landmark, 
+  Calendar,
   PieChart, 
   Scale, 
   FileBarChart, 
@@ -75,6 +76,10 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: ArrowUpCircle,
     subItems: [
       { id: 'cr_geral', label: 'Visão Geral' },
+      { id: 'cr_boletos', label: 'Boletos & Cobrança' },
+      { id: 'cr_cartoes', label: 'Cartões & Adquirência' },
+      { id: 'cr_inadimplencia', label: 'Inadimplência' },
+      { id: 'cr_antecipacao', label: 'Antecipação' },
     ]
   },
   {
@@ -83,6 +88,10 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: ArrowDownCircle,
     subItems: [
       { id: 'cp_geral', label: 'Visão Geral' },
+      { id: 'cp_fornecedores', label: 'Fornecedores' },
+      { id: 'cp_impostos', label: 'Impostos & Taxas' },
+      { id: 'cp_folha', label: 'Folha de Pagamento' },
+      { id: 'cp_reembolsos', label: 'Reembolsos' },
     ]
   },
   {
@@ -144,6 +153,9 @@ export const RH_MENU_ITEMS: MenuItem[] = [
     subItems: [
       { id: 'func_lista', label: 'Lista de Colaboradores' },
       { id: 'func_doc', label: 'Documentação' },
+      { id: 'func_ferias', label: 'Gestão de Férias' },
+      { id: 'func_afastamentos', label: 'Afastamentos' },
+      { id: 'func_desligamentos', label: 'Desligamentos' },
     ]
   },
   {
@@ -154,17 +166,29 @@ export const RH_MENU_ITEMS: MenuItem[] = [
       { id: 'folha_geral', label: 'Processamento' },
       { id: 'folha_holerite', label: 'Holerites' },
       { id: 'folha_encargos', label: 'Encargos Sociais' },
+      { id: 'folha_provisoes', label: 'Provisões' },
+      { id: 'folha_beneficios', label: 'Benefícios em Folha' },
     ]
   },
   {
     id: ModuleId.RH_PONTO,
     label: 'Ponto Eletrônico',
     icon: Clock,
+    subItems: [
+      { id: 'ponto_espelho', label: 'Espelho de Ponto' },
+      { id: 'ponto_ajustes', label: 'Ajustes & Abonos' },
+      { id: 'ponto_banco', label: 'Banco de Horas' },
+    ]
   },
   {
     id: ModuleId.RH_RECRUTAMENTO,
     label: 'Recrutamento & Seleção',
     icon: UserPlus,
+    subItems: [
+      { id: 'recrut_vagas', label: 'Vagas Abertas' },
+      { id: 'recrut_candidatos', label: 'Banco de Talentos' },
+      { id: 'recrut_entrevistas', label: 'Agenda de Entrevistas' },
+    ]
   },
   {
     id: ModuleId.RH_TREINAMENTO,
@@ -249,16 +273,32 @@ export const VENDAS_MENU_ITEMS: MenuItem[] = [
     id: ModuleId.VENDAS_CRM,
     label: 'CRM / Funil',
     icon: Target,
+    subItems: [
+      { id: 'crm_funil', label: 'Funil de Vendas' },
+      { id: 'crm_oportunidades', label: 'Oportunidades' },
+      { id: 'crm_atividades', label: 'Atividades & Tarefas' },
+      { id: 'crm_dashboard', label: 'Dashboard CRM' },
+    ]
   },
   {
     id: ModuleId.VENDAS_LEADS,
     label: 'Gestão de Leads',
     icon: Users,
+    subItems: [
+      { id: 'leads_novos', label: 'Novos Leads' },
+      { id: 'leads_qualificados', label: 'Leads Qualificados' },
+      { id: 'leads_importar', label: 'Importar Leads' },
+    ]
   },
   {
     id: ModuleId.VENDAS_PEDIDOS,
     label: 'Pedidos de Venda',
     icon: ShoppingCart,
+    subItems: [
+      { id: 'pedidos_lista', label: 'Todos os Pedidos' },
+      { id: 'pedidos_faturar', label: 'Aguardando Faturamento' },
+      { id: 'pedidos_entregues', label: 'Entregues' },
+    ]
   },
   {
     id: ModuleId.VENDAS_ORCAMENTOS,
@@ -297,20 +337,77 @@ export const COMPRAS_MENU_ITEMS: MenuItem[] = [
     id: ModuleId.COMPRAS_PEDIDOS,
     label: 'Pedidos de Compra',
     icon: ShoppingCart,
+    subItems: [
+      { id: 'compras_pedidos_lista', label: 'Lista de Pedidos' },
+      { id: 'compras_pedidos_novos', label: 'Novo Pedido' },
+      { id: 'compras_pedidos_receber', label: 'Recebimento de Mercadoria' },
+    ]
   },
   {
     id: ModuleId.COMPRAS_COTACAO,
     label: 'Cotações de Preço',
     icon: FileSpreadsheet,
+    subItems: [
+      { id: 'compras_cot_ativas', label: 'Cotações Ativas' },
+      { id: 'compras_cot_historico', label: 'Histórico de Cotações' },
+    ]
   },
   {
     id: ModuleId.COMPRAS_FORNECEDORES,
     label: 'Gestão de Fornecedores',
     icon: Users,
+    subItems: [
+      { id: 'compras_forn_lista', label: 'Lista de Fornecedores' },
+      { id: 'compras_forn_aval', label: 'Avaliação de Desempenho' },
+      { id: 'compras_forn_contratos', label: 'Contratos' },
+    ]
   },
   {
     id: ModuleId.COMPRAS_CONFIG,
     label: 'Configurações Compras',
+    icon: Settings2,
+  }
+];
+
+export const PROJETOS_MENU_ITEMS: MenuItem[] = [
+  {
+    id: ModuleId.PROJETOS_DASHBOARD,
+    label: 'Dashboard Projetos',
+    icon: LayoutDashboard,
+  },
+  {
+    id: ModuleId.PROJETOS_QUADROS,
+    label: 'Quadros (Boards)',
+    icon: ClipboardList,
+  },
+  {
+    id: ModuleId.PROJETOS_CALENDARIO,
+    label: 'Calendário',
+    icon: Calendar,
+  },
+  {
+    id: ModuleId.PROJETOS_TIMELINE,
+    label: 'Timeline (Gantt)',
+    icon: Clock,
+  },
+  {
+    id: ModuleId.PROJETOS_TAREFAS,
+    label: 'Minhas Tarefas',
+    icon: CheckCircle2,
+  },
+  {
+    id: ModuleId.PROJETOS_DOCS,
+    label: 'Documentos & Docs',
+    icon: FileText,
+  },
+  {
+    id: ModuleId.PROJETOS_TREINAMENTOS,
+    label: 'Treinamentos',
+    icon: GraduationCap,
+  },
+  {
+    id: ModuleId.PROJETOS_CONFIG,
+    label: 'Configurações',
     icon: Settings2,
   }
 ];
