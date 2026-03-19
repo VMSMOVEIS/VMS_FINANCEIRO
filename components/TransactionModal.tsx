@@ -494,7 +494,7 @@ export const TransactionModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 sticky top-0 z-10">
           <h3 className="text-lg font-bold text-gray-800">
             {editingTransaction ? 'Editar Lançamento' : 'Novo Lançamento'}
@@ -824,18 +824,19 @@ export const TransactionModal: React.FC = () => {
                 {formData.payments?.map((payment, index) => {
                   if (payment.method === 'Adiantamento') return null;
                   return (
-                  <div key={payment.id} className="grid grid-cols-12 gap-2 items-end">
+                  <div key={payment.id} className="grid grid-cols-12 gap-2 items-end relative pr-8">
                     <div className="col-span-2">
                       <label className="text-xs text-gray-500 block mb-1">Valor</label>
                       <input
                         type="number"
                         value={payment.value || ''}
                         onChange={(e) => updatePayment(index, 'value', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                        className="w-full text-xs p-2 border rounded"
+                        className="w-full text-xs p-2 border rounded disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        disabled={(payment.discount || 0) > 0 || (payment.surcharge || 0) > 0}
                       />
                     </div>
 
-                    <div className="col-span-1">
+                    <div className="col-span-2">
                       <label className="text-xs text-gray-500 block mb-1">Desc.</label>
                       <input
                         type="number"
@@ -846,7 +847,7 @@ export const TransactionModal: React.FC = () => {
                       />
                     </div>
 
-                    <div className="col-span-1">
+                    <div className="col-span-2">
                       <label className="text-xs text-gray-500 block mb-1">Acrés.</label>
                       <input
                         type="number"
@@ -889,7 +890,7 @@ export const TransactionModal: React.FC = () => {
                       />
                     </div>
 
-                    <div className="col-span-3">
+                    <div className="col-span-2">
                        <label className="text-xs text-gray-500 block mb-1">Destino</label>
                        <select
                          value={payment.destination}
@@ -907,7 +908,7 @@ export const TransactionModal: React.FC = () => {
                        </select>
                     </div>
 
-                    <div className="col-span-1 flex justify-center pb-1">
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-full pl-2">
                       <button 
                         type="button"
                         onClick={() => removePayment(index)}

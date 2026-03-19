@@ -186,12 +186,38 @@ export const SalesQuotes: React.FC = () => {
           }
         });
 
+        const materialName = inventory.find(item => 
+          item.type === 'mp' && 
+          (item.category?.toLowerCase().includes('mdf') || item.category?.toLowerCase().includes('chapa')) &&
+          item.name.toLowerCase().includes(`${Math.round(thickness)}mm`)
+        )?.name || '';
+
+        const edgeType = materialName ? (inventory.find(item => 
+          item.type === 'mp' && 
+          item.category?.toLowerCase().includes('fita') &&
+          item.name.toLowerCase().includes(materialName.split(' ')[0]) // Match by first word of material name
+        )?.name || '') : '';
+
+        let cleanName = mesh.name || `Peça ${index + 1}`;
+        // Remove "Mesh1", "Mesh2", etc.
+        cleanName = cleanName.replace(/Mesh\d+/gi, '').trim();
+        // Remove "Model" from the end
+        cleanName = cleanName.replace(/Model$/gi, '').trim();
+        // If it's empty after cleaning, use a default
+        if (!cleanName) cleanName = `Peça ${index + 1}`;
+
         pieces.push({
-          name: mesh.name || `Peça ${index + 1}`,
-          width: width,
-          height: height,
-          thickness: thickness,
-          tape: tape
+          material: materialName,
+          name: cleanName,
+          length: Math.round(height),
+          width: Math.round(width),
+          thickness: Math.round(thickness),
+          quantity: 1,
+          edgeC1: tape[0],
+          edgeC2: tape[1],
+          edgeL1: tape[2],
+          edgeL2: tape[3],
+          edgeType: edgeType
         });
       });
 
@@ -1294,173 +1320,189 @@ export const SalesQuotes: React.FC = () => {
               ) : (
                 <>
                   <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="bg-gray-100 border-b border-gray-200">
-                      <th className="px-3 py-3 font-bold text-gray-600 uppercase">Material</th>
-                      <th className="px-3 py-3 font-bold text-gray-600 uppercase">Nome da Peça</th>
-                      <th className="px-3 py-3 font-bold text-gray-600 uppercase">Comp (mm)</th>
-                      <th className="px-3 py-3 font-bold text-gray-600 uppercase">Larg (mm)</th>
-                      <th className="px-3 py-3 font-bold text-gray-600 uppercase">Esp (mm)</th>
-                      <th className="px-3 py-3 font-bold text-gray-600 uppercase">Qtd</th>
-                      <th className="px-3 py-3 font-bold text-gray-600 uppercase text-center">Fitas (C)</th>
-                      <th className="px-3 py-3 font-bold text-gray-600 uppercase text-center">Fitas (L)</th>
-                      <th className="px-3 py-3 font-bold text-gray-600 uppercase">Tipo Fita</th>
-                      <th className="px-3 py-3 font-bold text-gray-600 uppercase">Total Fita (m)</th>
-                      <th className="px-3 py-3 font-bold text-gray-600 uppercase">Chapas (m²)</th>
-                      <th className="px-3 py-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {extractedPieces.map((piece, idx) => (
-                      <tr key={idx} className="bg-white hover:bg-blue-50/30 transition-colors">
-                        <td className="px-2 py-2">
-                          <input 
-                            type="text" 
-                            className="w-full px-2 py-1 border border-gray-200 rounded outline-none focus:ring-1 focus:ring-blue-500"
-                            value={piece.material}
-                            onChange={(e) => {
-                              const newPieces = [...extractedPieces];
-                              newPieces[idx].material = e.target.value;
-                              setExtractedPieces(newPieces);
-                            }}
-                          />
-                        </td>
-                        <td className="px-2 py-2">
-                          <input 
-                            type="text" 
-                            className="w-full px-2 py-1 border border-gray-200 rounded outline-none focus:ring-1 focus:ring-blue-500"
-                            value={piece.name}
-                            onChange={(e) => {
-                              const newPieces = [...extractedPieces];
-                              newPieces[idx].name = e.target.value;
-                              setExtractedPieces(newPieces);
-                            }}
-                          />
-                        </td>
-                        <td className="px-2 py-2">
-                          <input 
-                            type="number" 
-                            className="w-16 px-2 py-1 border border-gray-200 rounded outline-none focus:ring-1 focus:ring-blue-500"
-                            value={piece.length}
-                            onChange={(e) => {
-                              const newPieces = [...extractedPieces];
-                              newPieces[idx].length = parseFloat(e.target.value) || 0;
-                              setExtractedPieces(newPieces);
-                            }}
-                          />
-                        </td>
-                        <td className="px-2 py-2">
-                          <input 
-                            type="number" 
-                            className="w-16 px-2 py-1 border border-gray-200 rounded outline-none focus:ring-1 focus:ring-blue-500"
-                            value={piece.width}
-                            onChange={(e) => {
-                              const newPieces = [...extractedPieces];
-                              newPieces[idx].width = parseFloat(e.target.value) || 0;
-                              setExtractedPieces(newPieces);
-                            }}
-                          />
-                        </td>
-                        <td className="px-2 py-2">
-                          <input 
-                            type="number" 
-                            className="w-12 px-2 py-1 border border-gray-200 rounded outline-none focus:ring-1 focus:ring-blue-500"
-                            value={piece.thickness}
-                            onChange={(e) => {
-                              const newPieces = [...extractedPieces];
-                              newPieces[idx].thickness = parseFloat(e.target.value) || 0;
-                              setExtractedPieces(newPieces);
-                            }}
-                          />
-                        </td>
-                        <td className="px-2 py-2">
-                          <input 
-                            type="number" 
-                            className="w-12 px-2 py-1 border border-gray-200 rounded outline-none focus:ring-1 focus:ring-blue-500"
-                            value={piece.quantity}
-                            onChange={(e) => {
-                              const newPieces = [...extractedPieces];
-                              newPieces[idx].quantity = parseInt(e.target.value) || 0;
-                              setExtractedPieces(newPieces);
-                            }}
-                          />
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className="flex justify-center gap-1">
-                            <input 
-                              type="checkbox" 
-                              checked={piece.edgeC1}
-                              onChange={(e) => {
-                                const newPieces = [...extractedPieces];
-                                newPieces[idx].edgeC1 = e.target.checked;
-                                setExtractedPieces(newPieces);
-                              }}
-                            />
-                            <input 
-                              type="checkbox" 
-                              checked={piece.edgeC2}
-                              onChange={(e) => {
-                                const newPieces = [...extractedPieces];
-                                newPieces[idx].edgeC2 = e.target.checked;
-                                setExtractedPieces(newPieces);
-                              }}
-                            />
-                          </div>
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className="flex justify-center gap-1">
-                            <input 
-                              type="checkbox" 
-                              checked={piece.edgeL1}
-                              onChange={(e) => {
-                                const newPieces = [...extractedPieces];
-                                newPieces[idx].edgeL1 = e.target.checked;
-                                setExtractedPieces(newPieces);
-                              }}
-                            />
-                            <input 
-                              type="checkbox" 
-                              checked={piece.edgeL2}
-                              onChange={(e) => {
-                                const newPieces = [...extractedPieces];
-                                newPieces[idx].edgeL2 = e.target.checked;
-                                setExtractedPieces(newPieces);
-                              }}
-                            />
-                          </div>
-                        </td>
-                        <td className="px-2 py-2">
-                          <input 
-                            type="text" 
-                            className="w-full px-2 py-1 border border-gray-200 rounded outline-none focus:ring-1 focus:ring-blue-500"
-                            value={piece.edgeType}
-                            onChange={(e) => {
-                              const newPieces = [...extractedPieces];
-                              newPieces[idx].edgeType = e.target.value;
-                              setExtractedPieces(newPieces);
-                            }}
-                          />
-                        </td>
-                        <td className="px-2 py-2 font-mono text-gray-500">
-                          {(( (piece.edgeC1 ? piece.length : 0) + (piece.edgeC2 ? piece.length : 0) + (piece.edgeL1 ? piece.width : 0) + (piece.edgeL2 ? piece.width : 0) ) * piece.quantity / 1000).toFixed(2)}m
-                        </td>
-                        <td className="px-2 py-2 font-mono text-gray-500">
-                          {(piece.length * piece.width * piece.quantity / 1000000).toFixed(2)}m²
-                        </td>
-                        <td className="px-2 py-2">
-                          <button 
-                            onClick={() => setExtractedPieces(prev => prev.filter((_, i) => i !== idx))}
-                            className="text-gray-400 hover:text-red-500 transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    <datalist id="material-options">
+                      {inventory.filter(item => item.type === 'mp' && (item.category?.toLowerCase().includes('mdf') || item.category?.toLowerCase().includes('chapa'))).map(item => (
+                        <option key={item.id} value={item.name} />
+                      ))}
+                    </datalist>
+                    <datalist id="edge-options">
+                      {inventory.filter(item => item.type === 'mp' && item.category?.toLowerCase().includes('fita')).map(item => (
+                        <option key={item.id} value={item.name} />
+                      ))}
+                    </datalist>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-[1400px] w-full text-left text-xs">
+                        <thead>
+                          <tr className="bg-gray-100 border-b border-gray-200">
+                            <th className="px-3 py-3 font-bold text-gray-600 uppercase w-32">Material</th>
+                            <th className="px-3 py-3 font-bold text-gray-600 uppercase w-48">Nome da Peça</th>
+                            <th className="px-3 py-3 font-bold text-gray-600 uppercase w-20">Comp (mm)</th>
+                            <th className="px-3 py-3 font-bold text-gray-600 uppercase w-20">Larg (mm)</th>
+                            <th className="px-3 py-3 font-bold text-gray-600 uppercase w-16">Esp (mm)</th>
+                            <th className="px-3 py-3 font-bold text-gray-600 uppercase w-16">Qtd</th>
+                            <th className="px-3 py-3 font-bold text-gray-600 uppercase text-center w-20">Fitas (C)</th>
+                            <th className="px-3 py-3 font-bold text-gray-600 uppercase text-center w-20">Fitas (L)</th>
+                            <th className="px-3 py-3 font-bold text-gray-600 uppercase w-32">Tipo Fita</th>
+                            <th className="px-3 py-3 font-bold text-gray-600 uppercase w-24">Total Fita (m)</th>
+                            <th className="px-3 py-3 font-bold text-gray-600 uppercase w-24">Chapas (m²)</th>
+                            <th className="px-3 py-3 w-10"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {extractedPieces.map((piece, idx) => (
+                            <tr key={idx} className="bg-white hover:bg-blue-50/30 transition-colors">
+                              <td className="px-2 py-2 w-32">
+                                <input 
+                                  type="text" 
+                                  className="w-full px-2 py-1 border border-gray-200 rounded outline-none focus:ring-1 focus:ring-blue-500"
+                                  value={piece.material}
+                                  title={piece.material}
+                                  list="material-options"
+                                  onChange={(e) => {
+                                    const newPieces = [...extractedPieces];
+                                    newPieces[idx].material = e.target.value;
+                                    setExtractedPieces(newPieces);
+                                  }}
+                                />
+                              </td>
+                              <td className="px-2 py-2 w-48">
+                                <input 
+                                  type="text" 
+                                  className="w-full px-2 py-1 border border-gray-200 rounded outline-none focus:ring-1 focus:ring-blue-500"
+                                  value={piece.name}
+                                  title={piece.name}
+                                  onChange={(e) => {
+                                    const newPieces = [...extractedPieces];
+                                    newPieces[idx].name = e.target.value;
+                                    setExtractedPieces(newPieces);
+                                  }}
+                                />
+                              </td>
+                              <td className="px-2 py-2 w-20">
+                                <input 
+                                  type="number" 
+                                  className="w-full px-2 py-1 border border-gray-200 rounded outline-none focus:ring-1 focus:ring-blue-500"
+                                  value={piece.length}
+                                  onChange={(e) => {
+                                    const newPieces = [...extractedPieces];
+                                    newPieces[idx].length = parseFloat(e.target.value) || 0;
+                                    setExtractedPieces(newPieces);
+                                  }}
+                                />
+                              </td>
+                              <td className="px-2 py-2 w-20">
+                                <input 
+                                  type="number" 
+                                  className="w-full px-2 py-1 border border-gray-200 rounded outline-none focus:ring-1 focus:ring-blue-500"
+                                  value={piece.width}
+                                  onChange={(e) => {
+                                    const newPieces = [...extractedPieces];
+                                    newPieces[idx].width = parseFloat(e.target.value) || 0;
+                                    setExtractedPieces(newPieces);
+                                  }}
+                                />
+                              </td>
+                              <td className="px-2 py-2 w-16">
+                                <input 
+                                  type="number" 
+                                  className="w-full px-2 py-1 border border-gray-200 rounded outline-none focus:ring-1 focus:ring-blue-500"
+                                  value={piece.thickness}
+                                  onChange={(e) => {
+                                    const newPieces = [...extractedPieces];
+                                    newPieces[idx].thickness = parseFloat(e.target.value) || 0;
+                                    setExtractedPieces(newPieces);
+                                  }}
+                                />
+                              </td>
+                              <td className="px-2 py-2 w-16">
+                                <input 
+                                  type="number" 
+                                  className="w-full px-2 py-1 border border-gray-200 rounded outline-none focus:ring-1 focus:ring-blue-500"
+                                  value={piece.quantity}
+                                  onChange={(e) => {
+                                    const newPieces = [...extractedPieces];
+                                    newPieces[idx].quantity = parseInt(e.target.value) || 0;
+                                    setExtractedPieces(newPieces);
+                                  }}
+                                />
+                              </td>
+                              <td className="px-2 py-2 w-20">
+                                <div className="flex justify-center gap-1">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={piece.edgeC1}
+                                    onChange={(e) => {
+                                      const newPieces = [...extractedPieces];
+                                      newPieces[idx].edgeC1 = e.target.checked;
+                                      setExtractedPieces(newPieces);
+                                    }}
+                                  />
+                                  <input 
+                                    type="checkbox" 
+                                    checked={piece.edgeC2}
+                                    onChange={(e) => {
+                                      const newPieces = [...extractedPieces];
+                                      newPieces[idx].edgeC2 = e.target.checked;
+                                      setExtractedPieces(newPieces);
+                                    }}
+                                  />
+                                </div>
+                              </td>
+                              <td className="px-2 py-2 w-20">
+                                <div className="flex justify-center gap-1">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={piece.edgeL1}
+                                    onChange={(e) => {
+                                      const newPieces = [...extractedPieces];
+                                      newPieces[idx].edgeL1 = e.target.checked;
+                                      setExtractedPieces(newPieces);
+                                    }}
+                                  />
+                                  <input 
+                                    type="checkbox" 
+                                    checked={piece.edgeL2}
+                                    onChange={(e) => {
+                                      const newPieces = [...extractedPieces];
+                                      newPieces[idx].edgeL2 = e.target.checked;
+                                      setExtractedPieces(newPieces);
+                                    }}
+                                  />
+                                </div>
+                              </td>
+                              <td className="px-2 py-2 w-32">
+                                <input 
+                                  type="text" 
+                                  className="w-full px-2 py-1 border border-gray-200 rounded outline-none focus:ring-1 focus:ring-blue-500"
+                                  value={piece.edgeType}
+                                  list="edge-options"
+                                  onChange={(e) => {
+                                    const newPieces = [...extractedPieces];
+                                    newPieces[idx].edgeType = e.target.value;
+                                    setExtractedPieces(newPieces);
+                                  }}
+                                />
+                              </td>
+                              <td className="px-2 py-2 font-mono text-gray-500 w-24">
+                                {(( (piece.edgeC1 ? piece.length : 0) + (piece.edgeC2 ? piece.length : 0) + (piece.edgeL1 ? piece.width : 0) + (piece.edgeL2 ? piece.width : 0) ) * piece.quantity / 1000).toFixed(2)}m
+                              </td>
+                              <td className="px-2 py-2 font-mono text-gray-500 w-24">
+                                {(piece.length * piece.width * piece.quantity / 1000000).toFixed(2)}m²
+                              </td>
+                              <td className="px-2 py-2 w-10">
+                                <button 
+                                  onClick={() => setExtractedPieces(prev => prev.filter((_, i) => i !== idx))}
+                                  className="text-gray-400 hover:text-red-500 transition-colors"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
               
               <button 
                 onClick={() => setExtractedPieces([...extractedPieces, { material: '', name: '', length: 0, width: 0, thickness: 15, quantity: 1, edgeC1: false, edgeC2: false, edgeL1: false, edgeL2: false, edgeType: '' }])}
@@ -1497,14 +1539,63 @@ export const SalesQuotes: React.FC = () => {
                 </button>
                 <button 
                   onClick={() => {
-                    // Logic to add to BOM
-                    const bomItemsToAdd: BOMItem[] = extractedPieces.map(p => ({
-                      id: Math.random().toString(36).substr(2, 9),
-                      materialName: `${p.material} - ${p.name} (${p.length}x${p.width}x${p.thickness})`,
-                      quantity: p.quantity,
-                      unit: 'UN',
-                      cost: 0
-                    }));
+                    const materialGroups: { [key: string]: { area: number, cost: number, time: number, unit: string } } = {};
+                    const edgeGroups: { [key: string]: { length: number, cost: number, time: number, unit: string } } = {};
+
+                    extractedPieces.forEach(p => {
+                      // Group by material (sheets)
+                      if (p.material) {
+                        const item = inventory.find(i => i.name === p.material);
+                        const area = (p.length * p.width * p.quantity) / 1000000; // m2
+                        const cost = (item?.estimatedCost || item?.averageCost || item?.standardCost || 0);
+                        const time = (item?.productionTimePerUnit || 0);
+                        
+                        if (!materialGroups[p.material]) {
+                          materialGroups[p.material] = { area: 0, cost, time, unit: item?.unit || 'm²' };
+                        }
+                        materialGroups[p.material].area += area;
+                      }
+
+                      // Group by edgeType (edge banding)
+                      if (p.edgeType && (p.edgeC1 || p.edgeC2 || p.edgeL1 || p.edgeL2)) {
+                        const item = inventory.find(i => i.name === p.edgeType);
+                        const edgeLength = (( (p.edgeC1 ? p.length : 0) + (p.edgeC2 ? p.length : 0) + (p.edgeL1 ? p.width : 0) + (p.edgeL2 ? p.width : 0) ) * p.quantity) / 1000; // m
+                        const cost = (item?.estimatedCost || item?.averageCost || item?.standardCost || 0);
+                        const time = (item?.productionTimePerUnit || 0);
+
+                        if (!edgeGroups[p.edgeType]) {
+                          edgeGroups[p.edgeType] = { length: 0, cost, time, unit: item?.unit || 'm' };
+                        }
+                        edgeGroups[p.edgeType].length += edgeLength;
+                      }
+                    });
+
+                    const bomItemsToAdd: BOMItem[] = [];
+
+                    // Add material summaries
+                    Object.entries(materialGroups).forEach(([name, data]) => {
+                      bomItemsToAdd.push({
+                        id: Math.random().toString(36).substr(2, 9),
+                        materialName: `Material: ${name}`,
+                        quantity: Number(data.area.toFixed(2)),
+                        unit: data.unit,
+                        cost: data.cost,
+                        productionTime: data.time // Time per unit
+                      });
+                    });
+
+                    // Add edge summaries
+                    Object.entries(edgeGroups).forEach(([name, data]) => {
+                      bomItemsToAdd.push({
+                        id: Math.random().toString(36).substr(2, 9),
+                        materialName: `Fita: ${name}`,
+                        quantity: Number(data.length.toFixed(2)),
+                        unit: data.unit,
+                        cost: data.cost,
+                        productionTime: data.time // Time per unit
+                      });
+                    });
+
                     setFormData({
                       ...formData,
                       bomItems: [...(formData.bomItems || []), ...bomItemsToAdd]
@@ -1629,11 +1720,11 @@ export const SalesQuotes: React.FC = () => {
                           <tr key={idx} className="hover:bg-white transition-colors">
                             <td className="px-4 py-3 font-medium text-gray-700">{piece.name}</td>
                             <td className="px-4 py-3 text-center text-gray-500 tabular-nums">
-                              {Math.round(piece.width)} x {Math.round(piece.height)} x {Math.round(piece.thickness)}
+                              {Math.round(piece.width)} x {Math.round(piece.length)} x {Math.round(piece.thickness)}
                             </td>
                             <td className="px-4 py-3 text-center">
                               <div className="flex justify-center gap-1">
-                                {piece.tape.map((t: boolean, i: number) => (
+                                {[piece.edgeC1, piece.edgeC2, piece.edgeL1, piece.edgeL2].map((t: boolean, i: number) => (
                                   <div 
                                     key={i} 
                                     className={`w-2 h-2 rounded-full ${t ? 'bg-emerald-500' : 'bg-gray-200'}`}
@@ -1655,7 +1746,7 @@ export const SalesQuotes: React.FC = () => {
                                     discount: 0,
                                     unitPrice: 0,
                                     totalPrice: 0,
-                                    notes: `Dim: ${Math.round(piece.width)}x${Math.round(piece.height)}x${Math.round(piece.thickness)}mm | Fitas: ${piece.tape.map((t: boolean) => t ? 'S' : 'N').join('')}`
+                                    notes: `Dim: ${Math.round(piece.width)}x${Math.round(piece.length)}x${Math.round(piece.thickness)}mm | Fitas: ${[piece.edgeC1, piece.edgeC2, piece.edgeL1, piece.edgeL2].map((t: boolean) => t ? 'S' : 'N').join('')}`
                                   };
                                   setFormData(prev => ({
                                     ...prev,
@@ -1686,7 +1777,7 @@ export const SalesQuotes: React.FC = () => {
                         discount: 0,
                         unitPrice: 0,
                         totalPrice: 0,
-                        notes: `Dim: ${Math.round(piece.width)}x${Math.round(piece.height)}x${Math.round(piece.thickness)}mm | Fitas: ${piece.tape.map((t: boolean) => t ? 'S' : 'N').join('')}`
+                        notes: `Dim: ${Math.round(piece.width)}x${Math.round(piece.length)}x${Math.round(piece.thickness)}mm | Fitas: ${[piece.edgeC1, piece.edgeC2, piece.edgeL1, piece.edgeL2].map((t: boolean) => t ? 'S' : 'N').join('')}`
                       }));
                       setFormData(prev => ({
                         ...prev,

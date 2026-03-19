@@ -32,7 +32,8 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
     updateInventoryItem, 
     deleteInventoryItem,
     finalizeProcess,
-    addStockConfigItem
+    addStockConfigItem,
+    productionOrders
   } = useProduction();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -42,6 +43,7 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [showActions, setShowActions] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'sob_medida' | 'pronta_entrega'>('sob_medida');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban');
 
   const [formData, setFormData] = useState<Omit<InventoryItem, 'id'>>({
     code: '',
@@ -96,13 +98,41 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
       if (activeSubItem === 'estoque_pa') {
         return matchesSearch && item.type === 'pa' && item.stockCategory === activeTab;
       }
-      if (activeSubItem === 'estoque_processo') {
-        return matchesSearch && item.type === 'processo' && item.stockCategory === activeTab;
-      }
+      if (activeSubItem === 'estoque_processo') return false; // Handled by filteredOrders
       
       return matchesSearch;
     });
   }, [activeSubItem, searchTerm, inventory, activeTab]);
+
+  const filteredOrders = useMemo(() => {
+    if (activeSubItem !== 'estoque_processo') return [];
+    return productionOrders.filter(order => {
+      const matchesSearch = order.productName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                           order.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           order.id.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const isInProcess = order.status === 'in_production' || order.status === 'waiting';
+      
+      // Filter by activeTab (sob_medida vs pronta_entrega)
+      // We look up the corresponding PA item to determine its category
+      const paItem = inventory.find(item => item.name === order.productName && item.type === 'pa');
+      const matchesTab = paItem ? paItem.stockCategory === activeTab : true;
+
+      return matchesSearch && isInProcess && matchesTab;
+    });
+  }, [activeSubItem, searchTerm, productionOrders, inventory, activeTab]);
+
+  const getStockStatus = (item: InventoryItem) => {
+    const hasActiveOP = productionOrders.some(op => 
+      op.productName === item.name && (op.status === 'in_production' || op.status === 'waiting')
+    );
+
+    if (item.quantity === 0) return { label: 'Sem estoque', color: 'bg-red-100 text-red-700' };
+    if (hasActiveOP) return { label: 'Em produção', color: 'bg-blue-100 text-blue-700' };
+    if (item.quantity <= (item.minStock || 0)) return { label: 'Estoque está baixo', color: 'bg-orange-100 text-orange-700' };
+    if (item.quantity <= (item.maxStock || Infinity)) return { label: 'Estoque confortável', color: 'bg-emerald-100 text-emerald-700' };
+    return { label: 'Estoque excessivo', color: 'bg-purple-100 text-purple-700' };
+  };
 
   const calculateDiscount = (entryDate: string) => {
     const entry = new Date(entryDate);
@@ -288,27 +318,54 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
 
       {/* Tabs for PA and Processo */}
       {(activeSubItem === 'estoque_pa' || activeSubItem === 'estoque_processo') && (
-        <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
-          <button
-            onClick={() => setActiveTab('sob_medida')}
-            className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'sob_medida' 
-                ? 'bg-white text-orange-600 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Sob Medida
-          </button>
-          <button
-            onClick={() => setActiveTab('pronta_entrega')}
-            className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
-              activeTab === 'pronta_entrega' 
-                ? 'bg-white text-orange-600 shadow-sm' 
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Pronta Entrega
-          </button>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex gap-2 bg-gray-100 p-1 rounded-xl w-fit">
+            <button
+              onClick={() => setActiveTab('sob_medida')}
+              className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                activeTab === 'sob_medida' 
+                  ? 'bg-white text-orange-600 shadow-sm' 
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Sob Medida
+            </button>
+            <button
+              onClick={() => setActiveTab('pronta_entrega')}
+              className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${
+                activeTab === 'pronta_entrega' 
+                  ? 'bg-white text-orange-600 shadow-sm' 
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Pronta Entrega
+            </button>
+          </div>
+
+          {activeSubItem === 'estoque_processo' && (
+            <div className="flex gap-2 bg-gray-100 p-1 rounded-xl w-fit">
+              <button
+                onClick={() => setViewMode('kanban')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                  viewMode === 'kanban' 
+                    ? 'bg-white text-orange-600 shadow-sm' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Kanban
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                  viewMode === 'list' 
+                    ? 'bg-white text-orange-600 shadow-sm' 
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Lista
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -330,143 +387,234 @@ export const ProductionInventory: React.FC<ProductionInventoryProps> = ({ active
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Código</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">{isMP ? 'Material' : 'Produto'}</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Categoria</th>
-                {isMP && (
-                  <>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Marca</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Modelo</th>
-                  </>
-                )}
-                {!isMP && (
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Marca</th>
-                )}
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Saldo</th>
-                {isMP && (
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">T. Produção</th>
-                )}
-                {!isMP && (
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Preço de Venda</th>
-                )}
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filteredItems.map(item => {
-                const discount = calculateDiscount(item.entryDate);
-                return (
-                  <tr 
-                    key={item.id} 
-                    className="hover:bg-gray-50 transition-colors group cursor-pointer"
-                    onClick={() => handleOpenModal(item)}
-                  >
-                    <td className="px-6 py-4">
-                      <span className="text-sm font-mono text-gray-600 font-bold">{item.code || '-'}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600 shrink-0">
-                          {item.type === 'mp' ? <Layers size={20} /> : item.type === 'pa' ? <Box size={20} /> : <History size={20} />}
+          {activeSubItem === 'estoque_processo' && viewMode === 'kanban' ? (
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-gray-50/50">
+              {['waiting', 'in_production'].map(status => (
+                <div key={status} className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between px-2">
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${status === 'waiting' ? 'bg-orange-500' : 'bg-blue-500'}`} />
+                      {status === 'waiting' ? 'Aguardando' : 'Em Produção'}
+                    </h3>
+                    <span className="bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      {filteredOrders.filter(o => o.status === status).length}
+                    </span>
+                  </div>
+                  
+                  <div className="flex flex-col gap-3">
+                    {filteredOrders.filter(o => o.status === status).map(order => (
+                      <div key={order.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer group">
+                        <div className="flex justify-between items-start mb-3">
+                          <span className="text-[10px] font-bold text-gray-400 font-mono uppercase">#{order.id.slice(0, 8)}</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            order.priority === 'high' ? 'bg-red-100 text-red-600' : 
+                            order.priority === 'medium' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'
+                          }`}>
+                            {order.priority}
+                          </span>
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-gray-900">{item.name}</p>
-                          <p className="text-[10px] text-gray-500 font-mono uppercase truncate max-w-[100px]">{item.id}</p>
+                        <h4 className="text-sm font-bold text-gray-900 mb-1 group-hover:text-orange-600 transition-colors">{order.productName}</h4>
+                        <p className="text-xs text-gray-500 mb-3 flex items-center gap-1">
+                          <Tag size={12} /> {order.client}
+                        </p>
+                        
+                        <div className="flex items-center justify-between pt-3 border-t border-gray-50">
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-gray-500">
+                            <Calendar size={12} />
+                            {new Date(order.deadline).toLocaleDateString('pt-BR')}
+                          </div>
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-gray-900">
+                            <Box size={12} />
+                            {order.quantity} UN
+                          </div>
                         </div>
                       </div>
-                    </td>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : activeSubItem === 'estoque_processo' && viewMode === 'list' ? (
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">OP ID</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Produto</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Cliente</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Qtd</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Previsão</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredOrders.map(order => (
+                  <tr key={order.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 text-sm font-mono text-gray-600 font-bold">#{order.id.slice(0, 8)}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{order.productName}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{order.client}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-900">{order.quantity} UN</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{new Date(order.deadline).toLocaleDateString('pt-BR')}</td>
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-[10px] font-bold uppercase">
-                        {item.category || '-'}
+                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                        order.status === 'in_production' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
+                      }`}>
+                        {order.status === 'in_production' ? 'Em Produção' : 'Aguardando'}
                       </span>
                     </td>
-                    {isMP && (
-                      <>
-                        <td className="px-6 py-4 text-sm text-gray-600">{item.brand || '-'}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600">{item.model || '-'}</td>
-                      </>
-                    )}
-                    {!isMP && (
-                      <td className="px-6 py-4 text-sm text-gray-600">{item.brand || '-'}</td>
-                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Código</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">{isMP ? 'Material' : 'Produto'}</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Categoria</th>
+                  {isMP && (
+                    <>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Marca</th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Modelo</th>
+                    </>
+                  )}
+                  {!isMP && (
+                    <>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Marca</th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                    </>
+                  )}
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Saldo</th>
+                  {isMP && (
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">T. Produção</th>
+                  )}
+                  {!isMP && (
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Preço de Venda</th>
+                  )}
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredItems.map(item => {
+                  const discount = calculateDiscount(item.entryDate);
+                  const stockStatus = getStockStatus(item);
+                  return (
+                    <tr 
+                      key={item.id} 
+                      className="hover:bg-gray-50 transition-colors group cursor-pointer"
+                      onClick={() => handleOpenModal(item)}
+                    >
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-gray-900">{item.quantity}</span>
-                          <span className="text-[10px] font-bold text-gray-400">{item.unit}</span>
+                        <span className="text-sm font-mono text-gray-600 font-bold">{item.code || '-'}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600 shrink-0">
+                            {item.type === 'mp' ? <Layers size={20} /> : item.type === 'pa' ? <Box size={20} /> : <History size={20} />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900">{item.name}</p>
+                            <p className="text-[10px] text-gray-500 font-mono uppercase truncate max-w-[100px]">{item.id}</p>
+                          </div>
                         </div>
-                        {discount > 0 && (item.type === 'pa' || item.type === 'processo') && (
-                          <div className="flex items-center gap-1 mt-1">
-                            <History size={10} className="text-orange-500" />
-                            <span className="text-[10px] font-bold text-orange-600">-{discount}% aging</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-[10px] font-bold uppercase">
+                          {item.category || '-'}
+                        </span>
+                      </td>
+                      {isMP && (
+                        <>
+                          <td className="px-6 py-4 text-sm text-gray-600">{item.brand || '-'}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600">{item.model || '-'}</td>
+                        </>
+                      )}
+                      {!isMP && (
+                        <>
+                          <td className="px-6 py-4 text-sm text-gray-600">{item.brand || '-'}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${stockStatus.color}`}>
+                              {stockStatus.label}
+                            </span>
+                          </td>
+                        </>
+                      )}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-gray-900">{item.quantity}</span>
+                            <span className="text-[10px] font-bold text-gray-400">{item.unit}</span>
+                          </div>
+                          {discount > 0 && (item.type === 'pa' || item.type === 'processo') && (
+                            <div className="flex items-center gap-1 mt-1">
+                              <History size={10} className="text-orange-500" />
+                              <span className="text-[10px] font-bold text-orange-600">-{discount}% aging</span>
+                            </div>
+                          )}
+                        </td>
+                      {isMP && (
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-gray-600">{item.productionTimePerUnit || 0} min/{item.unit}</span>
+                        </td>
+                      )}
+                      {!isMP && (
+                        <td className="px-6 py-4">
+                          <span className="text-sm font-bold text-gray-900">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
+                          </span>
+                        </td>
+                      )}
+                      <td className="px-6 py-4 text-right relative" onClick={(e) => e.stopPropagation()}>
+                        <button 
+                          onClick={() => setShowActions(showActions === item.id ? null : item.id)}
+                          className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                        >
+                          <MoreHorizontal size={18} />
+                        </button>
+
+                        {showActions === item.id && (
+                          <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-10">
+                            <button 
+                              onClick={() => {
+                                handleOpenModal(item);
+                                setShowActions(null);
+                              }}
+                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                            >
+                              <Edit2 size={16} /> Editar Item
+                            </button>
+                            {item.type === 'processo' && (
+                              <button 
+                                onClick={() => {
+                                  finalizeProcess(item.id);
+                                  setShowActions(null);
+                                }}
+                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors"
+                              >
+                                <CheckCircle size={16} /> Finalizar
+                              </button>
+                            )}
+                            <button 
+                              onClick={() => handleDelete(item.id)}
+                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                              <Trash2 size={16} /> Excluir Item
+                            </button>
                           </div>
                         )}
                       </td>
-                    {isMP && (
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-gray-600">{item.productionTimePerUnit || 0} min/{item.unit}</span>
-                      </td>
-                    )}
-                    {!isMP && (
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-bold text-gray-900">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
-                        </span>
-                      </td>
-                    )}
-                    <td className="px-6 py-4 text-right relative" onClick={(e) => e.stopPropagation()}>
-                      <button 
-                        onClick={() => setShowActions(showActions === item.id ? null : item.id)}
-                        className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                      >
-                        <MoreHorizontal size={18} />
-                      </button>
-
-                      {showActions === item.id && (
-                        <div className="absolute right-6 top-12 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-10">
-                          <button 
-                            onClick={() => {
-                              handleOpenModal(item);
-                              setShowActions(null);
-                            }}
-                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                          >
-                            <Edit2 size={16} /> Editar Item
-                          </button>
-                          {item.type === 'processo' && (
-                            <button 
-                              onClick={() => {
-                                finalizeProcess(item.id);
-                                setShowActions(null);
-                              }}
-                              className="w-full flex items-center gap-2 px-4 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors"
-                            >
-                              <CheckCircle size={16} /> Finalizar
-                            </button>
-                          )}
-                          <button 
-                            onClick={() => handleDelete(item.id)}
-                            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                          >
-                            <Trash2 size={16} /> Excluir Item
-                          </button>
-                        </div>
-                      )}
+                    </tr>
+                  );
+                })}
+                {filteredItems.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                      Nenhum item encontrado no estoque selecionado.
                     </td>
                   </tr>
-                );
-              })}
-              {filteredItems.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                    Nenhum item encontrado no estoque selecionado.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
