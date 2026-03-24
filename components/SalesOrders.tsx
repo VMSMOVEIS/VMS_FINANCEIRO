@@ -262,30 +262,28 @@ const SalesOrders: React.FC = () => {
         paymentStatus: balance <= 0 ? 'paid' : 'partial'
       });
 
-      // Create transaction for the balance if any
-      if (balance > 0) {
-        addTransaction({
-          date: new Date().toISOString(),
-          description: `Recebimento Pedido ${selectedOrder!.id}`,
-          category: accountPlans.find(ap => ap.id === statusExtraData.accountPlanId)?.name || 'Vendas',
-          categoryCode: accountPlans.find(ap => ap.id === statusExtraData.accountPlanId)?.code,
+      // Create or update transaction for the sale
+      addTransaction({
+        date: new Date().toISOString(),
+        description: `Venda Pedido ${selectedOrder!.id}`,
+        category: accountPlans.find(ap => ap.id === statusExtraData.accountPlanId)?.name || 'Vendas',
+        categoryCode: accountPlans.find(ap => ap.id === statusExtraData.accountPlanId)?.code,
+        value: selectedOrder!.value,
+        type: 'income',
+        transactionTypeId: 'recebimento',
+        documentType: 'Pedido',
+        orderNumber: selectedOrder!.id,
+        customerName: selectedOrder!.customer,
+        status: 'completed',
+        payments: balance > 0 ? [{
+          id: Math.random().toString(36).substr(2, 9),
+          method: statusExtraData.paymentMethod,
           value: balance,
-          type: 'income',
-          transactionTypeId: 'recebimento',
-          documentType: 'Pedido',
-          orderNumber: selectedOrder!.id,
-          customerName: selectedOrder!.customer,
-          status: 'completed',
-          payments: [{
-            id: Math.random().toString(36).substr(2, 9),
-            method: statusExtraData.paymentMethod,
-            value: balance,
-            dueDate: new Date().toISOString(),
-            destination: 'Fluxo de Caixa',
-            status: 'completed'
-          }]
-        });
-      }
+          dueDate: new Date().toISOString(),
+          destination: 'Fluxo de Caixa',
+          status: 'completed'
+        }] : []
+      });
 
       setShowStatusModal(false);
       setStatusChangeData(null);

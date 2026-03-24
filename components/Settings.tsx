@@ -13,6 +13,7 @@ export const Settings: React.FC = () => {
     deleteAccount, 
     paymentMethods, 
     addPaymentMethod, 
+    updatePaymentMethod,
     deletePaymentMethod,
     userProfile,
     updateUserProfile,
@@ -46,6 +47,8 @@ export const Settings: React.FC = () => {
 
   // Payment Methods State
   const [newMethod, setNewMethod] = useState<Partial<PaymentMethod>>({ name: '', type: 'pix', defaultAccountId: '' });
+  const [editingMethodId, setEditingMethodId] = useState<string | null>(null);
+  const [editingMethodForm, setEditingMethodForm] = useState<Partial<PaymentMethod>>({});
 
   // Update local forms when context changes
   useEffect(() => {
@@ -128,13 +131,31 @@ export const Settings: React.FC = () => {
     }
   };
 
+  const startEditingMethod = (method: PaymentMethod) => {
+    setEditingMethodId(method.id);
+    setEditingMethodForm(method);
+  };
+
+  const cancelEditingMethod = () => {
+    setEditingMethodId(null);
+    setEditingMethodForm({});
+  };
+
+  const saveEditingMethod = () => {
+    if (editingMethodId && editingMethodForm.name) {
+      updatePaymentMethod(editingMethodId, editingMethodForm);
+      setEditingMethodId(null);
+      setEditingMethodForm({});
+    }
+  };
+
   const tabs = [
     { id: 'perfil', icon: User, label: 'Perfil' },
     { id: 'empresa', icon: Building, label: 'Empresa' },
-    { id: 'bancos', icon: Landmark, label: 'Bancos' },
+    { id: 'financeiro', icon: Landmark, label: 'Financeiro' },
     { id: 'seguranca', icon: Lock, label: 'Segurança' },
     { id: 'notificacoes', icon: Bell, label: 'Notificações' },
-    { id: 'plano', icon: CreditCard, label: 'Plano e Faturamento' },
+    { id: 'faturamento', icon: CreditCard, label: 'Faturamento' },
     { id: 'integracoes', icon: SettingsIcon, label: 'Integrações' },
   ];
 
@@ -290,8 +311,8 @@ export const Settings: React.FC = () => {
             </div>
           )}
 
-          {/* BANCOS TAB */}
-          {activeTab === 'bancos' && (
+          {/* FINANCEIRO TAB */}
+          {activeTab === 'financeiro' && (
             <div className="space-y-6">
               {/* Contas Bancárias Section */}
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -427,18 +448,61 @@ export const Settings: React.FC = () => {
                     const linkedAccount = accounts.find(a => a.id === pm.defaultAccountId);
                     return (
                       <div key={pm.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <div>
-                          <p className="font-medium text-gray-900">{pm.name}</p>
-                          <p className="text-xs text-gray-500">Tipo: {pm.type}</p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-xs px-2 py-1 bg-white border border-gray-200 rounded text-gray-600">
-                            Conta: {linkedAccount?.name || 'Não vinculada'}
-                          </span>
-                          <button onClick={() => deletePaymentMethod(pm.id)} className="text-red-500 hover:text-red-700">
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
+                        {editingMethodId === pm.id ? (
+                          /* EDIT MODE */
+                          <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                            <div>
+                              <input 
+                                type="text" 
+                                className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                value={editingMethodForm.name || ''}
+                                onChange={e => setEditingMethodForm({...editingMethodForm, name: e.target.value})}
+                                placeholder="Nome"
+                              />
+                            </div>
+                            <div>
+                              <select 
+                                className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                value={editingMethodForm.defaultAccountId || ''}
+                                onChange={e => setEditingMethodForm({...editingMethodForm, defaultAccountId: e.target.value})}
+                              >
+                                <option value="">Selecione a conta...</option>
+                                {accounts.map(acc => (
+                                  <option key={acc.id} value={acc.id}>{acc.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="flex items-center justify-end gap-2">
+                              <button onClick={saveEditingMethod} className="text-emerald-600 hover:text-emerald-800 p-1">
+                                <Check size={18} />
+                              </button>
+                              <button onClick={cancelEditingMethod} className="text-gray-500 hover:text-gray-700 p-1">
+                                <X size={18} />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          /* VIEW MODE */
+                          <>
+                            <div>
+                              <p className="font-medium text-gray-900">{pm.name}</p>
+                              <p className="text-xs text-gray-500">Tipo: {pm.type}</p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span className="text-xs px-2 py-1 bg-white border border-gray-200 rounded text-gray-600">
+                                Conta: {linkedAccount?.name || 'Não vinculada'}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <button onClick={() => startEditingMethod(pm)} className="text-blue-500 hover:text-blue-700 p-1">
+                                  <Edit2 size={16} />
+                                </button>
+                                <button onClick={() => deletePaymentMethod(pm.id)} className="text-red-500 hover:text-red-700 p-1">
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     );
                   })}
@@ -630,8 +694,8 @@ export const Settings: React.FC = () => {
             </div>
           )}
 
-          {/* PLANO E FATURAMENTO TAB */}
-          {activeTab === 'plano' && (
+          {/* FATURAMENTO TAB */}
+          {activeTab === 'faturamento' && (
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Plano e Faturamento</h3>
               <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-6 text-center">

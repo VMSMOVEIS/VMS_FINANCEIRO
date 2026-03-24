@@ -7,6 +7,8 @@ import {
   TrendingUp,
   Landmark, 
   Calendar,
+  CalendarClock,
+  DollarSign,
   PieChart, 
   Scale, 
   FileBarChart, 
@@ -127,6 +129,16 @@ export const MENU_ITEMS: MenuItem[] = [
     id: ModuleId.CONTROLADORIA,
     label: 'Controladoria',
     icon: PieChart,
+  },
+  {
+    id: ModuleId.GESTAO_CUSTOS,
+    label: 'Gestão de Custos',
+    icon: BarChart3,
+  },
+  {
+    id: ModuleId.PROVISOES,
+    label: 'Provisões',
+    icon: CalendarClock,
   },
   {
     id: ModuleId.RELATORIOS,
@@ -409,5 +421,38 @@ export const PROJETOS_MENU_ITEMS: MenuItem[] = [
     id: ModuleId.PROJETOS_CONFIG,
     label: 'Configurações',
     icon: Settings2,
+  }
+];
+
+export const PLANEJAMENTO_MENU_ITEMS: MenuItem[] = [
+  {
+    id: ModuleId.PLAN_FINANCEIRO,
+    label: 'Planejamento Financeiro',
+    icon: DollarSign,
+  },
+  {
+    id: ModuleId.PLAN_RH,
+    label: 'Planejamento de RH',
+    icon: Users,
+  },
+  {
+    id: ModuleId.PLAN_PRODUCAO,
+    label: 'Planejamento de Produção',
+    icon: Factory,
+  },
+  {
+    id: ModuleId.PLAN_VENDAS,
+    label: 'Planejamento de Vendas',
+    icon: ShoppingCart,
+  },
+  {
+    id: ModuleId.PLAN_COMPRAS,
+    label: 'Planejamento de Compras',
+    icon: Package,
+  },
+  {
+    id: ModuleId.PLAN_PROJETOS,
+    label: 'Planejamento de Projetos',
+    icon: ClipboardList,
   }
 ];

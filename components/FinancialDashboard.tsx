@@ -74,8 +74,8 @@ export const FinancialDashboard: React.FC = () => {
 
     return sales.filter(s => {
       if (!s.date) return false;
-      const [year, month, day] = s.date.split('-').map(Number);
-      const sDate = new Date(year, month - 1, day);
+      const sDate = new Date(s.date);
+      if (isNaN(sDate.getTime())) return false;
       const sYear = sDate.getFullYear();
       const sMonth = sDate.getMonth();
 
@@ -106,8 +106,8 @@ export const FinancialDashboard: React.FC = () => {
 
     return purchases.filter(p => {
       if (!p.date) return false;
-      const [year, month, day] = p.date.split('-').map(Number);
-      const pDate = new Date(year, month - 1, day);
+      const pDate = new Date(p.date);
+      if (isNaN(pDate.getTime())) return false;
       const pYear = pDate.getFullYear();
       const pMonth = pDate.getMonth();
 
@@ -170,16 +170,17 @@ export const FinancialDashboard: React.FC = () => {
 
   // 1. Entradas vs Saídas (Monthly)
   const monthlyData = useMemo(() => {
-    const data: Record<string, { name: string; receita: number; despesa: number }> = {};
+    const data: Record<string, { name: string; receita: number; despesa: number; vendas: number; compras: number }> = {};
     
+    // Process transactions
     filteredTransactions.forEach(t => {
-      const [year, month, day] = t.date.split('-').map(Number);
-      const date = new Date(year, month - 1, day);
-      const monthKey = `${date.getFullYear()}-${date.getMonth()}`; // Unique key YYYY-M
-      const monthName = date.toLocaleDateString('pt-BR', { month: 'short' });
+      const tDate = new Date(t.date);
+      if (isNaN(tDate.getTime())) return;
+      const monthKey = `${tDate.getFullYear()}-${tDate.getMonth()}`;
+      const monthName = tDate.toLocaleDateString('pt-BR', { month: 'short' });
 
       if (!data[monthKey]) {
-        data[monthKey] = { name: monthName, receita: 0, despesa: 0 };
+        data[monthKey] = { name: monthName, receita: 0, despesa: 0, vendas: 0, compras: 0 };
       }
 
       if (t.type === 'transfer' || t.linkedTransactionId) return;
@@ -191,7 +192,76 @@ export const FinancialDashboard: React.FC = () => {
       }
     });
 
-    // Sort by date and take last 6 months (or all if less)
+    // Process sales
+    sales.forEach(s => {
+      const sDate = new Date(s.date);
+      if (isNaN(sDate.getTime())) return;
+      
+      // Apply same filter logic as totalSales
+      const sYear = sDate.getFullYear();
+      const sMonth = sDate.getMonth();
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+
+      let isIncluded = false;
+      switch (filterType) {
+        case 'this-month': isIncluded = sYear === currentYear && sMonth === currentMonth; break;
+        case 'last-month': 
+          const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
+          isIncluded = sYear === lastMonthDate.getFullYear() && sMonth === lastMonthDate.getMonth(); 
+          break;
+        case 'this-year': isIncluded = sYear === currentYear; break;
+        case 'month': isIncluded = sYear === currentYear && sMonth === parseInt(selectedMonth); break;
+        case 'custom': isIncluded = (!customRange.start || !customRange.end) || (s.date >= customRange.start && s.date <= customRange.end); break;
+        default: isIncluded = true;
+      }
+
+      if (isIncluded) {
+        const monthKey = `${sYear}-${sMonth}`;
+        const monthName = sDate.toLocaleDateString('pt-BR', { month: 'short' });
+        if (!data[monthKey]) {
+          data[monthKey] = { name: monthName, receita: 0, despesa: 0, vendas: 0, compras: 0 };
+        }
+        data[monthKey].vendas += s.value;
+      }
+    });
+
+    // Process purchases
+    purchases.forEach(p => {
+      const pDate = new Date(p.date);
+      if (isNaN(pDate.getTime())) return;
+
+      const pYear = pDate.getFullYear();
+      const pMonth = pDate.getMonth();
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+
+      let isIncluded = false;
+      switch (filterType) {
+        case 'this-month': isIncluded = pYear === currentYear && pMonth === currentMonth; break;
+        case 'last-month': 
+          const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
+          isIncluded = pYear === lastMonthDate.getFullYear() && pMonth === lastMonthDate.getMonth(); 
+          break;
+        case 'this-year': isIncluded = pYear === currentYear; break;
+        case 'month': isIncluded = pYear === currentYear && pMonth === parseInt(selectedMonth); break;
+        case 'custom': isIncluded = (!customRange.start || !customRange.end) || (p.date >= customRange.start && p.date <= customRange.end); break;
+        default: isIncluded = true;
+      }
+
+      if (isIncluded) {
+        const monthKey = `${pYear}-${pMonth}`;
+        const monthName = pDate.toLocaleDateString('pt-BR', { month: 'short' });
+        if (!data[monthKey]) {
+          data[monthKey] = { name: monthName, receita: 0, despesa: 0, vendas: 0, compras: 0 };
+        }
+        data[monthKey].compras += p.value;
+      }
+    });
+
+    // Sort by date
     return Object.entries(data)
         .sort(([keyA], [keyB]) => {
             const [yearA, monthA] = keyA.split('-').map(Number);
@@ -199,7 +269,7 @@ export const FinancialDashboard: React.FC = () => {
             return yearA - yearB || monthA - monthB;
         })
         .map(([, value]) => value);
-  }, [filteredTransactions]);
+  }, [filteredTransactions, sales, purchases, filterType, selectedMonth, customRange]);
 
   // 2. Fluxo de Caixa (Daily Balance for the last 7 days with activity)
   const cashFlowData = useMemo(() => {
@@ -450,6 +520,8 @@ export const FinancialDashboard: React.FC = () => {
                 <Legend />
                 <Bar dataKey="receita" fill="#10b981" radius={[4, 4, 0, 0]} name="Entrada" />
                 <Bar dataKey="despesa" fill="#ef4444" radius={[4, 4, 0, 0]} name="Saída" />
+                <Bar dataKey="vendas" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Vendas" />
+                <Bar dataKey="compras" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Compras" />
               </BarChart>
             </ResponsiveContainer>
           </div>

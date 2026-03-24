@@ -13,7 +13,12 @@ import {
   FileSpreadsheet,
   FileCode,
   File,
-  RefreshCw
+  RefreshCw,
+  Edit2,
+  Trash2,
+  Plus,
+  Check,
+  X
 } from 'lucide-react';
 import { 
   ComposedChart, 
@@ -31,13 +36,17 @@ import { useTransactions } from '../src/context/TransactionContext';
 import { BankReconciliationModal } from './BankReconciliationModal';
 
 export const CashFlow: React.FC = () => {
-  const { transactions, accounts } = useTransactions();
-  const [viewMode, setViewMode] = useState<'daily' | 'monthly' | 'annual'>('daily');
+  const { transactions, accounts, updateAccount, deleteAccount, addAccount } = useTransactions();
+  const [viewMode, setViewMode] = useState<'daily' | 'monthly' | 'annual' | 'accounts'>('daily');
   const [selectedAccount, setSelectedAccount] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isReconciliationOpen, setIsReconciliationOpen] = useState(false);
+  const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
+  const [editingAccountForm, setEditingAccountForm] = useState<any>({});
+  const [isAddingAccount, setIsAddingAccount] = useState(false);
+  const [newAccountForm, setNewAccountForm] = useState({ name: '', type: 'bank', balance: 0, bank: '' });
   const [filters, setFilters] = useState({
     date: '',
     description: '',
@@ -627,6 +636,12 @@ export const CashFlow: React.FC = () => {
             >
               Anual
             </button>
+            <button 
+              onClick={() => setViewMode('accounts')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${viewMode === 'accounts' ? 'bg-emerald-100 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              Contas
+            </button>
           </div>
           <div className="relative">
             <button 
@@ -731,218 +746,414 @@ export const CashFlow: React.FC = () => {
       </div>
 
       {/* Main Chart */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-semibold text-gray-800">Evolução do Saldo e Movimentações</h3>
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1 text-xs text-gray-500">
-              <span className="w-3 h-3 rounded-full bg-emerald-500"></span> Entradas
-            </span>
-            <span className="flex items-center gap-1 text-xs text-gray-500">
-              <span className="w-3 h-3 rounded-full bg-red-500"></span> Saídas
-            </span>
-            <span className="flex items-center gap-1 text-xs text-gray-500">
-              <span className="w-3 h-3 rounded-full bg-blue-500"></span> Saldo Acumulado
-            </span>
+      {viewMode !== 'accounts' && (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-800">Evolução do Saldo e Movimentações</h3>
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-1 text-xs text-gray-500">
+                <span className="w-3 h-3 rounded-full bg-emerald-500"></span> Entradas
+              </span>
+              <span className="flex items-center gap-1 text-xs text-gray-500">
+                <span className="w-3 h-3 rounded-full bg-red-500"></span> Saídas
+              </span>
+              <span className="flex items-center gap-1 text-xs text-gray-500">
+                <span className="w-3 h-3 rounded-full bg-blue-500"></span> Saldo Acumulado
+              </span>
+            </div>
+          </div>
+          <div className="h-96 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} />
+                <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} />
+                <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} />
+                <Tooltip 
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  cursor={{ fill: '#f9fafb' }}
+                />
+                <Legend />
+                <Bar yAxisId="left" dataKey="entrada" name="Entradas" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
+                <Bar yAxisId="left" dataKey="saida" name="Saídas" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} />
+                <Line yAxisId="right" type="monotone" dataKey="saldo" name="Saldo Realizado" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} />
+                <Line yAxisId="right" type="monotone" dataKey="projetado" name="Saldo Projetado" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
           </div>
         </div>
-        <div className="h-96 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} />
-              <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} />
-              <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12 }} />
-              <Tooltip 
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                cursor={{ fill: '#f9fafb' }}
-              />
-              <Legend />
-              <Bar yAxisId="left" dataKey="entrada" name="Entradas" fill="#10b981" radius={[4, 4, 0, 0]} barSize={20} />
-              <Bar yAxisId="left" dataKey="saida" name="Saídas" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} />
-              <Line yAxisId="right" type="monotone" dataKey="saldo" name="Saldo Realizado" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} />
-              <Line yAxisId="right" type="monotone" dataKey="projetado" name="Saldo Projetado" stroke="#9ca3af" strokeWidth={2} strokeDasharray="5 5" dot={false} />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      )}
 
       {/* Detailed Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 border-b border-gray-100 flex flex-col gap-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold text-gray-800">
-              {viewMode === 'daily' ? 'Detalhamento de Lançamentos' : 'Resumo Mensal'}
+              {viewMode === 'daily' ? 'Detalhamento de Lançamentos' : 
+               viewMode === 'monthly' ? 'Resumo Mensal' :
+               viewMode === 'annual' ? 'Resumo Anual' : 'Gestão de Contas'}
             </h3>
-            <div className="flex items-center gap-2">
+            {viewMode === 'accounts' ? (
               <button 
-                onClick={() => setFilters({ date: '', description: '', document: '', status: 'all', type: 'all', minValue: '', maxValue: '' })}
-                className="text-xs text-gray-500 hover:text-emerald-600 font-medium mr-2"
+                onClick={() => setIsAddingAccount(!isAddingAccount)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-medium transition-colors"
               >
-                Limpar Filtros
+                <Plus size={16} />
+                <span>Nova Conta</span>
               </button>
-              <div className="relative">
+            ) : (
+              <div className="flex items-center gap-2">
                 <button 
-                  onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isFilterOpen ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  onClick={() => setFilters({ date: '', description: '', document: '', status: 'all', type: 'all', minValue: '', maxValue: '' })}
+                  className="text-xs text-gray-500 hover:text-emerald-600 font-medium mr-2"
                 >
-                  <Filter size={16} />
-                  <span>Filtros</span>
-                  <ChevronDown size={14} />
+                  Limpar Filtros
                 </button>
+                <div className="relative">
+                  <button 
+                    onClick={() => setIsFilterOpen(!isFilterOpen)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isFilterOpen ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  >
+                    <Filter size={16} />
+                    <span>Filtros</span>
+                    <ChevronDown size={14} />
+                  </button>
 
-                {isFilterOpen && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="grid grid-cols-1 gap-4">
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Data</label>
-                        <input 
-                          type="date"
-                          value={filters.date}
-                          onChange={(e) => setFilters(prev => ({ ...prev, date: e.target.value }))}
-                          className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Descrição/Cliente</label>
-                        <input 
-                          type="text"
-                          placeholder="Buscar..."
-                          value={filters.description}
-                          onChange={(e) => setFilters(prev => ({ ...prev, description: e.target.value }))}
-                          className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Documento</label>
-                        <input 
-                          type="text"
-                          placeholder="Nº Doc"
-                          value={filters.document}
-                          onChange={(e) => setFilters(prev => ({ ...prev, document: e.target.value }))}
-                          className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
+                  {isFilterOpen && (
+                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 p-4 z-20 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="grid grid-cols-1 gap-4">
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Tipo</label>
-                          <select
-                            value={filters.type}
-                            onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
-                            className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full bg-white"
-                          >
-                            <option value="all">Todos</option>
-                            <option value="income">Entrada</option>
-                            <option value="expense">Saída</option>
-                          </select>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Status</label>
-                          <select
-                            value={filters.status}
-                            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                            className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full bg-white"
-                          >
-                            <option value="all">Todos</option>
-                            <option value="completed">Realizado</option>
-                            <option value="pending">Pendente</option>
-                          </select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="flex flex-col gap-1">
-                          <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Valor Mín.</label>
+                          <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Data</label>
                           <input 
-                            type="number"
-                            placeholder="R$ 0,00"
-                            value={filters.minValue}
-                            onChange={(e) => setFilters(prev => ({ ...prev, minValue: e.target.value }))}
+                            type="date"
+                            value={filters.date}
+                            onChange={(e) => setFilters(prev => ({ ...prev, date: e.target.value }))}
                             className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full"
                           />
                         </div>
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Valor Máx.</label>
+                          <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Descrição/Cliente</label>
                           <input 
-                            type="number"
-                            placeholder="R$ 0,00"
-                            value={filters.maxValue}
-                            onChange={(e) => setFilters(prev => ({ ...prev, maxValue: e.target.value }))}
+                            type="text"
+                            placeholder="Buscar..."
+                            value={filters.description}
+                            onChange={(e) => setFilters(prev => ({ ...prev, description: e.target.value }))}
                             className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full"
                           />
                         </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Documento</label>
+                          <input 
+                            type="text"
+                            placeholder="Nº Doc"
+                            value={filters.document}
+                            onChange={(e) => setFilters(prev => ({ ...prev, document: e.target.value }))}
+                            className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Tipo</label>
+                            <select
+                              value={filters.type}
+                              onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value }))}
+                              className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full bg-white"
+                            >
+                              <option value="all">Todos</option>
+                              <option value="income">Entrada</option>
+                              <option value="expense">Saída</option>
+                            </select>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Status</label>
+                            <select
+                              value={filters.status}
+                              onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                              className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full bg-white"
+                            >
+                              <option value="all">Todos</option>
+                              <option value="completed">Realizado</option>
+                              <option value="pending">Pendente</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Valor Mín.</label>
+                            <input 
+                              type="number"
+                              placeholder="R$ 0,00"
+                              value={filters.minValue}
+                              onChange={(e) => setFilters(prev => ({ ...prev, minValue: e.target.value }))}
+                              className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">Valor Máx.</label>
+                            <input 
+                              type="number"
+                              placeholder="R$ 0,00"
+                              value={filters.maxValue}
+                              onChange={(e) => setFilters(prev => ({ ...prev, maxValue: e.target.value }))}
+                              className="px-3 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-emerald-500 w-full"
+                            />
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => setIsFilterOpen(false)}
+                          className="w-full mt-2 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-colors"
+                        >
+                          Aplicar Filtros
+                        </button>
                       </div>
-                      <button 
-                        onClick={() => setIsFilterOpen(false)}
-                        className="w-full mt-2 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition-colors"
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          {viewMode === 'accounts' ? (
+            <div className="p-6">
+              {isAddingAccount && (
+                <div className="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200 animate-in fade-in slide-in-from-top-4 duration-300">
+                  <h4 className="text-sm font-bold text-gray-700 mb-4 uppercase tracking-wider">Nova Conta</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Nome da Conta</label>
+                      <input 
+                        type="text"
+                        value={newAccountForm.name}
+                        onChange={(e) => setNewAccountForm(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        placeholder="Ex: Banco do Brasil"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Tipo</label>
+                      <select 
+                        value={newAccountForm.type}
+                        onChange={(e) => setNewAccountForm(prev => ({ ...prev, type: e.target.value as any }))}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       >
-                        Aplicar Filtros
+                        <option value="bank">Banco</option>
+                        <option value="cash">Caixa</option>
+                        <option value="investment">Investimento</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Saldo Inicial</label>
+                      <input 
+                        type="number"
+                        value={newAccountForm.balance}
+                        onChange={(e) => setNewAccountForm(prev => ({ ...prev, balance: parseFloat(e.target.value) || 0 }))}
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-right"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => {
+                          if (newAccountForm.name) {
+                            addAccount(newAccountForm as any);
+                            setIsAddingAccount(false);
+                            setNewAccountForm({ name: '', type: 'bank', balance: 0, bank: '' });
+                          }
+                        }}
+                        className="flex-1 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
+                      >
+                        Salvar
+                      </button>
+                      <button 
+                        onClick={() => setIsAddingAccount(false)}
+                        className="px-4 py-2 bg-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors"
+                      >
+                        Cancelar
                       </button>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 text-gray-500 font-medium">
-              <tr>
-                <th className="px-6 py-3">{viewMode === 'daily' ? 'Data' : (viewMode === 'monthly' ? 'Mês' : 'Ano')}</th>
-                <th className="px-6 py-3">Descrição / Cliente</th>
-                <th className="px-6 py-3">Documento</th>
-                <th className="px-6 py-3">Banco/Caixa</th>
-                <th className="px-6 py-3 text-right">Valor</th>
-                <th className="px-6 py-3 text-right">Saldo Acumulado</th>
-                <th className="px-6 py-3 text-center">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {tableData.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900">
-                    {viewMode === 'daily' 
-                      ? new Date(item.date).toLocaleDateString('pt-BR')
-                      : item.description // In monthly mode, description is the month name
-                    }
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-gray-800">{item.description}</div>
-                    <div className="text-xs text-gray-400">{item.customer}</div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">{item.document}</td>
-                  <td className="px-6 py-4 text-gray-600 font-medium">{item.bank}</td>
-                  <td className={`px-6 py-4 text-right font-medium ${
-                    item.type === 'income' || item.type === 'monthly' || item.type === 'annual' ? 'text-emerald-600' : 
-                    item.type === 'expense' ? 'text-red-600' : 'text-blue-600'
-                  }`}>
-                    {item.type === 'income' ? '+' : (item.type === 'expense' ? '-' : (item.type === 'transfer' ? '⇄' : ''))} R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-6 py-4 text-right font-bold text-gray-800">
-                    R$ {item.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    {item.status === 'completed' || item.status === 'Positivo' ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                        {viewMode === 'daily' ? 'Realizado' : 'Positivo'}
-                      </span>
-                    ) : (
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${item.status === 'Negativo' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {viewMode === 'daily' ? 'Pendente' : 'Negativo'}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {tableData.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-gray-400">
-                    Nenhum lançamento encontrado para os filtros selecionados.
-                  </td>
-                </tr>
+                </div>
               )}
-            </tbody>
-          </table>
+
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50 text-gray-500 font-medium uppercase tracking-wider text-[10px]">
+                  <tr>
+                    <th className="px-6 py-3">Nome da Conta</th>
+                    <th className="px-6 py-3">Tipo</th>
+                    <th className="px-6 py-3">Banco</th>
+                    <th className="px-6 py-3 text-right">Saldo Atual</th>
+                    <th className="px-6 py-3 text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {accounts.map(acc => (
+                    <tr key={acc.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        {editingAccountId === acc.id ? (
+                          <input 
+                            type="text"
+                            value={editingAccountForm.name}
+                            onChange={(e) => setEditingAccountForm((prev: any) => ({ ...prev, name: e.target.value }))}
+                            className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                        ) : (
+                          <span className="font-medium text-gray-900">{acc.name}</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {editingAccountId === acc.id ? (
+                          <select 
+                            value={editingAccountForm.type}
+                            onChange={(e) => setEditingAccountForm((prev: any) => ({ ...prev, type: e.target.value }))}
+                            className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          >
+                            <option value="bank">Banco</option>
+                            <option value="cash">Caixa</option>
+                            <option value="investment">Investimento</option>
+                          </select>
+                        ) : (
+                          <span className="capitalize text-gray-500">{acc.type}</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-gray-500">
+                        {editingAccountId === acc.id ? (
+                          <input 
+                            type="text"
+                            value={editingAccountForm.bank || ''}
+                            onChange={(e) => setEditingAccountForm((prev: any) => ({ ...prev, bank: e.target.value }))}
+                            className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          />
+                        ) : (
+                          acc.bank || '-'
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right font-medium text-gray-900">
+                        {editingAccountId === acc.id ? (
+                          <input 
+                            type="number"
+                            value={editingAccountForm.balance}
+                            onChange={(e) => setEditingAccountForm((prev: any) => ({ ...prev, balance: parseFloat(e.target.value) || 0 }))}
+                            className="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-right"
+                          />
+                        ) : (
+                          new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(acc.balance)
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          {editingAccountId === acc.id ? (
+                            <>
+                              <button 
+                                onClick={() => {
+                                  updateAccount(acc.id, editingAccountForm);
+                                  setEditingAccountId(null);
+                                }}
+                                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                title="Salvar"
+                              >
+                                <Check size={16} />
+                              </button>
+                              <button 
+                                onClick={() => setEditingAccountId(null)}
+                                className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
+                                title="Cancelar"
+                              >
+                                <X size={16} />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => {
+                                  setEditingAccountId(acc.id);
+                                  setEditingAccountForm(acc);
+                                }}
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Editar"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  if (confirm(`Tem certeza que deseja excluir a conta "${acc.name}"?`)) {
+                                    deleteAccount(acc.id);
+                                  }
+                                }}
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Excluir"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <table className="w-full text-sm text-left">
+              <thead className="bg-gray-50 text-gray-500 font-medium uppercase tracking-wider text-[10px]">
+                <tr>
+                  <th className="px-6 py-3">{viewMode === 'daily' ? 'Data' : (viewMode === 'monthly' ? 'Mês' : 'Ano')}</th>
+                  <th className="px-6 py-3">Descrição / Cliente</th>
+                  <th className="px-6 py-3">Documento</th>
+                  <th className="px-6 py-3">Banco/Caixa</th>
+                  <th className="px-6 py-3 text-right">Valor</th>
+                  <th className="px-6 py-3 text-right">Saldo Acumulado</th>
+                  <th className="px-6 py-3 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {tableData.map((item) => (
+                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-gray-900">
+                      {viewMode === 'daily' 
+                        ? new Date(item.date).toLocaleDateString('pt-BR')
+                        : item.description // In monthly mode, description is the month name
+                      }
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-gray-800">{item.description}</div>
+                      <div className="text-xs text-gray-400">{item.customer}</div>
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">{item.document}</td>
+                    <td className="px-6 py-4 text-gray-600 font-medium">{item.bank}</td>
+                    <td className={`px-6 py-4 text-right font-medium ${
+                      item.type === 'income' || item.type === 'monthly' || item.type === 'annual' ? 'text-emerald-600' : 
+                      item.type === 'expense' ? 'text-red-600' : 'text-blue-600'
+                    }`}>
+                      {item.type === 'income' ? '+' : (item.type === 'expense' ? '-' : (item.type === 'transfer' ? '⇄' : ''))} R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-6 py-4 text-right font-bold text-gray-800">
+                      R$ {item.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {item.status === 'completed' || item.status === 'Positivo' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                          {viewMode === 'daily' ? 'Realizado' : 'Positivo'}
+                        </span>
+                      ) : (
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${item.status === 'Negativo' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {viewMode === 'daily' ? 'Pendente' : 'Negativo'}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {tableData.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-10 text-center text-gray-400">
+                      Nenhum lançamento encontrado para os filtros selecionados.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
       <BankReconciliationModal 

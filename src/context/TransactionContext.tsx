@@ -250,6 +250,32 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         await ensureAccountPlanExists(transaction.category, transaction.type);
       }
 
+      // Check for existing transaction with same orderNumber and documentType if orderNumber is provided
+      if (transaction.orderNumber && transaction.documentType) {
+        const { data: existingTrans, error: searchError } = await supabase
+          .from('transactions')
+          .select('id, payments(*)')
+          .eq('order_number', transaction.orderNumber)
+          .eq('document_type', transaction.documentType)
+          .maybeSingle();
+
+        if (searchError) console.error('Error searching for existing transaction:', searchError);
+
+        if (existingTrans) {
+          // Update existing transaction instead of creating a new one
+          const updatedTransaction = {
+            ...transaction,
+            // Merge payments if they exist
+            payments: transaction.payments ? [
+              ...(existingTrans.payments || []),
+              ...transaction.payments
+            ] : existingTrans.payments
+          };
+          await updateTransaction(existingTrans.id, updatedTransaction as Partial<Transaction>);
+          return;
+        }
+      }
+
       const { data: transData, error: transError } = await supabase
         .from('transactions')
         .insert([{

@@ -608,8 +608,12 @@ export const TransactionModal: React.FC = () => {
                       onChange={handleInputChange}
                       className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                     >
+                      <option value="Nota">Nota</option>
                       <option value="NF-e">Nota Fiscal (NF-e)</option>
+                      <option value="NFC-e">NFC-e</option>
                       <option value="NFS-e">Nota de Serviço (NFS-e)</option>
+                      <option value="CT-e">CT-e</option>
+                      <option value="MDF-e">MDF-e</option>
                       <option value="Recibo">Recibo</option>
                       <option value="Pedido">Pedido de Venda/Compra</option>
                       <option value="Contrato">Contrato</option>

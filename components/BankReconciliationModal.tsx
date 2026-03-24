@@ -15,8 +15,10 @@ interface BankTransaction {
   description: string;
   value: number;
   type: 'credit' | 'debit';
-  status: 'matched' | 'unmatched' | 'potential_match';
+  status: 'matched' | 'unmatched' | 'date_mismatch';
   matchedPaymentId?: string;
+  matchedDate?: string;
+  matchedValue?: number;
 }
 
 export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = ({ isOpen, onClose }) => {
@@ -116,63 +118,71 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
   };
 
   const matchTransactions = (bankTransactions: BankTransaction[]) => {
-    if (!selectedAccount) return;
+    if (!selectedAccount || bankTransactions.length === 0) return;
 
     const accountName = accounts.find(a => a.id === selectedAccount)?.name;
     if (!accountName) return;
 
+    // Get date range from imported transactions
+    const dates = bankTransactions.map(bt => new Date(bt.date).getTime());
+    const minDate = Math.min(...dates);
+    const maxDate = Math.max(...dates);
+
     const updatedBankTransactions = [...bankTransactions];
 
-    // Get system transactions for this account
+    // Get system transactions for this account within the date range
     const systemPayments: { payment: Payment, transaction: Transaction }[] = [];
     transactions.forEach(t => {
         t.payments.forEach(p => {
             if (p.destination === accountName || p.source === accountName) {
-                systemPayments.push({ payment: p, transaction: t });
+                const pDate = new Date(p.dueDate).getTime();
+                // Compare only with dates that appear in the extracted document
+                if (pDate >= minDate && pDate <= maxDate) {
+                    systemPayments.push({ payment: p, transaction: t });
+                }
             }
         });
     });
 
     updatedBankTransactions.forEach(bt => {
-        // Find match
-        // Criteria: Same Value, Date within +/- 2 days
-        const match = systemPayments.find(sp => {
-            if (sp.payment.reconciled) return false; // Already reconciled
+        const bankDate = bt.date;
+        const bankValue = bt.value;
 
-            const paymentDate = new Date(sp.payment.dueDate);
-            const bankDate = new Date(bt.date);
-            const diffTime = Math.abs(bankDate.getTime() - paymentDate.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        // Find matches by value and direction
+        const matches = systemPayments.filter(sp => {
+            if (sp.payment.reconciled) return false;
 
-            const isValueMatch = Math.abs(sp.payment.value - bt.value) < 0.01;
-            
-            // Check direction (credit/debit)
-            // Bank Credit = Income (Destination is Account)
-            // Bank Debit = Expense (Source is Account OR Destination is NOT Account but Source is Account)
-            // Wait, simpler:
-            // If Bank Credit -> System Income (or Transfer In)
-            // If Bank Debit -> System Expense (or Transfer Out)
+            const isValueMatch = Math.abs(sp.payment.value - bankValue) < 0.01;
             
             let isDirectionMatch = false;
             if (bt.type === 'credit') {
-                // Should be income or transfer IN
                 if (sp.transaction.type === 'income') isDirectionMatch = true;
                 if (sp.transaction.transactionTypeId === 'transferencia' && sp.payment.destination === accountName) isDirectionMatch = true;
             } else {
-                // Should be expense or transfer OUT
                 if (sp.transaction.type === 'expense') isDirectionMatch = true;
                 if (sp.transaction.transactionTypeId === 'transferencia' && sp.payment.source === accountName) isDirectionMatch = true;
             }
 
-            return isValueMatch && diffDays <= 2 && isDirectionMatch;
+            return isValueMatch && isDirectionMatch;
         });
 
-        if (match) {
-            bt.status = 'matched';
-            bt.matchedPaymentId = match.payment.id;
+        if (matches.length > 0) {
+            // Check for exact date match
+            const exactMatch = matches.find(m => m.payment.dueDate === bankDate);
+            if (exactMatch) {
+                bt.status = 'matched';
+                bt.matchedPaymentId = exactMatch.payment.id;
+                bt.matchedDate = exactMatch.payment.dueDate;
+                bt.matchedValue = exactMatch.payment.value;
+            } else {
+                // Value matches but date is different
+                const bestMatch = matches[0];
+                bt.status = 'date_mismatch';
+                bt.matchedPaymentId = bestMatch.payment.id;
+                bt.matchedDate = bestMatch.payment.dueDate;
+                bt.matchedValue = bestMatch.payment.value;
+            }
         } else {
-            // Check for potential match (just value?)
-            // For now, simple unmatched
             bt.status = 'unmatched';
         }
     });
@@ -181,7 +191,7 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
   };
 
   const handleReconcile = (bankTransaction: BankTransaction) => {
-    if (bankTransaction.status !== 'matched' || !bankTransaction.matchedPaymentId) return;
+    if ((bankTransaction.status !== 'matched' && bankTransaction.status !== 'date_mismatch') || !bankTransaction.matchedPaymentId) return;
 
     // Find the transaction and update the payment to reconciled
     const transactionToUpdate = transactions.find(t => t.payments.some(p => p.id === bankTransaction.matchedPaymentId));
@@ -189,14 +199,19 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
     if (transactionToUpdate) {
         const updatedPayments = transactionToUpdate.payments.map(p => {
             if (p.id === bankTransaction.matchedPaymentId) {
-                return { ...p, reconciled: true };
+                const updatedPayment = { ...p, reconciled: true };
+                // If date mismatch, update the system date to match bank date
+                if (bankTransaction.status === 'date_mismatch') {
+                    updatedPayment.dueDate = bankTransaction.date;
+                }
+                return updatedPayment;
             }
             return p;
         });
         
         updateTransaction(transactionToUpdate.id, { payments: updatedPayments });
         
-        // Update local state to remove from list or mark as done
+        // Update local state
         setImportedTransactions(prev => prev.filter(t => t.id !== bankTransaction.id));
     }
   };
@@ -309,9 +324,10 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
             {/* Transactions List */}
             <div className="flex-1 border border-gray-200 rounded-lg overflow-hidden flex flex-col">
                 <div className="bg-gray-50 border-b border-gray-200 px-4 py-3 grid grid-cols-12 gap-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    <div className="col-span-2">Data</div>
-                    <div className="col-span-4">Descrição (Banco)</div>
-                    <div className="col-span-2 text-right">Valor</div>
+                    <div className="col-span-2">Data Lanç.</div>
+                    <div className="col-span-2">Data Banco</div>
+                    <div className="col-span-2 text-right">Valor Lanç.</div>
+                    <div className="col-span-2 text-right">Valor Banco</div>
                     <div className="col-span-2 text-center">Status</div>
                     <div className="col-span-2 text-center">Ação</div>
                 </div>
@@ -325,15 +341,26 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                     ) : (
                         importedTransactions.map(t => (
                             <div key={t.id} className="px-4 py-3 border-b border-gray-100 grid grid-cols-12 gap-4 items-center hover:bg-gray-50 transition-colors text-sm">
-                                <div className="col-span-2 text-gray-600">{t.date.split('-').reverse().join('/')}</div>
-                                <div className="col-span-4 font-medium text-gray-800 truncate" title={t.description}>{t.description}</div>
+                                <div className="col-span-2 text-gray-600">
+                                    {t.matchedDate ? t.matchedDate.split('-').reverse().join('/') : '-'}
+                                </div>
+                                <div className="col-span-2 text-gray-600">
+                                    {t.date.split('-').reverse().join('/')}
+                                </div>
+                                <div className="col-span-2 text-right font-medium text-gray-800">
+                                    {t.matchedValue ? `R$ ${t.matchedValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-'}
+                                </div>
                                 <div className={`col-span-2 text-right font-semibold ${t.type === 'credit' ? 'text-emerald-600' : 'text-red-600'}`}>
-                                    {t.type === 'credit' ? '+' : '-'} R$ {t.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                    R$ {t.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </div>
                                 <div className="col-span-2 flex justify-center">
                                     {t.status === 'matched' ? (
-                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium">
-                                            <Check size={12} /> Encontrado
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-medium" title="Datas e valores coincidem">
+                                            <Check size={12} /> Ajustado
+                                        </span>
+                                    ) : t.status === 'date_mismatch' ? (
+                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-medium" title="Valor coincide, mas data é diferente">
+                                            <RefreshCw size={12} /> Ajustar Data
                                         </span>
                                     ) : (
                                         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">
@@ -342,11 +369,11 @@ export const BankReconciliationModal: React.FC<BankReconciliationModalProps> = (
                                     )}
                                 </div>
                                 <div className="col-span-2 flex justify-center gap-2">
-                                    {t.status === 'matched' ? (
+                                    {t.status === 'matched' || t.status === 'date_mismatch' ? (
                                         <button 
                                             onClick={() => handleReconcile(t)}
                                             className="p-1.5 bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors"
-                                            title="Conciliar"
+                                            title={t.status === 'matched' ? "Conciliar" : "Ajustar Data e Conciliar"}
                                         >
                                             <Check size={16} />
                                         </button>

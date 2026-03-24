@@ -6,7 +6,8 @@ export enum SectorId {
   PRODUCAO = 'producao',
   VENDAS = 'vendas',
   COMPRAS = 'compras',
-  PROJETOS = 'projetos'
+  PROJETOS = 'projetos',
+  PLANEJAMENTO = 'planejamento'
 }
 
 export enum ModuleId {
@@ -24,6 +25,8 @@ export enum ModuleId {
   RELATORIOS = 'relatorios',
   CONFIGURACOES = 'configuracoes',
   FINANCEIRO_ADIANTAMENTOS = 'financeiro_adiantamentos',
+  GESTAO_CUSTOS = 'gestao_custos',
+  PROVISOES = 'provisoes',
   
   // RH Modules
   RH_DASHBOARD = 'rh_dashboard',
@@ -78,7 +81,15 @@ export enum ModuleId {
   PROJETOS_TIMELINE = 'projetos_timeline',
   PROJETOS_TREINAMENTOS = 'projetos_treinamentos',
   PROJETOS_DOCS = 'projetos_docs',
-  PROJETOS_CONFIG = 'projetos_config'
+  PROJETOS_CONFIG = 'projetos_config',
+
+  // Planejamento Modules
+  PLAN_FINANCEIRO = 'plan_financeiro',
+  PLAN_RH = 'plan_rh',
+  PLAN_PRODUCAO = 'plan_producao',
+  PLAN_VENDAS = 'plan_vendas',
+  PLAN_COMPRAS = 'plan_compras',
+  PLAN_PROJETOS = 'plan_projetos'
 }
 
 export interface SubMenuItem {
