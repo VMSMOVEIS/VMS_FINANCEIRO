@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, FileText, DollarSign, Briefcase, Wallet, Hash, User, Plus } from 'lucide-react';
+import { X, Calendar, FileText, DollarSign, Briefcase, Wallet, Hash, User, Plus, AlertCircle } from 'lucide-react';
 import { getAccountPlans, getTransactionTypes, AccountPlan, TransactionType } from '../services/financialData';
 import { useTransactions } from '@/src/context/TransactionContext';
 import { Transaction, Payment } from '../types';
@@ -39,6 +39,7 @@ export const TransactionModal: React.FC = () => {
   const [searchModalType, setSearchModalType] = useState<'payment_receipt' | 'advance'>('payment_receipt');
   const [searchModalTransactionType, setSearchModalTransactionType] = useState<'income' | 'expense'>('income');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [pendingCompletion, setPendingCompletion] = useState(false);
   const [targetPaymentId, setTargetPaymentId] = useState<string | null>(null);
   const [targetTransactionId, setTargetTransactionId] = useState<number | null>(null);
@@ -53,6 +54,7 @@ export const TransactionModal: React.FC = () => {
     if (!isModalOpen) {
       prevIsModalOpen.current = false;
       hasPreFilled.current = false;
+      setError(null);
       return;
     }
 
@@ -157,6 +159,7 @@ export const TransactionModal: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    setError(null);
     setFormData(prev => {
       const newData = { ...prev, [name]: value };
       
@@ -190,6 +193,7 @@ export const TransactionModal: React.FC = () => {
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const typeId = e.target.value;
+    setError(null);
     const selectedType = transactionTypes.find(t => t.id === typeId);
     
     if (selectedType) {
@@ -267,7 +271,7 @@ export const TransactionModal: React.FC = () => {
             id: `adv-${t.id}-${Date.now()}`,
             method: 'Adiantamento',
             value: t.value,
-            dueDate: formData.date || '',
+            dueDate: formData.date || new Date().toISOString().split('T')[0],
             destination: 'Adiantamento Abatido',
             status: 'completed'
         }));
@@ -308,6 +312,7 @@ export const TransactionModal: React.FC = () => {
   };
 
   const updatePayment = (index: number, field: keyof Payment, value: any) => {
+    setError(null);
     setFormData(prev => {
       const updatedPayments = [...(prev.payments || [])];
       const payment = { ...updatedPayments[index], [field]: value };
@@ -357,8 +362,16 @@ export const TransactionModal: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setError(null);
     
     try {
+      // Validate that all payments have a dueDate
+      if (formData.payments?.some(p => !p.dueDate)) {
+        setError('Todos os pagamentos devem ter uma data de vencimento.');
+        setIsSubmitting(false);
+        return;
+      }
+
       const allCompleted = formData.payments?.every(p => p.status === 'completed');
       const allPending = formData.payments?.every(p => p.status === 'pending');
       let status: 'completed' | 'pending' | 'partial' | 'a_compensar' = 'partial';
@@ -477,8 +490,9 @@ export const TransactionModal: React.FC = () => {
       }
 
       closeModal();
-    } catch (error) {
-      console.error('Error submitting transaction:', error);
+    } catch (err) {
+      console.error('Error submitting transaction:', err);
+      setError(err instanceof Error ? err.message : 'Erro ao salvar transação. Verifique os dados e tente novamente.');
     } finally {
       setIsSubmitting(false);
     }
@@ -505,6 +519,12 @@ export const TransactionModal: React.FC = () => {
         </div>
         
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700 animate-in fade-in slide-in-from-top-2">
+              <AlertCircle size={20} className="shrink-0" />
+              <p className="text-sm font-medium">{error}</p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
              <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Lançamento</label>

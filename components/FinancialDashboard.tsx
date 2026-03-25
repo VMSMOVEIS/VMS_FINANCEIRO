@@ -424,7 +424,7 @@ export const FinancialDashboard: React.FC = () => {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Entradas vs Saídas</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Entradas vs Saídas (Realizado)</h3>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData}>
@@ -435,6 +435,21 @@ export const FinancialDashboard: React.FC = () => {
                 <Legend />
                 <Bar dataKey="receita" fill="#10b981" radius={[4, 4, 0, 0]} name="Entrada" />
                 <Bar dataKey="despesa" fill="#ef4444" radius={[4, 4, 0, 0]} name="Saída" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Vendas vs Compras (Pedidos)</h3>
+          <div className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                <YAxis axisLine={false} tickLine={false} />
+                <Tooltip formatter={(value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)} />
+                <Legend />
                 <Bar dataKey="vendas" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Vendas" />
                 <Bar dataKey="compras" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Compras" />
               </BarChart>
@@ -442,7 +457,7 @@ export const FinancialDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Fluxo de Caixa (Saldo Acumulado)</h3>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">

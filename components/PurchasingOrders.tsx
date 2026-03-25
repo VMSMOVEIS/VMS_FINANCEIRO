@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   ShoppingCart, 
   Plus, 
@@ -21,7 +21,11 @@ import {
   Trash2,
   CreditCard,
   Banknote,
-  QrCode
+  QrCode,
+  TrendingUp,
+  TrendingDown,
+  ShoppingBag,
+  Package
 } from 'lucide-react';
 import { PurchaseOrder } from '../types';
 import { usePurchasing } from '../src/context/PurchasingContext';
@@ -30,7 +34,7 @@ import { useSales } from '../src/context/SalesContext';
 
 const PurchasingOrders: React.FC = () => {
   const { purchases, addPurchase, updatePurchase, deletePurchase, updatePurchaseStatus } = usePurchasing();
-  const { accountPlans } = useTransactions();
+  const { accountPlans, addTransaction } = useTransactions();
   const { paymentMethods } = useSales();
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -46,6 +50,40 @@ const PurchasingOrders: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
+  // Temporal Filter State
+  const [filterType, setFilterType] = useState('this-month');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
+  const [customRange, setCustomRange] = useState({ start: '', end: '' });
+
+  const isDateInSelectedRange = (dateStr: string) => {
+    if (!dateStr) return false;
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const tDate = new Date(year, month - 1, day || 1);
+    const tYear = tDate.getFullYear();
+    const tMonth = tDate.getMonth();
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    switch (filterType) {
+      case 'this-month':
+        return tYear === currentYear && tMonth === currentMonth;
+      case 'last-month':
+        const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
+        return tYear === lastMonthDate.getFullYear() && tMonth === lastMonthDate.getMonth();
+      case 'this-year':
+        return tYear === currentYear;
+      case 'month':
+        return tYear === currentYear && tMonth === parseInt(selectedMonth);
+      case 'custom':
+        if (!customRange.start || !customRange.end) return true;
+        return dateStr >= customRange.start && dateStr <= customRange.end;
+      default:
+        return true;
+    }
+  };
+
   // Status Change Modal State
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [statusChangeData, setStatusChangeData] = useState<{ id: string, status: PurchaseOrder['status'] } | null>(null);
@@ -54,10 +92,29 @@ const PurchasingOrders: React.FC = () => {
     accountPlanId: ''
   });
 
-  const filteredOrders = purchases.filter(order => 
-    order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.supplier.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredOrders = purchases.filter(order => {
+    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.supplier.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesDate = isDateInSelectedRange(order.date);
+    return matchesSearch && matchesDate;
+  });
+
+  // KPI Calculations based on filtered orders
+  const kpis = useMemo(() => {
+    const totalValue = filteredOrders.reduce((sum, order) => sum + order.value, 0);
+    const orderCount = filteredOrders.length;
+    const paidOrders = filteredOrders.filter(o => o.paymentStatus === 'paid').length;
+    const pendingOrders = filteredOrders.filter(o => o.paymentStatus === 'pending').length;
+    const receivedOrders = filteredOrders.filter(o => o.status === 'completed').length;
+    
+    return {
+      totalValue,
+      orderCount,
+      paidOrders,
+      pendingOrders,
+      receivedOrders
+    };
+  }, [filteredOrders]);
 
   const expenseAccounts = accountPlans.filter(ap => ap.type === 'despesa' && ap.level === 'analitica');
 
@@ -121,11 +178,39 @@ const PurchasingOrders: React.FC = () => {
 
   const confirmStatusChange = () => {
     if (statusChangeData && statusExtraData.paymentMethod && statusExtraData.accountPlanId) {
+      const selectedOrder = purchases.find(p => p.id === statusChangeData.id);
+      if (!selectedOrder) return;
+
+      // Update purchase status
       updatePurchaseStatus(statusChangeData.id, statusChangeData.status, {
         paymentMethod: statusExtraData.paymentMethod,
         accountPlanId: statusExtraData.accountPlanId,
         paymentStatus: 'paid'
       });
+
+      // Create financial transaction for the purchase
+      addTransaction({
+        date: new Date().toISOString().split('T')[0],
+        description: `Compra Pedido ${selectedOrder.id}`,
+        category: accountPlans.find(ap => ap.id === statusExtraData.accountPlanId)?.name || 'Compras',
+        categoryCode: accountPlans.find(ap => ap.id === statusExtraData.accountPlanId)?.code,
+        value: selectedOrder.value,
+        type: 'expense',
+        transactionTypeId: 'pagamento',
+        documentType: 'Pedido',
+        orderNumber: selectedOrder.id,
+        customerName: selectedOrder.supplier,
+        status: 'completed',
+        payments: [{
+          id: Math.random().toString(36).substr(2, 9),
+          method: statusExtraData.paymentMethod,
+          value: selectedOrder.value,
+          dueDate: new Date().toISOString().split('T')[0],
+          destination: 'Fluxo de Caixa',
+          status: 'completed'
+        }]
+      });
+
       setShowStatusModal(false);
       setStatusChangeData(null);
       setStatusExtraData({ paymentMethod: '', accountPlanId: '' });
@@ -173,6 +258,73 @@ const PurchasingOrders: React.FC = () => {
         </button>
       </div>
 
+      {/* KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Total em Compras</p>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpis.totalValue)}
+              </h3>
+            </div>
+            <div className="p-2 bg-red-100 rounded-lg">
+              <TrendingDown className="text-red-600" size={20} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-sm">
+            <span className="text-gray-500">{kpis.orderCount} pedidos no período</span>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Pedidos Recebidos</p>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">{kpis.receivedOrders}</h3>
+            </div>
+            <div className="p-2 bg-emerald-100 rounded-lg">
+              <CheckCircle2 className="text-emerald-600" size={20} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-sm">
+            <span className="text-gray-500">Mercadorias em estoque</span>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Pagamentos Pendentes</p>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">{kpis.pendingOrders}</h3>
+            </div>
+            <div className="p-2 bg-amber-100 rounded-lg">
+              <Clock className="text-amber-600" size={20} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-sm">
+            <span className="text-gray-500">Aguardando pagamento</span>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="text-sm font-medium text-gray-500">Ticket Médio Compra</p>
+              <h3 className="text-2xl font-bold text-gray-900 mt-1">
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpis.orderCount > 0 ? kpis.totalValue / kpis.orderCount : 0)}
+              </h3>
+            </div>
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <ShoppingBag className="text-indigo-600" size={20} />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-sm">
+            <span className="text-gray-500">Valor médio por pedido</span>
+          </div>
+        </div>
+      </div>
+
       {/* Filters */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 flex flex-wrap items-center gap-4">
         <div className="relative flex-1 min-w-[300px]">
@@ -186,7 +338,61 @@ const PurchasingOrders: React.FC = () => {
           />
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <select 
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="px-4 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+          >
+            <option value="this-month">Este Mês</option>
+            <option value="last-month">Mês Passado</option>
+            <option value="this-year">Este Ano</option>
+            <option value="month">Por Mês</option>
+            <option value="custom">Personalizado</option>
+            <option value="all">Tudo</option>
+          </select>
+
+          {filterType === 'month' && (
+            <select 
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="px-4 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            >
+              <option value="0">Janeiro</option>
+              <option value="1">Fevereiro</option>
+              <option value="2">Março</option>
+              <option value="3">Abril</option>
+              <option value="4">Maio</option>
+              <option value="5">Junho</option>
+              <option value="6">Julho</option>
+              <option value="7">Agosto</option>
+              <option value="8">Setembro</option>
+              <option value="9">Outubro</option>
+              <option value="10">Novembro</option>
+              <option value="11">Dezembro</option>
+            </select>
+          )}
+
+          {filterType === 'custom' && (
+            <div className="flex items-center gap-2">
+              <input 
+                type="date" 
+                value={customRange.start}
+                onChange={(e) => setCustomRange({...customRange, start: e.target.value})}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              />
+              <span className="text-gray-400">-</span>
+              <input 
+                type="date" 
+                value={customRange.end}
+                onChange={(e) => setCustomRange({...customRange, end: e.target.value})}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              />
+            </div>
+          )}
+
+          <div className="h-8 w-[1px] bg-gray-200 mx-2 hidden md:block"></div>
+
           <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
             <Filter size={16} />
             Filtros
