@@ -6,8 +6,7 @@ export enum SectorId {
   PRODUCAO = 'producao',
   VENDAS = 'vendas',
   COMPRAS = 'compras',
-  PROJETOS = 'projetos',
-  PLANEJAMENTO = 'planejamento'
+  PROJETOS = 'projetos'
 }
 
 export enum ModuleId {

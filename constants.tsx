@@ -146,6 +146,11 @@ export const MENU_ITEMS: MenuItem[] = [
     icon: FileBarChart,
   },
   {
+    id: ModuleId.PLAN_FINANCEIRO,
+    label: 'Planejamento Financeiro',
+    icon: Target,
+  },
+  {
     id: ModuleId.CONFIGURACOES,
     label: 'Configurações',
     icon: Settings,
@@ -213,6 +218,11 @@ export const RH_MENU_ITEMS: MenuItem[] = [
     icon: Heart,
   },
   {
+    id: ModuleId.PLAN_RH,
+    label: 'Planejamento de RH',
+    icon: Target,
+  },
+  {
     id: ModuleId.RH_CONFIG,
     label: 'Configurações RH',
     icon: Settings2,
@@ -262,6 +272,11 @@ export const PRODUCAO_MENU_ITEMS: MenuItem[] = [
     id: ModuleId.PRODUCAO_MANUTENCAO,
     label: 'Manutenção',
     icon: Wrench,
+  },
+  {
+    id: ModuleId.PLAN_PRODUCAO,
+    label: 'Planejamento de Produção',
+    icon: Target,
   },
   {
     id: ModuleId.PRODUCAO_CONFIG,
@@ -333,6 +348,11 @@ export const VENDAS_MENU_ITEMS: MenuItem[] = [
     icon: BarChart3,
   },
   {
+    id: ModuleId.PLAN_VENDAS,
+    label: 'Planejamento de Vendas',
+    icon: Target,
+  },
+  {
     id: ModuleId.VENDAS_CONFIG,
     label: 'Configurações Vendas',
     icon: Settings2,
@@ -373,6 +393,11 @@ export const COMPRAS_MENU_ITEMS: MenuItem[] = [
       { id: 'compras_forn_aval', label: 'Avaliação de Desempenho' },
       { id: 'compras_forn_contratos', label: 'Contratos' },
     ]
+  },
+  {
+    id: ModuleId.PLAN_COMPRAS,
+    label: 'Planejamento de Compras',
+    icon: Target,
   },
   {
     id: ModuleId.COMPRAS_CONFIG,
@@ -418,41 +443,13 @@ export const PROJETOS_MENU_ITEMS: MenuItem[] = [
     icon: GraduationCap,
   },
   {
+    id: ModuleId.PLAN_PROJETOS,
+    label: 'Planejamento de Projetos',
+    icon: Target,
+  },
+  {
     id: ModuleId.PROJETOS_CONFIG,
     label: 'Configurações',
     icon: Settings2,
-  }
-];
-
-export const PLANEJAMENTO_MENU_ITEMS: MenuItem[] = [
-  {
-    id: ModuleId.PLAN_FINANCEIRO,
-    label: 'Planejamento Financeiro',
-    icon: DollarSign,
-  },
-  {
-    id: ModuleId.PLAN_RH,
-    label: 'Planejamento de RH',
-    icon: Users,
-  },
-  {
-    id: ModuleId.PLAN_PRODUCAO,
-    label: 'Planejamento de Produção',
-    icon: Factory,
-  },
-  {
-    id: ModuleId.PLAN_VENDAS,
-    label: 'Planejamento de Vendas',
-    icon: ShoppingCart,
-  },
-  {
-    id: ModuleId.PLAN_COMPRAS,
-    label: 'Planejamento de Compras',
-    icon: Package,
-  },
-  {
-    id: ModuleId.PLAN_PROJETOS,
-    label: 'Planejamento de Projetos',
-    icon: ClipboardList,
   }
 ];

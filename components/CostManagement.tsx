@@ -93,15 +93,38 @@ export const CostManagement: React.FC = () => {
     const costPerHour = totalMonthlyCosts / currentMonth.hours;
     const profitPerHour = revenuePerHour - costPerHour;
     
+    // New indicators
+    const numEmployees = employees.length || 1; // Avoid division by zero
+    const hoursPerEmployee = currentMonth.hours / numEmployees;
+    const directCostPerHour = currentMonth.variableCosts / currentMonth.hours;
+    const indirectCostPerHour = totalFixedCosts / currentMonth.hours;
+    const mcPerHour = (currentMonth.revenue - currentMonth.variableCosts) / currentMonth.hours;
+    
+    // Assume a target profit margin of 20% for "Faturamento Necessário" if not specified
+    const targetMargin = 0.20;
+    const requiredBillingPerHour = costPerHour / (1 - targetMargin);
+    
+    // Productive capacity: assume 176h per employee (22 days * 8h)
+    const capacityPerHour = numEmployees * 176; 
+    const efficiency = (currentMonth.hours / capacityPerHour) * 100;
+
     return {
       totalHours: currentMonth.hours,
       revenuePerHour,
       costPerHour,
       profitPerHour,
       margin: (profitPerHour / revenuePerHour) * 100,
-      totalMonthlyCosts
+      totalMonthlyCosts,
+      numEmployees,
+      hoursPerEmployee,
+      directCostPerHour,
+      indirectCostPerHour,
+      mcPerHour,
+      requiredBillingPerHour,
+      capacityPerHour,
+      efficiency
     };
-  }, [workedHoursData, totalFixedCosts]);
+  }, [workedHoursData, totalFixedCosts, employees]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -196,57 +219,72 @@ export const CostManagement: React.FC = () => {
       </div>
 
       {/* Main KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-              <Clock size={20} />
-            </div>
-            <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-              <ArrowUpRight size={14} /> +5.2%
-            </span>
-          </div>
-          <p className="text-sm text-gray-500 mb-1">Horas Trabalhadas (Mês)</p>
-          <p className="text-2xl font-bold text-gray-900">{stats.totalHours}h</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Faturamento Necessário/H</p>
+          <p className="text-xl font-bold text-indigo-600">{formatCurrency(stats.requiredBillingPerHour)}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Para margem de 20%</p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
-              <TrendingUp size={20} />
-            </div>
-            <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-              <ArrowUpRight size={14} /> +3.8%
-            </span>
-          </div>
-          <p className="text-sm text-gray-500 mb-1">Faturamento por Hora</p>
-          <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.revenuePerHour)}</p>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Custo Direto por Hora</p>
+          <p className="text-xl font-bold text-orange-600">{formatCurrency(stats.directCostPerHour)}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Base: Custos Variáveis</p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-2 bg-red-50 text-red-600 rounded-lg">
-              <TrendingDown size={20} />
-            </div>
-            <span className="text-xs font-bold text-red-600 flex items-center gap-1">
-              <ArrowUpRight size={14} /> +2.1%
-            </span>
-          </div>
-          <p className="text-sm text-gray-500 mb-1">Custo por Hora</p>
-          <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.costPerHour)}</p>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Custo Indireto por Hora</p>
+          <p className="text-xl font-bold text-amber-600">{formatCurrency(stats.indirectCostPerHour)}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Base: Custos Fixos</p>
         </div>
 
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-              <DollarSign size={20} />
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Lucro por Hora</p>
+          <p className="text-xl font-bold text-emerald-600">{formatCurrency(stats.profitPerHour)}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Líquido operacional</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">MC por Hora</p>
+          <p className="text-xl font-bold text-blue-600">{formatCurrency(stats.mcPerHour)}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Margem de Contribuição</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Capacidade Produtiva/h</p>
+          <p className="text-xl font-bold text-gray-900">{stats.capacityPerHour.toLocaleString()}h</p>
+          <p className="text-[10px] text-gray-400 mt-1">Potencial mensal total</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Horas por Funcionário</p>
+          <p className="text-xl font-bold text-gray-900">{stats.hoursPerEmployee.toFixed(1)}h</p>
+          <p className="text-[10px] text-gray-400 mt-1">Média mensal</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Funcionários</p>
+          <p className="text-xl font-bold text-gray-900">{stats.numEmployees}</p>
+          <p className="text-[10px] text-gray-400 mt-1">Equipe ativa</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Eficiência (%)</p>
+          <div className="flex items-end gap-2">
+            <p className="text-xl font-bold text-indigo-600">{stats.efficiency.toFixed(1)}%</p>
+            <div className="flex-1 h-1.5 bg-gray-100 rounded-full mb-1.5 overflow-hidden">
+              <div 
+                className={`h-full rounded-full ${stats.efficiency > 80 ? 'bg-emerald-500' : stats.efficiency > 50 ? 'bg-amber-500' : 'bg-red-500'}`}
+                style={{ width: `${Math.min(stats.efficiency, 100)}%` }}
+              ></div>
             </div>
-            <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-              <ArrowUpRight size={14} /> +4.5%
-            </span>
           </div>
-          <p className="text-sm text-gray-500 mb-1">Lucro por Hora</p>
-          <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.profitPerHour)}</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Horas Trabalhadas</p>
+          <p className="text-xl font-bold text-gray-900">{stats.totalHours}h</p>
+          <p className="text-[10px] text-gray-400 mt-1">Total do período</p>
         </div>
       </div>
 

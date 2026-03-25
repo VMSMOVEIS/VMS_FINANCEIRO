@@ -14,7 +14,11 @@ import {
   ArrowRight,
   Plus,
   X,
-  Info
+  Info,
+  DollarSign,
+  Zap,
+  UserPlus,
+  Scale
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -123,10 +127,35 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ sector }) => {
 
   const config = getSectorConfig();
 
+  const salesMetrics = [
+    { label: 'Meta de Receita (Faturamento)', target: 'R$ 100.000', current: 'R$ 65.000', progress: 65, icon: <DollarSign size={20} /> },
+    { label: 'Vendas por Encomenda (Sob Medida)', target: '40', current: '25', progress: 62, icon: <ShoppingCart size={20} /> },
+    { label: 'Vendas Loja (PDV)', target: '60', current: '42', progress: 70, icon: <Zap size={20} /> },
+    { label: 'Quantidade Vendida', target: '100', current: '67', progress: 67, icon: <Package size={20} /> },
+    { label: 'Novos Clientes', target: '20', current: '12', progress: 60, icon: <UserPlus size={20} /> },
+    { label: 'Leads Qualificados', target: '150', current: '98', progress: 65, icon: <Users size={20} /> },
+    { label: 'Conversão Desejada', target: '20%', current: '18%', progress: 90, icon: <TrendingUp size={20} /> },
+    { label: 'Margem Mínima Desejada', target: '30%', current: '28%', progress: 93, icon: <Scale size={20} /> },
+    { label: 'Pipeline Alvo', target: 'R$ 500.000', current: 'R$ 380.000', progress: 76, icon: <Target size={20} /> },
+    { label: 'Ticket Médio', target: 'R$ 1.500', current: 'R$ 1.420', progress: 94, icon: <ArrowRight size={20} /> },
+  ];
+
+  const [goals, setGoals] = useState([
+    { title: 'Aumentar eficiência operacional', status: 'Em andamento', progress: 65, priority: 'Alta' },
+    { title: 'Reduzir custos fixos em 10%', status: 'Atrasado', progress: 30, priority: 'Urgente' },
+    { title: 'Implementar novo sistema de gestão', status: 'Concluído', progress: 100, priority: 'Média' },
+    { title: 'Treinamento da equipe técnica', status: 'Em andamento', progress: 45, priority: 'Média' },
+  ]);
+
   const handleCreateGoal = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, we would save this to the database
-    console.log('Nova meta criada:', newGoal);
+    const goal = {
+      title: newGoal.title,
+      status: 'Em andamento',
+      progress: 0,
+      priority: newGoal.priority
+    };
+    setGoals([goal, ...goals]);
     setIsModalOpen(false);
     setNewGoal({ title: '', target: '', deadline: '', priority: 'Média' });
   };
@@ -190,6 +219,33 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ sector }) => {
         </div>
       </div>
 
+      {sector.toLowerCase() === 'vendas' && (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-bold text-gray-800 mb-6">Indicadores de Planejamento de Vendas</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {salesMetrics.map((metric, i) => (
+              <div key={i} className="p-4 rounded-xl border border-gray-50 bg-gray-50/50">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-white rounded-lg text-emerald-600 shadow-sm">
+                    {metric.icon}
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium">{metric.label}</p>
+                    <p className="text-sm font-bold text-gray-900">{metric.current} / {metric.target}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 bg-gray-200 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${metric.progress}%` }}></div>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-600">{metric.progress}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <h3 className="text-lg font-bold text-gray-800 mb-6">Planejado vs Realizado</h3>
@@ -234,12 +290,7 @@ export const PlanningView: React.FC<PlanningViewProps> = ({ sector }) => {
           <h3 className="text-lg font-bold text-gray-800">Principais Objetivos</h3>
         </div>
         <div className="divide-y divide-gray-100">
-          {[
-            { title: 'Aumentar eficiência operacional', status: 'Em andamento', progress: 65, priority: 'Alta' },
-            { title: 'Reduzir custos fixos em 10%', status: 'Atrasado', progress: 30, priority: 'Urgente' },
-            { title: 'Implementar novo sistema de gestão', status: 'Concluído', progress: 100, priority: 'Média' },
-            { title: 'Treinamento da equipe técnica', status: 'Em andamento', progress: 45, priority: 'Média' },
-          ].map((obj, i) => (
+          {goals.map((obj, i) => (
             <div key={i} className="p-6 flex items-center justify-between hover:bg-gray-50 transition-colors group">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">

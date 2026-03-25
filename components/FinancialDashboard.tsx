@@ -13,158 +13,108 @@ export const FinancialDashboard: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth().toString());
   const [customRange, setCustomRange] = useState({ start: '', end: '' });
 
-  const filteredTransactions = useMemo(() => {
+  const isDateInSelectedRange = (dateStr: string) => {
+    if (!dateStr) return false;
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const tDate = new Date(year, month - 1, day || 1);
+    const tYear = tDate.getFullYear();
+    const tMonth = tDate.getMonth();
+
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
 
-    return transactions.filter(t => {
-      // Fix timezone issue by treating the date string as local time or appending time
-      // Assuming t.date is YYYY-MM-DD
-      const [year, month, day] = t.date.split('-').map(Number);
-      const tDate = new Date(year, month - 1, day);
-      
-      const tYear = tDate.getFullYear();
-      const tMonth = tDate.getMonth();
+    switch (filterType) {
+      case 'this-month':
+        return tYear === currentYear && tMonth === currentMonth;
+      case 'last-month':
+        const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
+        return tYear === lastMonthDate.getFullYear() && tMonth === lastMonthDate.getMonth();
+      case 'this-year':
+        return tYear === currentYear;
+      case 'month':
+        return tYear === currentYear && tMonth === parseInt(selectedMonth);
+      case 'custom':
+        if (!customRange.start || !customRange.end) return true;
+        return dateStr >= customRange.start && dateStr <= customRange.end;
+      default:
+        return true;
+    }
+  };
 
-      switch (filterType) {
-        case 'this-month':
-          return tYear === currentYear && tMonth === currentMonth;
-        case 'last-month':
-           const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
-           return tYear === lastMonthDate.getFullYear() && tMonth === lastMonthDate.getMonth();
-        case 'this-year':
-          return tYear === currentYear;
-        case 'month':
-          return tYear === currentYear && tMonth === parseInt(selectedMonth);
-        case 'custom':
-          if (!customRange.start || !customRange.end) return true;
-          return t.date >= customRange.start && t.date <= customRange.end;
-        default:
-          return true;
-      }
-    });
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => isDateInSelectedRange(t.date));
   }, [transactions, filterType, selectedMonth, customRange]);
 
   // --- KPI Calculations ---
 
-  // 1. Entrada de Caixa (Cash Inflow) - Only completed income payments
+  // 1. Entrada de Caixa (Cash Inflow) - Only completed income payments in the period
   const totalRevenue = useMemo(() => {
-    return filteredTransactions
-      .filter(t => t.type === 'income' && !t.linkedTransactionId)
+    return transactions
+      .filter(t => t.type === 'income' && t.transactionTypeId !== 'transferencia')
       .flatMap(t => t.payments)
-      .filter(p => p.status === 'completed' && p.method !== 'Adiantamento')
+      .filter(p => p.status === 'completed' && isDateInSelectedRange(p.dueDate))
       .reduce((sum, p) => sum + p.value, 0);
-  }, [filteredTransactions]);
+  }, [transactions, filterType, selectedMonth, customRange]);
 
-  // 2. Saída de Caixa (Cash Outflow) - Only completed expense payments
+  // 2. Saída de Caixa (Cash Outflow) - Only completed expense payments in the period
   const totalExpenses = useMemo(() => {
-    return filteredTransactions
-      .filter(t => t.type === 'expense' && !t.linkedTransactionId)
+    return transactions
+      .filter(t => t.type === 'expense' && t.transactionTypeId !== 'transferencia')
       .flatMap(t => t.payments)
-      .filter(p => p.status === 'completed' && p.method !== 'Adiantamento')
+      .filter(p => p.status === 'completed' && isDateInSelectedRange(p.dueDate))
       .reduce((sum, p) => sum + p.value, 0);
-  }, [filteredTransactions]);
+  }, [transactions, filterType, selectedMonth, customRange]);
 
   // 3. Total de Vendas (Total Sales) - Based on Sales History
   const totalSales = useMemo(() => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
-    return sales.filter(s => {
-      if (!s.date) return false;
-      const sDate = new Date(s.date);
-      if (isNaN(sDate.getTime())) return false;
-      const sYear = sDate.getFullYear();
-      const sMonth = sDate.getMonth();
-
-      switch (filterType) {
-        case 'this-month':
-          return sYear === currentYear && sMonth === currentMonth;
-        case 'last-month':
-          const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
-          return sYear === lastMonthDate.getFullYear() && sMonth === lastMonthDate.getMonth();
-        case 'this-year':
-          return sYear === currentYear;
-        case 'month':
-          return sYear === currentYear && sMonth === parseInt(selectedMonth);
-        case 'custom':
-          if (!customRange.start || !customRange.end) return true;
-          return s.date >= customRange.start && s.date <= customRange.end;
-        default:
-          return true;
-      }
-    }).reduce((sum, s) => sum + s.value, 0);
+    return sales
+      .filter(s => s.status !== 'cancelled' && isDateInSelectedRange(s.date))
+      .reduce((sum, s) => sum + s.value, 0);
   }, [sales, filterType, selectedMonth, customRange]);
 
   // 4. Total de Compras (Total Purchases) - Based on Purchase History
   const totalPurchases = useMemo(() => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
-    return purchases.filter(p => {
-      if (!p.date) return false;
-      const pDate = new Date(p.date);
-      if (isNaN(pDate.getTime())) return false;
-      const pYear = pDate.getFullYear();
-      const pMonth = pDate.getMonth();
-
-      switch (filterType) {
-        case 'this-month':
-          return pYear === currentYear && pMonth === currentMonth;
-        case 'last-month':
-          const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
-          return pYear === lastMonthDate.getFullYear() && pMonth === lastMonthDate.getMonth();
-        case 'this-year':
-          return pYear === currentYear;
-        case 'month':
-          return pYear === currentYear && pMonth === parseInt(selectedMonth);
-        case 'custom':
-          if (!customRange.start || !customRange.end) return true;
-          return p.date >= customRange.start && p.date <= customRange.end;
-        default:
-          return true;
-      }
-    }).reduce((sum, p) => sum + p.value, 0);
+    return purchases
+      .filter(p => p.status !== 'cancelled' && isDateInSelectedRange(p.date))
+      .reduce((sum, p) => sum + p.value, 0);
   }, [purchases, filterType, selectedMonth, customRange]);
 
   // 5. EBITDA (Simplified: Revenue - Expenses)
   const ebitda = totalRevenue - totalExpenses;
   const ebitdaMargin = totalRevenue > 0 ? (ebitda / totalRevenue) * 100 : 0;
 
-  // 4. Contas a Receber (Accounts Receivable) - Pending income destined for Accounts Receivable
+  // 6. Contas a Receber (Accounts Receivable) - Pending income in the period
   const accountsReceivable = useMemo(() => {
-    return filteredTransactions
-      .filter(t => t.type === 'income')
+    return transactions
+      .filter(t => t.type === 'income' && t.transactionTypeId !== 'transferencia')
       .flatMap(t => t.payments)
-      .filter(p => p.destination === 'Contas a Receber')
+      .filter(p => p.status === 'pending' && isDateInSelectedRange(p.dueDate))
       .reduce((sum, p) => sum + p.value, 0);
-  }, [filteredTransactions]);
+  }, [transactions, filterType, selectedMonth, customRange]);
   
   const pendingReceivablesCount = useMemo(() => {
-      return filteredTransactions
-      .filter(t => t.type === 'income')
+    return transactions
+      .filter(t => t.type === 'income' && t.transactionTypeId !== 'transferencia')
       .flatMap(t => t.payments)
-      .filter(p => p.destination === 'Contas a Receber').length;
-  }, [filteredTransactions]);
+      .filter(p => p.status === 'pending' && isDateInSelectedRange(p.dueDate)).length;
+  }, [transactions, filterType, selectedMonth, customRange]);
 
-  // 5. Contas a Pagar (Accounts Payable) - Pending expenses destined for Accounts Payable
+  // 7. Contas a Pagar (Accounts Payable) - Pending expenses in the period
   const accountsPayable = useMemo(() => {
-    return filteredTransactions
-      .filter(t => t.type === 'expense')
+    return transactions
+      .filter(t => t.type === 'expense' && t.transactionTypeId !== 'transferencia')
       .flatMap(t => t.payments)
-      .filter(p => p.destination === 'Contas a Pagar')
+      .filter(p => p.status === 'pending' && isDateInSelectedRange(p.dueDate))
       .reduce((sum, p) => sum + p.value, 0);
-  }, [filteredTransactions]);
+  }, [transactions, filterType, selectedMonth, customRange]);
   
   const pendingPayablesCount = useMemo(() => {
-      return filteredTransactions
-      .filter(t => t.type === 'expense')
+    return transactions
+      .filter(t => t.type === 'expense' && t.transactionTypeId !== 'transferencia')
       .flatMap(t => t.payments)
-      .filter(p => p.destination === 'Contas a Pagar').length;
-  }, [filteredTransactions]);
+      .filter(p => p.status === 'pending' && isDateInSelectedRange(p.dueDate)).length;
+  }, [transactions, filterType, selectedMonth, customRange]);
 
   // --- Chart Data Preparation ---
 
@@ -173,92 +123,57 @@ export const FinancialDashboard: React.FC = () => {
     const data: Record<string, { name: string; receita: number; despesa: number; vendas: number; compras: number }> = {};
     
     // Process transactions
-    filteredTransactions.forEach(t => {
-      const tDate = new Date(t.date);
-      if (isNaN(tDate.getTime())) return;
-      const monthKey = `${tDate.getFullYear()}-${tDate.getMonth()}`;
-      const monthName = tDate.toLocaleDateString('pt-BR', { month: 'short' });
+    transactions.forEach(t => {
+      if (t.type === 'transfer' || t.transactionTypeId === 'transferencia') return;
 
-      if (!data[monthKey]) {
-        data[monthKey] = { name: monthName, receita: 0, despesa: 0, vendas: 0, compras: 0 };
-      }
+      t.payments.forEach(p => {
+        if (p.status !== 'completed' || !isDateInSelectedRange(p.dueDate)) return;
 
-      if (t.type === 'transfer' || t.linkedTransactionId) return;
+        const [year, month, day] = p.dueDate.split('-').map(Number);
+        const pDate = new Date(year, month - 1, day || 1);
+        const monthKey = `${pDate.getFullYear()}-${pDate.getMonth()}`;
+        const monthName = pDate.toLocaleDateString('pt-BR', { month: 'short' });
 
-      if (t.type === 'income') {
-        data[monthKey].receita += t.value;
-      } else if (t.type === 'expense') {
-        data[monthKey].despesa += t.value;
-      }
+        if (!data[monthKey]) {
+          data[monthKey] = { name: monthName, receita: 0, despesa: 0, vendas: 0, compras: 0 };
+        }
+
+        if (t.type === 'income') {
+          data[monthKey].receita += p.value;
+        } else if (t.type === 'expense') {
+          data[monthKey].despesa += p.value;
+        }
+      });
     });
 
     // Process sales
     sales.forEach(s => {
-      const sDate = new Date(s.date);
-      if (isNaN(sDate.getTime())) return;
+      if (!s.date || s.status === 'cancelled' || !isDateInSelectedRange(s.date)) return;
       
-      // Apply same filter logic as totalSales
-      const sYear = sDate.getFullYear();
-      const sMonth = sDate.getMonth();
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
+      const [year, month, day] = s.date.split('-').map(Number);
+      const sDate = new Date(year, month - 1, day || 1);
+      const monthKey = `${sDate.getFullYear()}-${sDate.getMonth()}`;
+      const monthName = sDate.toLocaleDateString('pt-BR', { month: 'short' });
 
-      let isIncluded = false;
-      switch (filterType) {
-        case 'this-month': isIncluded = sYear === currentYear && sMonth === currentMonth; break;
-        case 'last-month': 
-          const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
-          isIncluded = sYear === lastMonthDate.getFullYear() && sMonth === lastMonthDate.getMonth(); 
-          break;
-        case 'this-year': isIncluded = sYear === currentYear; break;
-        case 'month': isIncluded = sYear === currentYear && sMonth === parseInt(selectedMonth); break;
-        case 'custom': isIncluded = (!customRange.start || !customRange.end) || (s.date >= customRange.start && s.date <= customRange.end); break;
-        default: isIncluded = true;
+      if (!data[monthKey]) {
+        data[monthKey] = { name: monthName, receita: 0, despesa: 0, vendas: 0, compras: 0 };
       }
-
-      if (isIncluded) {
-        const monthKey = `${sYear}-${sMonth}`;
-        const monthName = sDate.toLocaleDateString('pt-BR', { month: 'short' });
-        if (!data[monthKey]) {
-          data[monthKey] = { name: monthName, receita: 0, despesa: 0, vendas: 0, compras: 0 };
-        }
-        data[monthKey].vendas += s.value;
-      }
+      data[monthKey].vendas += s.value;
     });
 
     // Process purchases
     purchases.forEach(p => {
-      const pDate = new Date(p.date);
-      if (isNaN(pDate.getTime())) return;
+      if (!p.date || p.status === 'cancelled' || !isDateInSelectedRange(p.date)) return;
 
-      const pYear = pDate.getFullYear();
-      const pMonth = pDate.getMonth();
-      const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth();
+      const [year, month, day] = p.date.split('-').map(Number);
+      const pDate = new Date(year, month - 1, day || 1);
+      const monthKey = `${pDate.getFullYear()}-${pDate.getMonth()}`;
+      const monthName = pDate.toLocaleDateString('pt-BR', { month: 'short' });
 
-      let isIncluded = false;
-      switch (filterType) {
-        case 'this-month': isIncluded = pYear === currentYear && pMonth === currentMonth; break;
-        case 'last-month': 
-          const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
-          isIncluded = pYear === lastMonthDate.getFullYear() && pMonth === lastMonthDate.getMonth(); 
-          break;
-        case 'this-year': isIncluded = pYear === currentYear; break;
-        case 'month': isIncluded = pYear === currentYear && pMonth === parseInt(selectedMonth); break;
-        case 'custom': isIncluded = (!customRange.start || !customRange.end) || (p.date >= customRange.start && p.date <= customRange.end); break;
-        default: isIncluded = true;
+      if (!data[monthKey]) {
+        data[monthKey] = { name: monthName, receita: 0, despesa: 0, vendas: 0, compras: 0 };
       }
-
-      if (isIncluded) {
-        const monthKey = `${pYear}-${pMonth}`;
-        const monthName = pDate.toLocaleDateString('pt-BR', { month: 'short' });
-        if (!data[monthKey]) {
-          data[monthKey] = { name: monthName, receita: 0, despesa: 0, vendas: 0, compras: 0 };
-        }
-        data[monthKey].compras += p.value;
-      }
+      data[monthKey].compras += p.value;
     });
 
     // Sort by date

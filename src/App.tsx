@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Menu, Bell, Search, UserCircle, ChevronDown, ChevronRight, Dot, Store, X, Calendar, ArrowRight, Users, Clock, UserPlus, FileSpreadsheet, Settings2, Compass } from 'lucide-react';
-import { MENU_ITEMS, RH_MENU_ITEMS, PRODUCAO_MENU_ITEMS, VENDAS_MENU_ITEMS, COMPRAS_MENU_ITEMS, PROJETOS_MENU_ITEMS, PLANEJAMENTO_MENU_ITEMS } from '../constants';
+import { MENU_ITEMS, RH_MENU_ITEMS, PRODUCAO_MENU_ITEMS, VENDAS_MENU_ITEMS, COMPRAS_MENU_ITEMS, PROJETOS_MENU_ITEMS } from '../constants';
 import { MenuItem, ModuleId, SectorId } from '../types';
 import { FinancialDashboard } from '../components/FinancialDashboard';
 import { AccountsPayable } from '../components/AccountsPayable';
@@ -400,20 +400,20 @@ const App: React.FC = () => {
               </div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">Módulo em Desenvolvimento</h2>
               <p className="text-gray-500 max-w-md">
-                  O módulo de <strong>{currentMenuItems.find(m => m.id === activeModule)?.label}</strong> está sendo preparado para o sistema VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : activeSector === SectorId.VENDAS ? 'Vendas' : activeSector === SectorId.PROJETOS ? 'Projetos' : activeSector === SectorId.PLANEJAMENTO ? 'Planejamento' : 'Compras'}.
+                  O módulo de <strong>{currentMenuItems.find(m => m.id === activeModule)?.label}</strong> está sendo preparado para o sistema VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : activeSector === SectorId.VENDAS ? 'Vendas' : activeSector === SectorId.PROJETOS ? 'Projetos' : 'Compras'}.
               </p>
           </div>
         );
     }
   };
 
-  const currentMenuItems = activeSector === SectorId.FINANCEIRO ? MENU_ITEMS : activeSector === SectorId.RH ? RH_MENU_ITEMS : activeSector === SectorId.PRODUCAO ? PRODUCAO_MENU_ITEMS : activeSector === SectorId.VENDAS ? VENDAS_MENU_ITEMS : activeSector === SectorId.COMPRAS ? COMPRAS_MENU_ITEMS : activeSector === SectorId.PROJETOS ? PROJETOS_MENU_ITEMS : PLANEJAMENTO_MENU_ITEMS;
-  const sectorColor = activeSector === SectorId.FINANCEIRO ? '#0f172a' : activeSector === SectorId.RH ? '#500724' : activeSector === SectorId.PRODUCAO ? '#431407' : activeSector === SectorId.VENDAS ? '#022c22' : activeSector === SectorId.COMPRAS ? '#1e1b4b' : activeSector === SectorId.PROJETOS ? '#1e1b4b' : '#1f2937'; 
-  const sectorAccent = activeSector === SectorId.FINANCEIRO ? '#1e40af' : activeSector === SectorId.RH ? '#831843' : activeSector === SectorId.PRODUCAO ? '#78350f' : activeSector === SectorId.VENDAS ? '#047857' : activeSector === SectorId.COMPRAS ? '#312e81' : activeSector === SectorId.PROJETOS ? '#4338ca' : '#374151'; 
-  const sectorBorder = activeSector === SectorId.FINANCEIRO ? '#1e3a8a' : activeSector === SectorId.RH ? '#700b34' : activeSector === SectorId.PRODUCAO ? '#92400e' : activeSector === SectorId.VENDAS ? '#064e3b' : activeSector === SectorId.COMPRAS ? '#3730a3' : activeSector === SectorId.PROJETOS ? '#3730a3' : '#4b5563';
-  const sectorIconColor = activeSector === SectorId.FINANCEIRO ? 'text-blue-400' : activeSector === SectorId.RH ? 'text-pink-400' : activeSector === SectorId.PRODUCAO ? 'text-orange-400' : activeSector === SectorId.VENDAS ? 'text-emerald-400' : activeSector === SectorId.COMPRAS ? 'text-indigo-400' : activeSector === SectorId.PROJETOS ? 'text-indigo-400' : 'text-gray-400';
-  const sectorShadow = activeSector === SectorId.FINANCEIRO ? 'rgba(59,130,246,0.5)' : activeSector === SectorId.RH ? 'rgba(244,114,182,0.5)' : activeSector === SectorId.PRODUCAO ? 'rgba(251,146,60,0.5)' : activeSector === SectorId.VENDAS ? 'rgba(52,211,153,0.5)' : activeSector === SectorId.COMPRAS ? 'rgba(99,102,241,0.5)' : activeSector === SectorId.PROJETOS ? 'rgba(99,102,241,0.5)' : 'rgba(107,114,128,0.5)';
-  const sectorIndicator = activeSector === SectorId.FINANCEIRO ? '#3b82f6' : activeSector === SectorId.RH ? '#f472b6' : activeSector === SectorId.PRODUCAO ? '#f59e0b' : activeSector === SectorId.VENDAS ? '#10b981' : activeSector === SectorId.COMPRAS ? '#6366f1' : activeSector === SectorId.PROJETOS ? '#6366f1' : '#6b7280';
+  const currentMenuItems = activeSector === SectorId.FINANCEIRO ? MENU_ITEMS : activeSector === SectorId.RH ? RH_MENU_ITEMS : activeSector === SectorId.PRODUCAO ? PRODUCAO_MENU_ITEMS : activeSector === SectorId.VENDAS ? VENDAS_MENU_ITEMS : activeSector === SectorId.COMPRAS ? COMPRAS_MENU_ITEMS : PROJETOS_MENU_ITEMS;
+  const sectorColor = activeSector === SectorId.FINANCEIRO ? '#0f172a' : activeSector === SectorId.RH ? '#500724' : activeSector === SectorId.PRODUCAO ? '#431407' : activeSector === SectorId.VENDAS ? '#022c22' : activeSector === SectorId.COMPRAS ? '#1e1b4b' : activeSector === SectorId.PROJETOS ? '#1e1b4b' : '#022c22'; 
+  const sectorAccent = activeSector === SectorId.FINANCEIRO ? '#1e40af' : activeSector === SectorId.RH ? '#831843' : activeSector === SectorId.PRODUCAO ? '#78350f' : activeSector === SectorId.VENDAS ? '#047857' : activeSector === SectorId.COMPRAS ? '#312e81' : activeSector === SectorId.PROJETOS ? '#4338ca' : '#047857'; 
+  const sectorBorder = activeSector === SectorId.FINANCEIRO ? '#1e3a8a' : activeSector === SectorId.RH ? '#700b34' : activeSector === SectorId.PRODUCAO ? '#92400e' : activeSector === SectorId.VENDAS ? '#064e3b' : activeSector === SectorId.COMPRAS ? '#3730a3' : activeSector === SectorId.PROJETOS ? '#3730a3' : '#064e3b';
+  const sectorIconColor = activeSector === SectorId.FINANCEIRO ? 'text-blue-400' : activeSector === SectorId.RH ? 'text-pink-400' : activeSector === SectorId.PRODUCAO ? 'text-orange-400' : activeSector === SectorId.VENDAS ? 'text-emerald-400' : activeSector === SectorId.COMPRAS ? 'text-indigo-400' : activeSector === SectorId.PROJETOS ? 'text-indigo-400' : 'text-emerald-400';
+  const sectorShadow = activeSector === SectorId.FINANCEIRO ? 'rgba(59,130,246,0.5)' : activeSector === SectorId.RH ? 'rgba(244,114,182,0.5)' : activeSector === SectorId.PRODUCAO ? 'rgba(251,146,60,0.5)' : activeSector === SectorId.VENDAS ? 'rgba(52,211,153,0.5)' : activeSector === SectorId.COMPRAS ? 'rgba(99,102,241,0.5)' : activeSector === SectorId.PROJETOS ? 'rgba(99,102,241,0.5)' : 'rgba(52,211,153,0.5)';
+  const sectorIndicator = activeSector === SectorId.FINANCEIRO ? '#3b82f6' : activeSector === SectorId.RH ? '#f472b6' : activeSector === SectorId.PRODUCAO ? '#f59e0b' : activeSector === SectorId.VENDAS ? '#10b981' : activeSector === SectorId.COMPRAS ? '#6366f1' : activeSector === SectorId.PROJETOS ? '#6366f1' : '#10b981';
 
   if (isPublicCatalog) {
     return (
@@ -534,21 +534,6 @@ const App: React.FC = () => {
           >
             <ClipboardList size={20} />
           </div>
-
-          <div 
-            onClick={() => {
-              setActiveSector(SectorId.PLANEJAMENTO);
-              setActiveModule(ModuleId.PLAN_FINANCEIRO);
-              setActiveSubItem(null);
-            }}
-            className={`
-              w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all duration-300
-              ${activeSector === SectorId.PLANEJAMENTO ? 'bg-gray-600 text-white shadow-lg scale-110' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}
-            `}
-            title="Setor Planejamento"
-          >
-            <Compass size={20} />
-          </div>
         </div>
 
         {/* Sidebar */}
@@ -564,10 +549,10 @@ const App: React.FC = () => {
           {/* Logo Area */}
           <div className="h-16 flex items-center px-6 border-b border-white/10 shadow-md" style={{ backgroundColor: sectorAccent }}>
             <div className="font-bold text-2xl tracking-tighter flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-lg bg-gradient-to-br ${activeSector === SectorId.FINANCEIRO ? 'from-blue-400 to-indigo-600' : activeSector === SectorId.RH ? 'from-pink-400 to-rose-600' : activeSector === SectorId.PRODUCAO ? 'from-orange-400 to-amber-600' : activeSector === SectorId.VENDAS ? 'from-emerald-400 to-teal-600' : activeSector === SectorId.PROJETOS ? 'from-indigo-400 to-violet-600' : activeSector === SectorId.PLANEJAMENTO ? 'from-gray-400 to-gray-600' : 'from-indigo-400 to-violet-600'}`}>
-                {activeSector === SectorId.FINANCEIRO ? <Store size={18} className="text-white" /> : activeSector === SectorId.RH ? <Users size={18} className="text-white" /> : activeSector === SectorId.PRODUCAO ? <Factory size={18} className="text-white" /> : activeSector === SectorId.PROJETOS ? <ClipboardList size={18} className="text-white" /> : activeSector === SectorId.PLANEJAMENTO ? <Compass size={18} className="text-white" /> : <ShoppingCart size={18} className="text-white" />}
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-lg bg-gradient-to-br ${activeSector === SectorId.FINANCEIRO ? 'from-blue-400 to-indigo-600' : activeSector === SectorId.RH ? 'from-pink-400 to-rose-600' : activeSector === SectorId.PRODUCAO ? 'from-orange-400 to-amber-600' : activeSector === SectorId.VENDAS ? 'from-emerald-400 to-teal-600' : activeSector === SectorId.PROJETOS ? 'from-indigo-400 to-violet-600' : 'from-indigo-400 to-violet-600'}`}>
+                {activeSector === SectorId.FINANCEIRO ? <Store size={18} className="text-white" /> : activeSector === SectorId.RH ? <Users size={18} className="text-white" /> : activeSector === SectorId.PRODUCAO ? <Factory size={18} className="text-white" /> : activeSector === SectorId.PROJETOS ? <ClipboardList size={18} className="text-white" /> : <ShoppingCart size={18} className="text-white" />}
               </div>
-              <span className="font-bold tracking-tight">VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : activeSector === SectorId.VENDAS ? 'Vendas' : activeSector === SectorId.COMPRAS ? 'Compras' : activeSector === SectorId.PROJETOS ? 'Projetos' : 'Planejamento'}</span>
+              <span className="font-bold tracking-tight">VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : activeSector === SectorId.VENDAS ? 'Vendas' : activeSector === SectorId.COMPRAS ? 'Compras' : activeSector === SectorId.PROJETOS ? 'Projetos' : 'Vendas'}</span>
             </div>
           </div>
 
@@ -638,8 +623,8 @@ const App: React.FC = () => {
 
           {/* Footer */}
           <div className="p-4 border-t border-white/10" style={{ backgroundColor: sectorColor }}>
-            <div className="text-center text-[10px] uppercase tracking-widest opacity-40" style={{ color: activeSector === SectorId.FINANCEIRO ? '#93c5fd' : activeSector === SectorId.RH ? '#f472b6' : activeSector === SectorId.PRODUCAO ? '#fbbf24' : activeSector === SectorId.PROJETOS ? '#a5b4fc' : activeSector === SectorId.PLANEJAMENTO ? '#fbbf24' : '#6ee7b7' }}>
-              VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : activeSector === SectorId.PROJETOS ? 'Projetos' : activeSector === SectorId.PLANEJAMENTO ? 'Planejamento' : 'Vendas'} v1.0
+            <div className="text-center text-[10px] uppercase tracking-widest opacity-40" style={{ color: activeSector === SectorId.FINANCEIRO ? '#93c5fd' : activeSector === SectorId.RH ? '#f472b6' : activeSector === SectorId.PRODUCAO ? '#fbbf24' : activeSector === SectorId.PROJETOS ? '#a5b4fc' : '#6ee7b7' }}>
+              VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : activeSector === SectorId.PROJETOS ? 'Projetos' : 'Vendas'} v1.0
             </div>
           </div>
         </aside>
@@ -659,7 +644,7 @@ const App: React.FC = () => {
               
               {/* Context Breadcrumb */}
               <div className="hidden md:flex items-center text-sm text-gray-500">
-                <span className="font-medium text-gray-900">VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : activeSector === SectorId.VENDAS ? 'Vendas' : activeSector === SectorId.COMPRAS ? 'Compras' : activeSector === SectorId.PROJETOS ? 'Projetos' : 'Planejamento'}</span>
+                <span className="font-medium text-gray-900">VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : activeSector === SectorId.VENDAS ? 'Vendas' : activeSector === SectorId.COMPRAS ? 'Compras' : activeSector === SectorId.PROJETOS ? 'Projetos' : 'Vendas'}</span>
                 <ChevronRight size={14} className="mx-2" />
                 <span className="cursor-pointer hover:text-gray-700">
                   {currentMenuItems.find(i => i.id === activeModule)?.label}
@@ -772,7 +757,7 @@ const App: React.FC = () => {
           </header>
 
           {/* Page Content */}
-          <main className={`flex-1 overflow-y-auto relative ${activeSector === SectorId.FINANCEIRO ? 'bg-blue-50/30' : activeSector === SectorId.RH ? 'bg-pink-50/30' : activeSector === SectorId.PRODUCAO ? 'bg-orange-50/30' : activeSector === SectorId.VENDAS ? 'bg-emerald-50/30' : activeSector === SectorId.PROJETOS ? 'bg-indigo-50/30' : 'bg-indigo-50/30'}`}>
+          <main className={`flex-1 overflow-y-auto relative ${activeSector === SectorId.FINANCEIRO ? 'bg-blue-50/30' : activeSector === SectorId.RH ? 'bg-pink-50/30' : activeSector === SectorId.PRODUCAO ? 'bg-orange-50/30' : activeSector === SectorId.VENDAS ? 'bg-emerald-50/30' : activeSector === SectorId.PROJETOS ? 'bg-indigo-50/30' : 'bg-emerald-50/30'}`}>
             {isLoading && (
               <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-50 flex items-center justify-center">
                 <div className={`bg-white p-6 rounded-2xl shadow-xl border flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300 ${activeSector === SectorId.FINANCEIRO ? 'border-blue-100' : activeSector === SectorId.RH ? 'border-pink-100' : activeSector === SectorId.PRODUCAO ? 'border-orange-100' : activeSector === SectorId.PROJETOS ? 'border-indigo-100' : 'border-emerald-100'}`}>
