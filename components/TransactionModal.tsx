@@ -172,9 +172,7 @@ export const TransactionModal: React.FC = () => {
   const credits = formData.multiAccounts?.filter(s => s.type === 'credit').reduce((sum, s) => sum + s.value, 0) || 0;
   const totalValue = Number(formData.value) || 0;
   const isAccountingBalanced = !isAccountingEnabled || (
-    Math.abs(debits - totalValue) < 0.01 &&
-    Math.abs(credits - totalValue) < 0.01 &&
-    Math.abs(debits - credits) < 0.01
+    Math.abs(debits - credits) < 0.01 && debits > 0
   );
 
   useEffect(() => {
@@ -252,12 +250,9 @@ export const TransactionModal: React.FC = () => {
         }
     }
 
-    // Check for totals exceeding
-    if (debits > totalValue + 0.01) {
-      alerts.push(`Erro: A soma dos Débitos (${debits.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}) ultrapassa o valor total.`);
-    }
-    if (credits > totalValue + 0.01) {
-      alerts.push(`Erro: A soma dos Créditos (${credits.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}) ultrapassa o valor total.`);
+    // Check for totals balance
+    if (Math.abs(debits - credits) > 0.01) {
+      alerts.push(`Aviso: O lançamento contábil não está balanceado (Débitos != Créditos).`);
     }
 
     setAccountingAlerts(alerts);
