@@ -1220,7 +1220,7 @@ export const TransactionModal: React.FC = () => {
                     type="button"
                     onClick={() => {
                       if (!formData.transactionTypeId) {
-                        alert('Por favor, selecione o Tipo de Lançamento antes de prosseguir.');
+                        setError('Por favor, selecione o Tipo de Lançamento antes de prosseguir.');
                         return;
                       }
                       autoFillAccounting();
@@ -1234,7 +1234,7 @@ export const TransactionModal: React.FC = () => {
                     type="button"
                     onClick={() => {
                       if (!formData.transactionTypeId) {
-                        alert('Por favor, selecione o Tipo de Lançamento antes de prosseguir.');
+                        setError('Por favor, selecione o Tipo de Lançamento antes de prosseguir.');
                         return;
                       }
                       addSplit('debit');
@@ -1248,7 +1248,7 @@ export const TransactionModal: React.FC = () => {
                     type="button"
                     onClick={() => {
                       if (!formData.transactionTypeId) {
-                        alert('Por favor, selecione o Tipo de Lançamento antes de prosseguir.');
+                        setError('Por favor, selecione o Tipo de Lançamento antes de prosseguir.');
                         return;
                       }
                       addSplit('credit');

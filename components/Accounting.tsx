@@ -208,137 +208,50 @@ const generateAccountingEntries = (transactions: any[], accountPlans: any[], sal
     });
   }
 
-  // 1. Process Sales Orders (Accrual)
-  sales.forEach(s => {
-    if (s.status === 'completed' || s.status === 'shipped') {
-      const revenuePlan = findPlan(s.accountPlanId) || findPlan('4.1.01.01') || findPlan('Venda de Mercadorias') || { code: '4.1.01.01', name: 'Venda de Mercadorias' };
-      
-      entries.push({
-        id: entryId++,
-        transactionId: s.id,
-        date: s.effectiveDate || s.date,
-        description: `Venda - ${s.customer}`,
-        debit: getLabel(planReceivables),
-        credit: getLabel(revenuePlan),
-        value: s.value
-      });
-
-      if (s.estimatedCost > 0) {
-        const cogsPlan = findPlan('5.1.01') || findPlan('CMV') || { code: '5.1.01', name: 'CMV' };
-        const inventoryPlan = findPlan('1.1.03') || findPlan('Estoques') || { code: '1.1.03.01', name: 'Estoques' };
-        entries.push({
-          id: entryId++,
-          transactionId: s.id,
-          date: s.effectiveDate || s.date,
-          description: `CMV - Venda ${s.id}`,
-          debit: getLabel(cogsPlan),
-          credit: getLabel(inventoryPlan),
-          value: s.estimatedCost
-        });
-      }
-    }
-  });
-
-  // 2. Process Purchase Orders (Accrual)
-  purchases.forEach(p => {
-    if (p.status === 'completed' || p.status === 'received') {
-      const inventoryPlan = findPlan(p.accountPlanId) || findPlan('1.1.03') || findPlan('Estoques') || { code: '1.1.03.01', name: 'Estoques' };
-      
-      entries.push({
-        id: entryId++,
-        transactionId: p.id,
-        date: p.effectiveDate || p.date,
-        description: `Compra - ${p.supplier}`,
-        debit: getLabel(inventoryPlan),
-        credit: getLabel(planPayables),
-        value: p.value
-      });
-    }
-  });
-
-  // 3. Process Transactions
+  // 1. Process Transactions (ONLY if they have multiAccounts)
   transactions.forEach(t => {
-    // Transfers
-    if (t.type === 'transfer') {
-      t.payments.forEach((p: any) => {
-        if (p.status === 'completed') {
-          const sourcePlan = findPlan(p.source) || planCash;
-          const destPlan = findPlan(p.destination) || planCash;
+    // If transaction has multiAccounts, use them as the source of truth for accounting
+    if (t.multiAccounts && t.multiAccounts.length > 0) {
+      const debits = t.multiAccounts.filter((s: any) => s.type === 'debit' && s.value > 0);
+      const credits = t.multiAccounts.filter((s: any) => s.type === 'credit' && s.value > 0);
+
+      let dIdx = 0;
+      let cIdx = 0;
+      let dRemaining = debits[dIdx]?.value || 0;
+      let cRemaining = credits[cIdx]?.value || 0;
+
+      while (dIdx < debits.length && cIdx < credits.length) {
+        const val = Math.min(dRemaining, cRemaining);
+        if (val > 0.001) {
+          const debitPlan = findPlan(debits[dIdx].accountPlanId) || { code: debits[dIdx].accountPlanCode, name: debits[dIdx].accountPlanName };
+          const creditPlan = findPlan(credits[cIdx].accountPlanId) || { code: credits[cIdx].accountPlanCode, name: credits[cIdx].accountPlanName };
+
           entries.push({
             id: entryId++,
             transactionId: t.id,
-            date: p.dueDate || t.date,
-            description: `Transferência - ${t.description}`,
-            debit: getLabel(destPlan),
-            credit: getLabel(sourcePlan),
-            value: p.value
+            date: t.date,
+            description: t.description,
+            debit: getLabel(debitPlan),
+            credit: getLabel(creditPlan),
+            value: val
           });
         }
-      });
-      return;
-    }
 
-    // Recognition (Accrual) for manual transactions
-    if (!t.linkedTransactionId) {
-      const categoryPlan = findPlan(t.accountPlanId) || findPlan(t.categoryCode) || findPlan(t.category);
-      
-      if (t.type === 'income') {
-        entries.push({
-          id: entryId++,
-          transactionId: t.id,
-          date: t.date,
-          description: `Reconhecimento Receita - ${t.description}`,
-          debit: getLabel(planReceivables),
-          credit: getLabel(categoryPlan),
-          value: t.value
-        });
-      } else if (t.type === 'expense') {
-        entries.push({
-          id: entryId++,
-          transactionId: t.id,
-          date: t.date,
-          description: `Reconhecimento Despesa - ${t.description}`,
-          debit: getLabel(categoryPlan),
-          credit: getLabel(planPayables),
-          value: t.value
-        });
-      }
-    }
+        dRemaining -= val;
+        cRemaining -= val;
 
-    // Payments (Settlement)
-    t.payments.forEach((p: any) => {
-      if (p.status === 'completed') {
-        // Avoid double counting if this payment is already represented by another transaction
-        const isSettledByOther = transactions.some(other => 
-          other.linkedTransactionId === t.id && other.linkedPaymentId === p.id
-        );
-        if (isSettledByOther) return;
-
-        const bankPlan = findPlan(p.destination) || findPlan(p.source) || planCash;
-
-        if (t.type === 'income') {
-          entries.push({
-            id: entryId++,
-            transactionId: t.id,
-            date: p.dueDate || t.date,
-            description: `Recebimento - ${t.description}`,
-            debit: getLabel(bankPlan),
-            credit: getLabel(planReceivables),
-            value: p.value
-          });
-        } else if (t.type === 'expense') {
-          entries.push({
-            id: entryId++,
-            transactionId: t.id,
-            date: p.dueDate || t.date,
-            description: `Pagamento - ${t.description}`,
-            debit: getLabel(planPayables),
-            credit: getLabel(bankPlan),
-            value: p.value
-          });
+        if (dRemaining < 0.001) {
+          dIdx++;
+          dRemaining = debits[dIdx]?.value || 0;
+        }
+        if (cRemaining < 0.001) {
+          cIdx++;
+          cRemaining = credits[cIdx]?.value || 0;
         }
       }
-    });
+    }
+    // Note: Automatic generation for transactions without multiAccounts has been removed 
+    // to ensure the journal only reflects explicit accounting entries as requested.
   });
 
   return entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -714,63 +627,111 @@ const TrialBalanceView = ({ entries, accountPlans, reportLevel, showZeroBalances
 
 const JournalView = ({ transactions, entries }: { transactions: any[], entries: any[] }) => {
   const { openModal, deleteTransaction } = useTransactions();
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
+  const groupedEntries = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    entries.forEach(e => {
+      // Group by transactionId to keep related splits together
+      const key = e.transactionId === 0 ? `opening-${e.id}` : `trans-${e.transactionId}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(e);
+    });
+    return Object.values(groups).sort((a, b) => new Date(b[0].date).getTime() - new Date(a[0].date).getTime());
+  }, [entries]);
 
   const handleEdit = (transactionId: number) => {
+    if (transactionId === 0) return;
     const transaction = transactions.find(t => t.id === transactionId);
     if (transaction) openModal(transaction);
   };
 
   const handleDelete = (transactionId: number) => {
-    if (window.confirm('Deseja realmente excluir o lançamento original desta partida?')) {
-      deleteTransaction(transactionId);
-    }
+    if (transactionId === 0) return;
+    deleteTransaction(transactionId);
+    setConfirmDeleteId(null);
   };
 
   return (
     <div className="p-8">
       <h3 className="text-lg font-semibold text-gray-900 mb-6">Livro Diário</h3>
       <div className="space-y-4">
-        {entries.length === 0 ? (
+        {groupedEntries.length === 0 ? (
             <div className="text-center text-gray-500">Nenhum lançamento contábil registrado.</div>
         ) : (
-            entries.map((entry) => (
-            <div key={entry.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors group relative">
-                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => handleEdit(entry.transactionId)}
-                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Editar Lançamento Original"
-                    >
-                      <Edit2 size={14} />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(entry.transactionId)}
-                      className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Excluir Lançamento Original"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+            groupedEntries.map((group, idx) => {
+              const first = group[0];
+              const totalValue = group.reduce((sum, e) => sum + e.value, 0);
+              const isConfirming = confirmDeleteId === first.transactionId;
+              
+              return (
+                <div key={idx} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors group relative">
+                    {first.transactionId !== 0 && (
+                      <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {isConfirming ? (
+                            <div className="flex items-center gap-2 bg-white p-1 rounded-lg shadow-sm border border-red-100">
+                              <span className="text-[10px] font-bold text-red-600 px-2">Confirmar exclusão?</span>
+                              <button 
+                                onClick={() => handleDelete(first.transactionId)}
+                                className="px-2 py-1 bg-red-600 text-white text-[10px] font-bold rounded hover:bg-red-700"
+                              >
+                                Sim
+                              </button>
+                              <button 
+                                onClick={() => setConfirmDeleteId(null)}
+                                className="px-2 py-1 bg-gray-100 text-gray-600 text-[10px] font-bold rounded hover:bg-gray-200"
+                              >
+                                Não
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => handleEdit(first.transactionId)}
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Editar Lançamento Original"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                              <button 
+                                onClick={() => setConfirmDeleteId(first.transactionId)}
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Excluir Lançamento Original"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </>
+                          )}
+                      </div>
+                    )}
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex gap-3">
+                          <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-mono">
+                            {first.transactionId === 0 ? 'Saldo Inicial' : `Lançamento #${first.transactionId}`}
+                          </span>
+                          <span className="text-sm text-gray-500">{new Date(first.date).toLocaleDateString('pt-BR')}</span>
+                      </div>
+                      <span className="font-bold text-gray-900 mr-16">R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <p className="text-sm text-gray-800 font-medium mb-3">{first.description}</p>
+                    
+                    <div className="space-y-2">
+                      {group.map((entry, eIdx) => (
+                        <div key={eIdx} className="grid grid-cols-2 gap-4 text-sm border-t border-gray-50 pt-2 first:border-0 first:pt-0">
+                          <div className="flex justify-between text-gray-600">
+                              <span>D - {entry.debit}</span>
+                              <span>R$ {entry.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex justify-between text-gray-600">
+                              <span>C - {entry.credit}</span>
+                              <span>R$ {entry.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                 </div>
-                <div className="flex justify-between items-start mb-2">
-                <div className="flex gap-3">
-                    <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-mono">Lançamento #{entry.id}</span>
-                    <span className="text-sm text-gray-500">{new Date(entry.date).toLocaleDateString('pt-BR')}</span>
-                </div>
-                <span className="font-bold text-gray-900 mr-16">R$ {entry.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-                <p className="text-sm text-gray-800 font-medium mb-3">{entry.description}</p>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="flex justify-between text-gray-600">
-                    <span>D - {entry.debit}</span>
-                    <span>R$ {entry.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex justify-between text-gray-600">
-                    <span>C - {entry.credit}</span>
-                    <span>R$ {entry.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-                </div>
-            </div>
-            ))
+              );
+            })
         )}
       </div>
     </div>
