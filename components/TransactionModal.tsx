@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, FileText, DollarSign, Briefcase, Wallet, Hash, User, Plus, AlertCircle } from 'lucide-react';
+import { X, Calendar, FileText, DollarSign, Briefcase, Wallet, Hash, User, Plus, AlertCircle, Search } from 'lucide-react';
 import { getAccountPlans, getTransactionTypes, AccountPlan, TransactionType } from '../services/financialData';
 import { useTransactions } from '@/src/context/TransactionContext';
 import { Transaction, Payment, TransactionSplit } from '../types';
 import { SearchTransactionModal } from './SearchTransactionModal';
+import { ChartOfAccounts } from './ChartOfAccounts';
 
 export const TransactionModal: React.FC = () => {
   const { 
@@ -40,6 +41,7 @@ export const TransactionModal: React.FC = () => {
   const [searchModalTransactionType, setSearchModalTransactionType] = useState<'income' | 'expense'>('income');
   const [accountingAlerts, setAccountingAlerts] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isChartOfAccountsOpen, setIsChartOfAccountsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingCompletion, setPendingCompletion] = useState(false);
   const [targetPaymentId, setTargetPaymentId] = useState<string | null>(null);
@@ -269,87 +271,121 @@ export const TransactionModal: React.FC = () => {
     const newSplits: TransactionSplit[] = [];
     const isIncome = formData.type === 'income';
 
-    // 1. Revenue/Expense or Advance Account (The "Category" part)
-    let categoryAccount = accountPlans.find(acc => acc.name === formData.category);
-    
-    if (!categoryAccount) {
+    // 1. Main Entry (Revenue, Expense, or Liability/Asset for Payments/Receipts)
+    let mainAccount = accountPlans.find(acc => acc.name === formData.category);
+    let mainDescription = '';
+    let mainType: 'debit' | 'credit' = isIncome ? 'credit' : 'debit';
+
+    if (!mainAccount) {
       if (formData.transactionTypeId === 'adiantamento_cliente') {
-        categoryAccount = accountPlans.find(acc => acc.code === '2.1.05.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento de clientes'));
+        mainAccount = accountPlans.find(acc => acc.code === '2.1.05.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento de clientes'));
+        mainDescription = 'Adiantamento Recebido';
       } else if (formData.transactionTypeId === 'adiantamento_fornecedor') {
-        categoryAccount = accountPlans.find(acc => acc.code === '1.1.04.02') || accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento a fornecedores'));
+        mainAccount = accountPlans.find(acc => acc.code === '1.1.04.02') || accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento a fornecedores'));
+        mainDescription = 'Adiantamento Pago';
+      } else if (formData.transactionTypeId === 'pagamento') {
+        // Paying a debt: Debit Fornecedores
+        mainAccount = accountPlans.find(acc => acc.code === '2.1.01.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('fornecedores'));
+        mainDescription = 'Baixa de Fornecedores';
+        mainType = 'debit';
+      } else if (formData.transactionTypeId === 'recebimento') {
+        // Receiving a credit: Credit Clientes
+        mainAccount = accountPlans.find(acc => acc.code === '1.1.02.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('clientes'));
+        mainDescription = 'Baixa de Clientes';
+        mainType = 'credit';
+      } else if (formData.transactionTypeId === 'venda') {
+        mainAccount = accountPlans.find(acc => acc.code === '4.1.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('venda'));
+        mainDescription = 'Receita de Venda';
+      } else if (formData.transactionTypeId === 'compra') {
+        mainAccount = accountPlans.find(acc => acc.code === '1.1.03') || accountPlans.find(acc => acc.name.toLowerCase().includes('estoque'));
+        mainDescription = 'Compra de Mercadoria/Insumo';
       } else {
-        categoryAccount = isIncome ? 
+        mainAccount = isIncome ? 
           (accountPlans.find(acc => acc.code === '4.1.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('venda'))) :
           (accountPlans.find(acc => acc.code === '6.1.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('administrativa')));
+        mainDescription = isIncome ? 'Receita de Venda' : 'Despesa Operacional';
       }
+    } else {
+      mainDescription = formData.description || (isIncome ? 'Receita' : 'Despesa');
     }
     
     newSplits.push({
-      accountPlanId: categoryAccount?.id || '',
-      accountPlanName: categoryAccount?.name || '',
-      accountPlanCode: categoryAccount?.code || '',
+      accountPlanId: mainAccount?.id || '',
+      accountPlanName: mainAccount?.name || '',
+      accountPlanCode: mainAccount?.code || '',
       value: totalValue,
-      type: isIncome ? 'credit' : 'debit',
-      description: formData.transactionTypeId?.includes('adiantamento') ? 'Adiantamento' : (isIncome ? 'Receita' : 'Despesa')
+      type: mainType,
+      description: mainDescription
     });
 
-    // 2. Asset/Liability Accounts (The "Payment" part)
-    const adiantamentoValue = payments.filter(p => p.method === 'Adiantamento').reduce((sum, p) => sum + p.value, 0);
-    if (adiantamentoValue > 0) {
-        const acc = isIncome ? 
-            (accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento de clientes')) || accountPlans.find(acc => acc.code === '2.1.05.01')) :
-            (accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento a fornecedores')) || accountPlans.find(acc => acc.code === '1.1.04.02'));
-        
-        newSplits.push({
-            accountPlanId: acc?.id || '',
-            accountPlanName: acc?.name || '',
-            accountPlanCode: acc?.code || '',
-            value: adiantamentoValue,
-            type: isIncome ? 'debit' : 'credit',
-            description: isIncome ? 'Baixa de Adiantamento' : 'Uso de Adiantamento'
-        });
-    }
+    // 2. Payment Entries (The other side of the double entry)
+    payments.forEach(payment => {
+      if (payment.value <= 0) return;
 
-    const cashValue = payments.filter(p => p.method === 'Dinheiro' || p.method === 'Espécie').reduce((sum, p) => sum + p.value, 0);
-    if (cashValue > 0) {
-        const acc = accountPlans.find(acc => acc.code === '1.1.01.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('caixa'));
-        newSplits.push({
-            accountPlanId: acc?.id || '',
-            accountPlanName: acc?.name || '',
-            accountPlanCode: acc?.code || '',
-            value: cashValue,
-            type: isIncome ? 'debit' : 'credit',
-            description: isIncome ? 'Recebimento em Caixa' : 'Pagamento em Caixa'
-        });
-    }
+      let paymentAccount: AccountPlan | undefined;
+      let paymentDescription = '';
+      let paymentType: 'debit' | 'credit' = isIncome ? 'debit' : 'credit';
 
-    const bankValue = payments.filter(p => ['Transferência', 'PIX', 'Cartão de Débito'].includes(p.method)).reduce((sum, p) => sum + p.value, 0);
-    if (bankValue > 0) {
-        const acc = accountPlans.find(acc => acc.code === '1.1.01.02') || accountPlans.find(acc => acc.name.toLowerCase().includes('banco'));
-        newSplits.push({
-            accountPlanId: acc?.id || '',
-            accountPlanName: acc?.name || '',
-            accountPlanCode: acc?.code || '',
-            value: bankValue,
-            type: isIncome ? 'debit' : 'credit',
-            description: isIncome ? 'Recebimento em Banco' : 'Pagamento em Banco'
-        });
-    }
+      // If it's a 'pagamento' or 'recebimento', the payment type logic is inverted relative to the main entry
+      if (formData.transactionTypeId === 'pagamento') paymentType = 'credit';
+      if (formData.transactionTypeId === 'recebimento') paymentType = 'debit';
 
-    const termValue = totalValue - adiantamentoValue - cashValue - bankValue;
-    if (termValue > 0.01) {
-        const acc = isIncome ?
-            (accountPlans.find(acc => acc.code === '1.1.02.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('clientes'))) :
-            (accountPlans.find(acc => acc.code === '2.1.01.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('fornecedores')));
-        
+      if (payment.method === 'Dinheiro' || payment.method === 'Espécie') {
+        paymentAccount = accountPlans.find(acc => acc.code === '1.1.01.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('caixa'));
+        paymentDescription = isIncome ? 'Recebimento em Caixa' : 'Pagamento em Caixa';
+      } else if (['Transferência', 'PIX', 'Cartão de Débito'].includes(payment.method)) {
+        paymentAccount = accountPlans.find(acc => acc.code === '1.1.01.02') || accountPlans.find(acc => acc.name.toLowerCase().includes('banco'));
+        paymentDescription = isIncome ? 'Recebimento em Banco' : 'Pagamento em Banco';
+      } else if (payment.method === 'Adiantamento') {
+        paymentAccount = isIncome ? 
+          (accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento de clientes')) || accountPlans.find(acc => acc.code === '2.1.05.01')) :
+          (accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento a fornecedores')) || accountPlans.find(acc => acc.code === '1.1.04.02'));
+        paymentDescription = isIncome ? 'Uso de Adiantamento' : 'Uso de Adiantamento';
+      } else {
+        // A Definir, Boleto, Cartão de Crédito, etc. -> Clientes or Fornecedores
+        paymentAccount = isIncome ?
+          (accountPlans.find(acc => acc.code === '1.1.02.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('clientes'))) :
+          (accountPlans.find(acc => acc.code === '2.1.01.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('fornecedores')));
+        paymentDescription = isIncome ? 'Contas a Receber (Clientes)' : 'Contas a Pagar (Fornecedores)';
+      }
+
+      if (paymentAccount) {
         newSplits.push({
-            accountPlanId: acc?.id || '',
-            accountPlanName: acc?.name || '',
-            accountPlanCode: acc?.code || '',
-            value: termValue,
-            type: isIncome ? 'debit' : 'credit',
-            description: isIncome ? 'Venda a Prazo' : 'Compra a Prazo'
+          accountPlanId: paymentAccount.id,
+          accountPlanName: paymentAccount.name,
+          accountPlanCode: paymentAccount.code,
+          value: payment.value,
+          type: paymentType,
+          description: paymentDescription
         });
+      }
+    });
+
+    // 3. Inventory and COGS (Extra entries for Sales/Purchases)
+    if (formData.transactionTypeId === 'venda') {
+      const estoqueAcc = accountPlans.find(acc => acc.code === '1.1.03.10') || accountPlans.find(acc => acc.name.toLowerCase().includes('produtos acabados')) || accountPlans.find(acc => acc.code === '1.1.03');
+      const cmvAcc = accountPlans.find(acc => acc.code === '5.1.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('mdf')) || accountPlans.find(acc => acc.type === 'despesa' && acc.name.toLowerCase().includes('custo'));
+
+      if (estoqueAcc && cmvAcc) {
+        // Suggesting inventory reduction (Credit Inventory, Debit COGS)
+        // Value is 0 as we don't know the cost, user must fill
+        newSplits.push({
+          accountPlanId: cmvAcc.id,
+          accountPlanName: cmvAcc.name,
+          accountPlanCode: cmvAcc.code,
+          value: 0,
+          type: 'debit',
+          description: 'Custo da Mercadoria Vendida (CMV)'
+        });
+        newSplits.push({
+          accountPlanId: estoqueAcc.id,
+          accountPlanName: estoqueAcc.name,
+          accountPlanCode: estoqueAcc.code,
+          value: 0,
+          type: 'credit',
+          description: 'Baixa de Estoque'
+        });
+      }
     }
 
     setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
@@ -583,31 +619,23 @@ export const TransactionModal: React.FC = () => {
       // Validate multi-account splits for transactions
       if (isAccountingEnabled) {
         const splits = formData.multiAccounts || [];
-        const totalValue = Number(formData.value) || 0;
         
-        if (totalValue > 0 && splits.length === 0) {
+        if (formData.value > 0 && splits.length === 0) {
           setError('O lançamento contábil é obrigatório. Use o botão "Sugerir Lançamento" para preencher automaticamente.');
           setIsSubmitting(false);
           return;
         }
 
-        const debits = splits.filter(s => s.type === 'debit').reduce((sum, s) => sum + s.value, 0);
-        const credits = splits.filter(s => s.type === 'credit').reduce((sum, s) => sum + s.value, 0);
+        if (splits.length > 0) {
+          const debits = splits.filter(s => s.type === 'debit').reduce((sum, s) => sum + s.value, 0);
+          const credits = splits.filter(s => s.type === 'credit').reduce((sum, s) => sum + s.value, 0);
 
-        if (Math.abs(debits - totalValue) > 0.01) {
-          setError(`A soma dos Débitos (${debits.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}) deve ser EXATAMENTE igual ao valor total da transação (${totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}).`);
-          setIsSubmitting(false);
-          return;
-        }
-        if (Math.abs(credits - totalValue) > 0.01) {
-          setError(`A soma dos Créditos (${credits.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}) deve ser EXATAMENTE igual ao valor total da transação (${totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}).`);
-          setIsSubmitting(false);
-          return;
-        }
-        if (Math.abs(debits - credits) > 0.01) {
-          setError('A soma dos Débitos deve ser igual à soma dos Créditos (Partidas Dobradas).');
-          setIsSubmitting(false);
-          return;
+          // The new rule: Debits must equal Credits. They don't have to match the transaction value.
+          if (Math.abs(debits - credits) > 0.01) {
+            setError(`O lançamento contábil não está balanceado!\nTotal Débitos: R$ ${debits.toFixed(2)}\nTotal Créditos: R$ ${credits.toFixed(2)}\nDiferença: R$ ${Math.abs(debits - credits).toFixed(2)}`);
+            setIsSubmitting(false);
+            return;
+          }
         }
       }
 
@@ -758,17 +786,29 @@ export const TransactionModal: React.FC = () => {
 
       if (field === 'accountPlanId') {
         const plan = accountPlans.find(p => p.id === value);
-        if (plan) {
+        if (plan && (plan.level === 'analitica' || plan.code.split('.').length === 4)) {
           split.accountPlanName = plan.name;
           split.accountPlanCode = plan.code;
         }
       }
 
+      if (field === 'accountPlanName') {
+        const plan = accountPlans.find(p => p.name === value);
+        if (plan && (plan.level === 'analitica' || plan.code.split('.').length === 4)) {
+          split.accountPlanId = plan.id;
+          split.accountPlanCode = plan.code;
+          split.accountPlanName = plan.name;
+        } else {
+          split.accountPlanName = value;
+        }
+      }
+
       if (field === 'accountPlanCode') {
         const plan = accountPlans.find(p => p.code === value);
-        if (plan) {
+        if (plan && (plan.level === 'analitica' || plan.code.split('.').length === 4)) {
           split.accountPlanId = plan.id;
           split.accountPlanName = plan.name;
+          split.accountPlanCode = plan.code;
         }
       }
 
@@ -961,7 +1001,6 @@ export const TransactionModal: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             />
           </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Valor Total (R$)</label>
@@ -991,61 +1030,6 @@ export const TransactionModal: React.FC = () => {
                 />
               </div>
             </div>
-
-            {!isTransfer && !isVenda && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="col-span-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
-                    <input 
-                      type="text"
-                      name="categoryCode"
-                      value={formData.categoryCode || ''}
-                      onChange={handleInputChange}
-                      placeholder="Ex: 1.1.01.01"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-mono"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Plano de Contas (Analítico)</label>
-                    <input 
-                      list="account-plans-list"
-                      name="category"
-                      required
-                      autoComplete="off"
-                      value={formData.category || ''}
-                      onChange={handleInputChange}
-                      placeholder="Digite ou selecione uma categoria..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
-                    />
-                    <datalist id="account-plans-list">
-                      {accountPlans
-                        .filter(acc => {
-                          // Only show analytical accounts (level 'analitica' or code parts length === 4)
-                          const isAnalytic = acc.level === 'analitica' || acc.code.split('.').length === 4;
-                          return isAnalytic;
-                        })
-                        .map(acc => (
-                          <option key={acc.id} value={acc.name}>{acc.code} - {acc.name}</option>
-                      ))}
-                    </datalist>
-                  </div>
-                </div>
-                
-                {formData.category && (() => {
-                  const plan = accountPlans.find(p => p.name === formData.category);
-                  const isAnalytic = plan?.code.split('.').length === 4;
-                  if (plan && !isAnalytic) {
-                    return (
-                      <p className="text-xs text-red-600 font-medium bg-red-50 p-2 rounded border border-red-100">
-                        Atenção: A conta "{plan.name}" é sintética. Por favor, selecione uma conta analítica (ex: {plan.code}.01).
-                      </p>
-                    );
-                  }
-                  return null;
-                })()}
-              </div>
-            )}
           </div>
 
           {!isTransfer && (
@@ -1239,7 +1223,13 @@ export const TransactionModal: React.FC = () => {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={autoFillAccounting}
+                    onClick={() => {
+                      if (!formData.transactionTypeId) {
+                        alert('Por favor, selecione o Tipo de Lançamento antes de prosseguir.');
+                        return;
+                      }
+                      autoFillAccounting();
+                    }}
                     className="text-[10px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-100"
                   >
                     <Plus size={12} />
@@ -1247,7 +1237,13 @@ export const TransactionModal: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => addSplit('debit')}
+                    onClick={() => {
+                      if (!formData.transactionTypeId) {
+                        alert('Por favor, selecione o Tipo de Lançamento antes de prosseguir.');
+                        return;
+                      }
+                      addSplit('debit');
+                    }}
                     className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded border border-emerald-100"
                   >
                     <Plus size={12} />
@@ -1255,7 +1251,13 @@ export const TransactionModal: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => addSplit('credit')}
+                    onClick={() => {
+                      if (!formData.transactionTypeId) {
+                        alert('Por favor, selecione o Tipo de Lançamento antes de prosseguir.');
+                        return;
+                      }
+                      addSplit('credit');
+                    }}
                     className="text-[10px] font-bold text-red-600 hover:text-red-700 flex items-center gap-1 bg-red-50 px-2 py-1 rounded border border-red-100"
                   >
                     <Plus size={12} />
@@ -1283,21 +1285,41 @@ export const TransactionModal: React.FC = () => {
                         placeholder="Código"
                       />
                     </div>
+                    <div className="col-span-1 flex justify-center pb-1">
+                      <button
+                        type="button"
+                        onClick={() => setIsChartOfAccountsOpen(true)}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-blue-100"
+                        title="Pesquisar no Plano de Contas"
+                      >
+                        <Search size={14} />
+                      </button>
+                    </div>
                     <div className="col-span-3">
                       <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Conta</label>
-                      <select
-                        value={split.accountPlanId}
-                        onChange={(e) => updateSplit(index, 'accountPlanId', e.target.value)}
+                      <input
+                        list={`account-plans-splits-${index}`}
+                        value={split.accountPlanName || ''}
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          const plan = accountPlans.find(p => p.name === name);
+                          if (plan && (plan.level === 'analitica' || plan.code.split('.').length === 4)) {
+                            updateSplit(index, 'accountPlanId', plan.id);
+                          } else {
+                            updateSplit(index, 'accountPlanName', name);
+                          }
+                        }}
                         className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                        placeholder="Digite ou selecione..."
                         required
-                      >
-                        <option value="">Selecione...</option>
+                      />
+                      <datalist id={`account-plans-splits-${index}`}>
                         {accountPlans
                           .filter(acc => acc.level === 'analitica' || acc.code.split('.').length === 4)
                           .map(plan => (
-                            <option key={plan.id} value={plan.id}>{plan.name}</option>
+                            <option key={plan.id} value={plan.name}>{plan.code} - {plan.name}</option>
                           ))}
-                      </select>
+                      </datalist>
                     </div>
                     <div className="col-span-2">
                       <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Valor (R$)</label>
@@ -1337,7 +1359,7 @@ export const TransactionModal: React.FC = () => {
                   <div className="flex justify-between pt-2 border-t border-gray-200">
                     <div className="text-left">
                       <p className="text-[10px] font-bold text-gray-500 uppercase">Total Débitos</p>
-                      <p className={`text-sm font-bold ${Math.abs(formData.multiAccounts.filter(s => s.type === 'debit').reduce((sum, s) => sum + s.value, 0) - (formData.value || 0)) < 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      <p className="text-sm font-bold text-emerald-600">
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
                           formData.multiAccounts.filter(s => s.type === 'debit').reduce((sum, s) => sum + s.value, 0)
                         )}
@@ -1345,7 +1367,7 @@ export const TransactionModal: React.FC = () => {
                     </div>
                     <div className="text-right">
                       <p className="text-[10px] font-bold text-gray-500 uppercase">Total Créditos</p>
-                      <p className={`text-sm font-bold ${Math.abs(formData.multiAccounts.filter(s => s.type === 'credit').reduce((sum, s) => sum + s.value, 0) - (formData.value || 0)) < 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                      <p className="text-sm font-bold text-emerald-600">
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
                           formData.multiAccounts.filter(s => s.type === 'credit').reduce((sum, s) => sum + s.value, 0)
                         )}
@@ -1399,6 +1421,37 @@ export const TransactionModal: React.FC = () => {
           setLinkedTransactionIds([]);
         }}
       />
+
+      {/* Chart of Accounts Modal */}
+      {isChartOfAccountsOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <Search className="text-blue-600" size={20} />
+                Plano de Contas
+              </h3>
+              <button 
+                onClick={() => setIsChartOfAccountsOpen(false)} 
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <ChartOfAccounts />
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setIsChartOfAccountsOpen(false)}
+                className="px-6 py-2 bg-gray-800 text-white rounded-lg font-medium hover:bg-gray-900 transition-all shadow-md"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
