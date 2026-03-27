@@ -82,6 +82,8 @@ export const defaultAccountPlans: Omit<AccountPlan, 'id'>[] = [
   { code: '2.1.04', name: 'Empréstimos e Financiamentos', type: 'passivo' },
   { code: '2.1.04.01', name: 'Empréstimo Bancário', type: 'passivo' },
   { code: '2.1.04.02', name: 'Financiamento de Máquinas', type: 'passivo' },
+  { code: '2.1.05', name: 'Adiantamentos de Clientes', type: 'passivo' },
+  { code: '2.1.05.01', name: 'Adiantamento de Clientes', type: 'passivo' },
 
   // 3. PATRIMÔNIO LÍQUIDO
   { code: '3', name: 'PATRIMÔNIO LÍQUIDO', type: 'passivo' },

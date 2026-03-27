@@ -199,6 +199,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         status: t.status,
         linkedTransactionId: t.linked_transaction_id,
         linkedPaymentId: t.linked_payment_id,
+        multiAccounts: t.multi_accounts,
         payments: t.payments.map((p: any) => ({
           id: p.id,
           method: p.method,
@@ -291,7 +292,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           customer_name: transaction.customerName,
           status: transaction.status,
           linked_transaction_id: transaction.linkedTransactionId,
-          linked_payment_id: transaction.linkedPaymentId
+          linked_payment_id: transaction.linkedPaymentId,
+          multi_accounts: transaction.multiAccounts
         }])
         .select()
         .single();
@@ -350,7 +352,8 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           customer_name: updatedTransaction.customerName,
           status: updatedTransaction.status,
           linked_transaction_id: updatedTransaction.linkedTransactionId,
-          linked_payment_id: updatedTransaction.linkedPaymentId
+          linked_payment_id: updatedTransaction.linkedPaymentId,
+          multi_accounts: updatedTransaction.multiAccounts
         })
         .eq('id', id);
 

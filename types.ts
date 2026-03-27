@@ -134,6 +134,15 @@ export interface Payment {
   reconciled?: boolean;
 }
 
+export interface TransactionSplit {
+  accountPlanId: string;
+  accountPlanName?: string;
+  accountPlanCode?: string;
+  value: number;
+  description?: string;
+  type: 'debit' | 'credit';
+}
+
 export interface Transaction {
   id: number;
   date: string;
@@ -150,6 +159,7 @@ export interface Transaction {
   status: 'completed' | 'pending' | 'partial' | 'a_compensar';
   linkedTransactionId?: number;
   linkedPaymentId?: string;
+  multiAccounts?: TransactionSplit[];
 }
 
 export interface UserProfile {
