@@ -225,17 +225,17 @@ export const TransactionModal: React.FC = () => {
     }
 
     // Check for Banco (Bank) -> Debit/Credit Banco
-    const bankValue = payments.filter(p => ['Transferência', 'PIX', 'Cartão de Débito'].includes(p.method)).reduce((sum, p) => sum + p.value, 0);
+    const bankValue = payments.filter(p => ['Transferência', 'PIX', 'Cartão de Débito', 'Cartão de Crédito', 'Boleto', 'Cartão'].includes(p.method)).reduce((sum, p) => sum + p.value, 0);
     if (bankValue > 0) {
       const type = formData.type === 'income' ? 'debit' : 'credit';
       const hasBancoEntry = splits.some(s => s.type === type && (s.accountPlanName?.toLowerCase().includes('banco') || s.accountPlanCode?.startsWith('1.1.01.02')));
       if (!hasBancoEntry) {
-        alerts.push(`Atenção: Pagamento via Banco/PIX detectado. Considere ${type === 'debit' ? 'debitar' : 'creditar'} a conta "Banco".`);
+        alerts.push(`Atenção: Pagamento via Banco/PIX/Cartão/Boleto detectado. Considere ${type === 'debit' ? 'debitar' : 'creditar'} a conta "Banco".`);
       }
     }
 
     // Check for "A Prazo" (Receivables/Payables) -> Debit Clientes / Credit Fornecedores
-    const termValue = payments.filter(p => p.method === 'Boleto' || p.method === 'Cartão de Crédito' || p.method === 'Cheque' || p.method === 'A Definir').reduce((sum, p) => sum + p.value, 0);
+    const termValue = payments.filter(p => p.method === 'Cheque' || p.method === 'A Definir').reduce((sum, p) => sum + p.value, 0);
     if (termValue > 0) {
         if (formData.type === 'income') {
             const hasClientesDebit = splits.some(s => s.type === 'debit' && (s.accountPlanName?.toLowerCase().includes('clientes') || s.accountPlanCode?.startsWith('1.1.02.01')));
@@ -328,7 +328,7 @@ export const TransactionModal: React.FC = () => {
       if (payment.method === 'Dinheiro' || payment.method === 'Espécie') {
         paymentAccount = accountPlans.find(acc => acc.code === '1.1.01.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('caixa'));
         paymentDescription = isIncome ? 'Recebimento em Caixa' : 'Pagamento em Caixa';
-      } else if (['Transferência', 'PIX', 'Cartão de Débito'].includes(payment.method)) {
+      } else if (['Transferência', 'PIX', 'Cartão de Débito', 'Cartão de Crédito', 'Boleto', 'Cartão'].includes(payment.method)) {
         paymentAccount = accountPlans.find(acc => acc.code === '1.1.01.02') || accountPlans.find(acc => acc.name.toLowerCase().includes('banco'));
         paymentDescription = isIncome ? 'Recebimento em Banco' : 'Pagamento em Banco';
       } else if (payment.method === 'Adiantamento') {
@@ -337,7 +337,7 @@ export const TransactionModal: React.FC = () => {
           (accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento a fornecedores')) || accountPlans.find(acc => acc.code === '1.1.04.02'));
         paymentDescription = isIncome ? 'Uso de Adiantamento' : 'Uso de Adiantamento';
       } else {
-        // A Definir, Boleto, Cartão de Crédito, etc. -> Clientes or Fornecedores
+        // A Definir, Cheque, etc. -> Clientes or Fornecedores
         paymentAccount = isIncome ?
           (accountPlans.find(acc => acc.code === '1.1.02.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('clientes'))) :
           (accountPlans.find(acc => acc.code === '2.1.01.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('fornecedores')));
