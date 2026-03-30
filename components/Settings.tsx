@@ -15,6 +15,7 @@ export const Settings: React.FC = () => {
     addPaymentMethod, 
     updatePaymentMethod,
     deletePaymentMethod,
+    accountPlans,
     userProfile,
     updateUserProfile,
     companyProfile,
@@ -95,9 +96,13 @@ export const Settings: React.FC = () => {
         name: newAccount.name,
         type: newAccount.type as any,
         balance: Number(newAccount.balance) || 0,
-        bank: newAccount.bank
+        bank: newAccount.bank,
+        color: newAccount.color,
+        accountPlanId: newAccount.accountPlanId,
+        accountPlanName: newAccount.accountPlanName,
+        accountPlanCode: newAccount.accountPlanCode
       });
-      setNewAccount({ name: '', type: 'bank', balance: 0, bank: '' });
+      setNewAccount({ name: '', type: 'bank', balance: 0, bank: '', color: '#10B981', accountPlanId: '', accountPlanName: '', accountPlanCode: '' });
     }
   };
 
@@ -323,7 +328,7 @@ export const Settings: React.FC = () => {
                     <div key={acc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                       {editingAccountId === acc.id ? (
                         /* EDIT MODE */
-                        <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                           <div className="md:col-span-1">
                             <input 
                               type="text" 
@@ -341,6 +346,26 @@ export const Settings: React.FC = () => {
                               onChange={e => setEditingAccountForm({...editingAccountForm, bank: e.target.value})}
                               placeholder="Banco"
                             />
+                          </div>
+                          <div className="md:col-span-1">
+                            <select 
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                              value={editingAccountForm.accountPlanId || ''}
+                              onChange={e => {
+                                const plan = accountPlans.find(p => p.id === e.target.value);
+                                setEditingAccountForm({
+                                  ...editingAccountForm, 
+                                  accountPlanId: e.target.value,
+                                  accountPlanName: plan?.name,
+                                  accountPlanCode: plan?.code
+                                });
+                              }}
+                            >
+                              <option value="">Tipo de conta...</option>
+                              {accountPlans.map(plan => (
+                                <option key={plan.id} value={plan.id}>{plan.code} - {plan.name}</option>
+                              ))}
+                            </select>
                           </div>
                           <div className="md:col-span-1">
                             <input 
@@ -365,7 +390,10 @@ export const Settings: React.FC = () => {
                         <>
                           <div>
                             <p className="font-medium text-gray-900">{acc.name}</p>
-                            <p className="text-xs text-gray-500 capitalize">{acc.type} {acc.bank ? `- ${acc.bank}` : ''}</p>
+                            <p className="text-xs text-gray-500 capitalize">
+                              {acc.type} {acc.bank ? `- ${acc.bank}` : ''} 
+                              {acc.accountPlanName ? ` (${acc.accountPlanName})` : ''}
+                            </p>
                           </div>
                           <div className="flex items-center gap-4">
                             <span className="text-sm font-medium text-gray-700">
@@ -386,7 +414,7 @@ export const Settings: React.FC = () => {
                   ))}
                 </div>
 
-                <form onSubmit={handleAddAccount} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end bg-gray-50 p-4 rounded-lg border border-gray-200 border-dashed">
+                <form onSubmit={handleAddAccount} className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end bg-gray-50 p-4 rounded-lg border border-gray-200 border-dashed">
                   <div className="md:col-span-1">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Nome da Conta</label>
                     <input 
@@ -407,6 +435,27 @@ export const Settings: React.FC = () => {
                       value={newAccount.bank || ''}
                       onChange={e => setNewAccount({...newAccount, bank: e.target.value})}
                     />
+                  </div>
+                  <div className="md:col-span-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Tipo de conta</label>
+                    <select 
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      value={newAccount.accountPlanId || ''}
+                      onChange={e => {
+                        const plan = accountPlans.find(p => p.id === e.target.value);
+                        setNewAccount({
+                          ...newAccount, 
+                          accountPlanId: e.target.value,
+                          accountPlanName: plan?.name,
+                          accountPlanCode: plan?.code
+                        });
+                      }}
+                    >
+                      <option value="">Selecione...</option>
+                      {accountPlans.map(plan => (
+                        <option key={plan.id} value={plan.id}>{plan.code} - {plan.name}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="md:col-span-1">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Tipo</label>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, FileText, DollarSign, Briefcase, Wallet, Hash, User, Plus, AlertCircle, Search } from 'lucide-react';
+import { X, Calendar, FileText, DollarSign, Briefcase, Wallet, Hash, User, Plus, Minus, AlertCircle, Search } from 'lucide-react';
 import { getAccountPlans, getTransactionTypes, AccountPlan, TransactionType } from '../services/financialData';
 import { useTransactions } from '@/src/context/TransactionContext';
 import { Transaction, Payment, TransactionSplit } from '../types';
@@ -166,7 +166,16 @@ export const TransactionModal: React.FC = () => {
   const isDuplicata = formData.transactionTypeId?.includes('duplicata');
   const isAccountingEnabled = !isTransfer;
   
-  const totalPayments = formData.payments?.reduce((sum, p) => sum + p.value + (p.discount || 0) - (p.surcharge || 0), 0) || 0;
+  const totalPayments = formData.payments?.reduce((sum, p) => {
+    const val = Number(p.value) || 0;
+    const disc = Number(p.discount) || 0;
+    const surch = Number(p.surcharge) || 0;
+    
+    if (p.type === 'discount') return sum + val;
+    if (p.type === 'surcharge') return sum - val;
+    
+    return sum + val + disc - surch;
+  }, 0) || 0;
   const remainingValue = (formData.value || 0) - totalPayments;
   const debits = formData.multiAccounts?.filter(s => s.type === 'debit').reduce((sum, s) => sum + s.value, 0) || 0;
   const credits = formData.multiAccounts?.filter(s => s.type === 'credit').reduce((sum, s) => sum + s.value, 0) || 0;
@@ -315,44 +324,119 @@ export const TransactionModal: React.FC = () => {
 
     // 2. Payment Entries (The other side of the double entry)
     payments.forEach(payment => {
-      if (payment.value <= 0) return;
+      const isDiscountRow = payment.type === 'discount';
+      const isSurchargeRow = payment.type === 'surcharge';
+      const isRegularPayment = !isDiscountRow && !isSurchargeRow;
 
-      let paymentAccount: AccountPlan | undefined;
-      let paymentDescription = '';
-      let paymentType: 'debit' | 'credit' = isIncome ? 'debit' : 'credit';
+      // 2.1. Process the net value paid/received (Only for regular payments)
+      if (isRegularPayment && payment.value > 0) {
+        let paymentAccount: AccountPlan | undefined;
+        let paymentDescription = '';
+        let paymentType: 'debit' | 'credit' = isIncome ? 'debit' : 'credit';
 
-      // If it's a 'pagamento' or 'recebimento', the payment type logic is inverted relative to the main entry
-      if (formData.transactionTypeId === 'pagamento') paymentType = 'credit';
-      if (formData.transactionTypeId === 'recebimento') paymentType = 'debit';
+        // If it's a 'pagamento' or 'recebimento', the payment type logic is inverted relative to the main entry
+        if (formData.transactionTypeId === 'pagamento') paymentType = 'credit';
+        if (formData.transactionTypeId === 'recebimento') paymentType = 'debit';
 
-      if (payment.method === 'Dinheiro' || payment.method === 'Espécie') {
-        paymentAccount = accountPlans.find(acc => acc.code === '1.1.01.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('caixa'));
-        paymentDescription = isIncome ? 'Recebimento em Caixa' : 'Pagamento em Caixa';
-      } else if (['Transferência', 'PIX', 'Cartão de Débito', 'Cartão de Crédito', 'Boleto', 'Cartão'].includes(payment.method)) {
-        paymentAccount = accountPlans.find(acc => acc.code === '1.1.01.02') || accountPlans.find(acc => acc.name.toLowerCase().includes('banco'));
-        paymentDescription = isIncome ? 'Recebimento em Banco' : 'Pagamento em Banco';
-      } else if (payment.method === 'Adiantamento') {
-        paymentAccount = isIncome ? 
-          (accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento de clientes')) || accountPlans.find(acc => acc.code === '2.1.05.01')) :
-          (accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento a fornecedores')) || accountPlans.find(acc => acc.code === '1.1.04.02'));
-        paymentDescription = isIncome ? 'Uso de Adiantamento' : 'Uso de Adiantamento';
-      } else {
-        // A Definir, Cheque, etc. -> Clientes or Fornecedores
-        paymentAccount = isIncome ?
-          (accountPlans.find(acc => acc.code === '1.1.02.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('clientes'))) :
-          (accountPlans.find(acc => acc.code === '2.1.01.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('fornecedores')));
-        paymentDescription = isIncome ? 'Contas a Receber (Clientes)' : 'Contas a Pagar (Fornecedores)';
+        // 2.1.1. Try to find the account plan linked to the bank account selected for this payment
+        const account = accounts.find(a => a.id === payment.bankId);
+        if (account && account.accountPlanId) {
+          paymentAccount = accountPlans.find(ap => ap.id === account.accountPlanId);
+          paymentDescription = isIncome ? `Recebimento (${account.name})` : `Pagamento (${account.name})`;
+        }
+
+        // 2.1.2. Fallback to method-based logic if no specific account was found
+        if (!paymentAccount) {
+          if (payment.method === 'Dinheiro' || payment.method === 'Espécie') {
+            paymentAccount = accountPlans.find(acc => acc.code === '1.1.01.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('caixa'));
+            paymentDescription = isIncome ? 'Recebimento em Caixa' : 'Pagamento em Caixa';
+          } else if (['Transferência', 'PIX', 'Cartão de Débito', 'Cartão de Crédito', 'Boleto', 'Cartão'].includes(payment.method)) {
+            paymentAccount = accountPlans.find(acc => acc.code === '1.1.01.02') || accountPlans.find(acc => acc.name.toLowerCase().includes('banco'));
+            paymentDescription = isIncome ? 'Recebimento em Banco' : 'Pagamento em Banco';
+          } else if (payment.method === 'Adiantamento') {
+            paymentAccount = isIncome ? 
+              (accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento de clientes')) || accountPlans.find(acc => acc.code === '2.1.05.01')) :
+              (accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento a fornecedores')) || accountPlans.find(acc => acc.code === '1.1.04.02'));
+            paymentDescription = isIncome ? 'Uso de Adiantamento' : 'Uso de Adiantamento';
+          } else {
+            // A Definir, Cheque, etc. -> Clientes or Fornecedores
+            paymentAccount = isIncome ?
+              (accountPlans.find(acc => acc.code === '1.1.02.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('clientes'))) :
+              (accountPlans.find(acc => acc.code === '2.1.01.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('fornecedores')));
+            paymentDescription = isIncome ? 'Contas a Receber (Clientes)' : 'Contas a Pagar (Fornecedores)';
+          }
+        }
+
+        if (paymentAccount) {
+          newSplits.push({
+            accountPlanId: paymentAccount.id,
+            accountPlanName: paymentAccount.name,
+            accountPlanCode: paymentAccount.code,
+            value: payment.value,
+            type: paymentType,
+            description: paymentDescription
+          });
+        }
       }
 
-      if (paymentAccount) {
-        newSplits.push({
-          accountPlanId: paymentAccount.id,
-          accountPlanName: paymentAccount.name,
-          accountPlanCode: paymentAccount.code,
-          value: payment.value,
-          type: paymentType,
-          description: paymentDescription
-        });
+      // 2.2. Handle Discounts (From both regular payments and separate discount rows)
+      const discountValue = isDiscountRow ? payment.value : (payment.discount || 0);
+      if (discountValue > 0) {
+        let discountAccount: AccountPlan | undefined;
+        let discountType: 'debit' | 'credit' = isIncome ? 'debit' : 'credit';
+        
+        if (isIncome) {
+          // Discount given to customer (Expense)
+          discountAccount = accountPlans.find(acc => acc.name.toLowerCase().includes('descontos concedidos')) || 
+                           accountPlans.find(acc => acc.code.startsWith('6') && acc.name.toLowerCase().includes('desconto'));
+          discountType = 'debit';
+        } else {
+          // Discount received from supplier (Revenue/Income)
+          discountAccount = accountPlans.find(acc => acc.code === '4.2.02') || 
+                           accountPlans.find(acc => acc.name.toLowerCase().includes('descontos obtidos'));
+          discountType = 'credit';
+        }
+
+        if (discountAccount) {
+          newSplits.push({
+            accountPlanId: discountAccount.id,
+            accountPlanName: discountAccount.name,
+            accountPlanCode: discountAccount.code,
+            value: discountValue,
+            type: discountType,
+            description: isIncome ? 'Desconto Concedido' : 'Desconto Obtido'
+          });
+        }
+      }
+
+      // 2.3. Handle Surcharges (From both regular payments and separate surcharge rows)
+      const surchargeValue = isSurchargeRow ? payment.value : (payment.surcharge || 0);
+      if (surchargeValue > 0) {
+        let surchargeAccount: AccountPlan | undefined;
+        let surchargeType: 'debit' | 'credit' = isIncome ? 'credit' : 'debit';
+
+        if (isIncome) {
+          // Surcharge received from customer (Revenue/Income)
+          surchargeAccount = accountPlans.find(acc => acc.code === '4.2.03') || 
+                            accountPlans.find(acc => acc.name.toLowerCase().includes('receitas financeiras'));
+          surchargeType = 'credit';
+        } else {
+          // Surcharge paid to supplier (Expense)
+          surchargeAccount = accountPlans.find(acc => acc.code === '6.3.01') || 
+                            accountPlans.find(acc => acc.name.toLowerCase().includes('juros'));
+          surchargeType = 'debit';
+        }
+
+        if (surchargeAccount) {
+          newSplits.push({
+            accountPlanId: surchargeAccount.id,
+            accountPlanName: surchargeAccount.name,
+            accountPlanCode: surchargeAccount.code,
+            value: surchargeValue,
+            type: surchargeType,
+            description: isIncome ? 'Juros/Multa Recebida' : 'Juros/Multa Paga'
+          });
+        }
       }
     });
 
@@ -544,6 +628,27 @@ export const TransactionModal: React.FC = () => {
     }));
   };
 
+  const addAdjustment = (type: 'discount' | 'surcharge') => {
+    const isDuplicata = formData.transactionTypeId === 'duplicata_receber' || formData.transactionTypeId === 'duplicata_pagar';
+    
+    const payment: Payment = {
+      id: Date.now().toString(),
+      method: isDuplicata ? 'A Definir' : 'Outros', 
+      value: 0,
+      dueDate: formData.date || new Date().toISOString().split('T')[0],
+      destination: isDuplicata 
+        ? (formData.transactionTypeId === 'duplicata_receber' ? 'Contas a Receber' : 'Contas a Pagar')
+        : 'Ajuste Financeiro', 
+      status: isDuplicata ? 'pending' : 'completed',
+      type: type
+    };
+
+    setFormData(prev => ({
+      ...prev,
+      payments: [...(prev.payments || []), payment]
+    }));
+  };
+
   const updatePayment = (index: number, field: keyof Payment, value: any) => {
     setError(null);
     setFormData(prev => {
@@ -554,12 +659,14 @@ export const TransactionModal: React.FC = () => {
         if (value === 'A Definir' || value === 'Outros') {
           payment.destination = formData.type === 'income' ? 'Contas a Receber' : 'Contas a Pagar';
           payment.status = 'pending';
+          payment.bankId = undefined;
         } else {
           const selectedMethod = paymentMethods.find(pm => pm.name === value);
           if (selectedMethod && selectedMethod.defaultAccountId) {
             const account = accounts.find(a => a.id === selectedMethod.defaultAccountId);
             if (account) {
               payment.destination = account.name;
+              payment.bankId = account.id;
             }
           }
           
@@ -1097,39 +1204,44 @@ export const TransactionModal: React.FC = () => {
               <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
                 {formData.payments?.map((payment, index) => {
                   if (payment.method === 'Adiantamento') return null;
+                  const isDiscount = payment.type === 'discount';
+                  const isSurcharge = payment.type === 'surcharge';
+                  const isAdjustment = isDiscount || isSurcharge;
+
                   return (
-                  <div key={payment.id} className="grid grid-cols-12 gap-2 items-end relative pr-8">
+                  <div key={payment.id} className={`grid grid-cols-12 gap-2 items-end relative pr-8 p-2 rounded ${isDiscount ? 'bg-green-50 border-l-4 border-green-400' : isSurcharge ? 'bg-red-50 border-l-4 border-red-400' : ''}`}>
                     <div className="col-span-2">
-                      <label className="text-xs text-gray-500 block mb-1">Valor</label>
-                      <input
-                        type="number"
-                        value={payment.value || ''}
-                        onChange={(e) => updatePayment(index, 'value', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                        className="w-full text-xs p-2 border rounded disabled:bg-gray-100 disabled:cursor-not-allowed"
-                        disabled={(payment.discount || 0) > 0 || (payment.surcharge || 0) > 0}
-                      />
-                    </div>
-
-                    <div className="col-span-2">
-                      <label className="text-xs text-gray-500 block mb-1">Desc.</label>
-                      <input
-                        type="number"
-                        value={payment.discount || ''}
-                        onChange={(e) => updatePayment(index, 'discount', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                        className="w-full text-xs p-2 border rounded bg-green-50"
-                        placeholder="0"
-                      />
-                    </div>
-
-                    <div className="col-span-2">
-                      <label className="text-xs text-gray-500 block mb-1">Acrés.</label>
-                      <input
-                        type="number"
-                        value={payment.surcharge || ''}
-                        onChange={(e) => updatePayment(index, 'surcharge', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                        className="w-full text-xs p-2 border rounded bg-red-50"
-                        placeholder="0"
-                      />
+                      <label className="text-xs text-gray-500 block mb-1">
+                        {isDiscount ? 'Valor Desconto' : isSurcharge ? 'Valor Acréscimo' : 'Valor'}
+                      </label>
+                      <div className="flex gap-1 items-center">
+                        <input
+                          type="number"
+                          value={payment.value || ''}
+                          onChange={(e) => updatePayment(index, 'value', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                          className={`w-full text-xs p-2 border rounded ${isAdjustment ? 'bg-white' : ''}`}
+                        />
+                        {!isAdjustment && (
+                          <div className="flex flex-col gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => addAdjustment('discount')}
+                              className="p-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                              title="Adicionar Desconto"
+                            >
+                              <Minus size={10} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => addAdjustment('surcharge')}
+                              className="p-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                              title="Adicionar Acréscimo"
+                            >
+                              <Plus size={10} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="col-span-2">
@@ -1138,7 +1250,7 @@ export const TransactionModal: React.FC = () => {
                         value={payment.method}
                         onChange={(e) => updatePayment(index, 'method', e.target.value)}
                         className="w-full text-xs p-2 border rounded"
-                        disabled={isDuplicata}
+                        disabled={isDuplicata && !isAdjustment}
                       >
                         <option value="A Definir">A Definir</option>
                         {paymentMethods.map(pm => {
@@ -1151,6 +1263,7 @@ export const TransactionModal: React.FC = () => {
                         })}
                         <option value="Adiantamento">Adiantamento</option>
                         <option value="Outros">Outros</option>
+                        {isAdjustment && <option value="Ajuste Financeiro">Ajuste Financeiro</option>}
                       </select>
                     </div>
 
@@ -1164,22 +1277,34 @@ export const TransactionModal: React.FC = () => {
                       />
                     </div>
 
-                    <div className="col-span-2">
+                    <div className="col-span-3">
+                      <label className="text-xs text-gray-500 block mb-1">Conta</label>
+                      <div className="w-full text-[10px] p-2 border rounded bg-gray-100 text-gray-600 truncate h-[34px] flex items-center">
+                        {(() => {
+                          if (isDiscount) return 'Descontos';
+                          if (isSurcharge) return 'Juros/Multas';
+                          const account = accounts.find(a => a.id === payment.bankId);
+                          return account?.accountPlanName || '-';
+                        })()}
+                      </div>
+                    </div>
+
+                    <div className="col-span-3">
                        <label className="text-xs text-gray-500 block mb-1">Destino</label>
                        <select
-                         value={payment.destination}
-                         onChange={(e) => updatePayment(index, 'destination', e.target.value)}
-                         className="w-full text-xs p-2 border rounded"
-                         disabled={isDuplicata}
-                       >
-                         <option value="">Selecione...</option>
-                         {accounts.map(acc => (
-                           <option key={acc.id} value={acc.name}>{acc.name}</option>
-                         ))}
-                         <option value="Contas a Receber">Contas a Receber</option>
-                         <option value="Contas a Pagar">Contas a Pagar</option>
-                         <option value="Fluxo de Caixa">Fluxo de Caixa</option>
-                       </select>
+                        value={payment.destination}
+                        onChange={(e) => updatePayment(index, 'destination', e.target.value)}
+                        className="w-full text-xs p-2 border rounded"
+                      >
+                        <option value="Caixa">Caixa</option>
+                        <option value="Banco">Banco</option>
+                        <option value="Contas a Receber">Contas a Receber</option>
+                        <option value="Contas a Pagar">Contas a Pagar</option>
+                        <option value="Ajuste Financeiro">Ajuste Financeiro</option>
+                        {accounts.map(acc => (
+                          <option key={acc.id} value={acc.name}>{acc.name}</option>
+                        ))}
+                      </select>
                     </div>
 
                     <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-full pl-2">

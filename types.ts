@@ -111,6 +111,9 @@ export interface Account {
   type: 'bank' | 'cash' | 'investment' | 'other';
   balance: number;
   color?: string;
+  accountPlanId?: string;
+  accountPlanName?: string;
+  accountPlanCode?: string;
 }
 
 export interface PaymentMethod {
@@ -132,6 +135,7 @@ export interface Payment {
   source?: string; // Account ID or Name (for transfers)
   status: 'completed' | 'pending';
   reconciled?: boolean;
+  type?: 'payment' | 'discount' | 'surcharge';
 }
 
 export interface TransactionSplit {

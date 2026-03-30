@@ -145,7 +145,10 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         accountNumber: a.account_number,
         type: a.type,
         balance: Number(a.balance),
-        color: a.color
+        color: a.color,
+        accountPlanId: a.account_plan_id,
+        accountPlanName: a.account_plan_name,
+        accountPlanCode: a.account_plan_code
       })));
 
       // Fetch Payment Methods
@@ -431,7 +434,10 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           account_number: account.accountNumber,
           type: account.type,
           balance: account.balance,
-          color: account.color
+          color: account.color,
+          account_plan_id: account.accountPlanId,
+          account_plan_name: account.accountPlanName,
+          account_plan_code: account.accountPlanCode
         }]);
       if (error) throw error;
       await fetchData();
@@ -452,7 +458,10 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           account_number: updatedAccount.accountNumber,
           type: updatedAccount.type,
           balance: updatedAccount.balance,
-          color: updatedAccount.color
+          color: updatedAccount.color,
+          account_plan_id: updatedAccount.accountPlanId,
+          account_plan_name: updatedAccount.accountPlanName,
+          account_plan_code: updatedAccount.accountPlanCode
         })
         .eq('id', id);
       if (error) throw error;
