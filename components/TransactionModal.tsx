@@ -270,12 +270,17 @@ export const TransactionModal: React.FC = () => {
   const autoFillAccounting = () => {
     if (!isAccountingEnabled) return;
     
-    const payments = formData.payments || [];
-    const totalValue = Number(formData.value) || 0;
+    const totalDiscount = (formData.payments || []).reduce((sum, p) => sum + (p.type === 'discount' ? p.value : (p.discount || 0)), 0);
+    const totalSurcharge = (formData.payments || []).reduce((sum, p) => sum + (p.type === 'surcharge' ? p.value : (p.surcharge || 0)), 0);
+    const netValue = (Number(formData.value) || 0) - totalDiscount + totalSurcharge;
+
+    if (isTransfer) return;
+
     const newSplits: TransactionSplit[] = [];
     const isIncome = formData.type === 'income';
 
     // 1. Main Entry (Revenue, Expense, or Liability/Asset for Payments/Receipts)
+    // Use net value as requested by user to "abate" discounts/surcharges
     let mainAccount = accountPlans.find(acc => acc.name === formData.category);
     let mainDescription = '';
     let mainType: 'debit' | 'credit' = isIncome ? 'credit' : 'debit';
@@ -317,13 +322,13 @@ export const TransactionModal: React.FC = () => {
       accountPlanId: mainAccount?.id || '',
       accountPlanName: mainAccount?.name || '',
       accountPlanCode: mainAccount?.code || '',
-      value: totalValue,
+      value: netValue,
       type: mainType,
       description: mainDescription
     });
 
     // 2. Payment Entries (The other side of the double entry)
-    payments.forEach(payment => {
+    (formData.payments || []).forEach(payment => {
       const isDiscountRow = payment.type === 'discount';
       const isSurchargeRow = payment.type === 'surcharge';
       const isRegularPayment = !isDiscountRow && !isSurchargeRow;
@@ -375,66 +380,6 @@ export const TransactionModal: React.FC = () => {
             value: payment.value,
             type: paymentType,
             description: paymentDescription
-          });
-        }
-      }
-
-      // 2.2. Handle Discounts (From both regular payments and separate discount rows)
-      const discountValue = isDiscountRow ? payment.value : (payment.discount || 0);
-      if (discountValue > 0) {
-        let discountAccount: AccountPlan | undefined;
-        let discountType: 'debit' | 'credit' = isIncome ? 'debit' : 'credit';
-        
-        if (isIncome) {
-          // Discount given to customer (Expense)
-          discountAccount = accountPlans.find(acc => acc.name.toLowerCase().includes('descontos concedidos')) || 
-                           accountPlans.find(acc => acc.code.startsWith('6') && acc.name.toLowerCase().includes('desconto'));
-          discountType = 'debit';
-        } else {
-          // Discount received from supplier (Revenue/Income)
-          discountAccount = accountPlans.find(acc => acc.code === '4.2.02') || 
-                           accountPlans.find(acc => acc.name.toLowerCase().includes('descontos obtidos'));
-          discountType = 'credit';
-        }
-
-        if (discountAccount) {
-          newSplits.push({
-            accountPlanId: discountAccount.id,
-            accountPlanName: discountAccount.name,
-            accountPlanCode: discountAccount.code,
-            value: discountValue,
-            type: discountType,
-            description: isIncome ? 'Desconto Concedido' : 'Desconto Obtido'
-          });
-        }
-      }
-
-      // 2.3. Handle Surcharges (From both regular payments and separate surcharge rows)
-      const surchargeValue = isSurchargeRow ? payment.value : (payment.surcharge || 0);
-      if (surchargeValue > 0) {
-        let surchargeAccount: AccountPlan | undefined;
-        let surchargeType: 'debit' | 'credit' = isIncome ? 'credit' : 'debit';
-
-        if (isIncome) {
-          // Surcharge received from customer (Revenue/Income)
-          surchargeAccount = accountPlans.find(acc => acc.code === '4.2.03') || 
-                            accountPlans.find(acc => acc.name.toLowerCase().includes('receitas financeiras'));
-          surchargeType = 'credit';
-        } else {
-          // Surcharge paid to supplier (Expense)
-          surchargeAccount = accountPlans.find(acc => acc.code === '6.3.01') || 
-                            accountPlans.find(acc => acc.name.toLowerCase().includes('juros'));
-          surchargeType = 'debit';
-        }
-
-        if (surchargeAccount) {
-          newSplits.push({
-            accountPlanId: surchargeAccount.id,
-            accountPlanName: surchargeAccount.name,
-            accountPlanCode: surchargeAccount.code,
-            value: surchargeValue,
-            type: surchargeType,
-            description: isIncome ? 'Juros/Multa Recebida' : 'Juros/Multa Paga'
           });
         }
       }
@@ -667,6 +612,15 @@ export const TransactionModal: React.FC = () => {
             if (account) {
               payment.destination = account.name;
               payment.bankId = account.id;
+            }
+          } else if (selectedMethod) {
+            // Default logic if no specific account is linked
+            if (['pix', 'cash', 'debit_card', 'transfer'].includes(selectedMethod.type)) {
+                payment.destination = 'Caixa';
+            } else if (selectedMethod.type === 'credit_card') {
+                payment.destination = 'Banco';
+            } else {
+                payment.destination = formData.type === 'income' ? 'Contas a Receber' : 'Contas a Pagar';
             }
           }
           
@@ -1214,18 +1168,18 @@ export const TransactionModal: React.FC = () => {
                       <label className="text-xs text-gray-500 block mb-1">
                         {isDiscount ? 'Valor Desconto' : isSurcharge ? 'Valor Acréscimo' : 'Valor'}
                       </label>
-                      <div className="flex gap-1 items-center">
+                      <div className="flex gap-1 items-center relative">
+                        {isAdjustment && (
+                          <span className={`absolute left-2 top-1/2 -translate-y-1/2 font-bold text-xs ${isDiscount ? 'text-green-600' : 'text-red-600'}`}>
+                            {isDiscount ? '-' : '+'}
+                          </span>
+                        )}
                         <input
                           type="number"
                           value={payment.value || ''}
                           onChange={(e) => updatePayment(index, 'value', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
-                          className={`w-full text-xs p-2 border rounded ${isAdjustment ? 'bg-white' : ''}`}
+                          className={`w-full text-xs p-2 border rounded ${isAdjustment ? 'bg-white pl-5' : ''}`}
                         />
-                        {!isAdjustment && (
-                          <div className="flex flex-col gap-0.5 opacity-0">
-                            {/* Hidden space holder to maintain layout if needed, or just remove if not needed */}
-                          </div>
-                        )}
                       </div>
                     </div>
 
