@@ -145,6 +145,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         accountNumber: a.account_number,
         type: a.type,
         balance: Number(a.balance),
+        initialBalance: Number(a.initial_balance || 0),
         color: a.color,
         accountPlanId: a.account_plan_id,
         accountPlanName: a.account_plan_name,
@@ -434,6 +435,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           account_number: account.accountNumber,
           type: account.type,
           balance: account.balance,
+          initial_balance: account.balance, // Set initial balance same as balance on creation
           color: account.color,
           account_plan_id: account.accountPlanId,
           account_plan_name: account.accountPlanName,
@@ -458,6 +460,7 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
           account_number: updatedAccount.accountNumber,
           type: updatedAccount.type,
           balance: updatedAccount.balance,
+          initial_balance: updatedAccount.initialBalance,
           color: updatedAccount.color,
           account_plan_id: updatedAccount.accountPlanId,
           account_plan_name: updatedAccount.accountPlanName,

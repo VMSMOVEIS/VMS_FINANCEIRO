@@ -1222,23 +1222,8 @@ export const TransactionModal: React.FC = () => {
                           className={`w-full text-xs p-2 border rounded ${isAdjustment ? 'bg-white' : ''}`}
                         />
                         {!isAdjustment && (
-                          <div className="flex flex-col gap-0.5">
-                            <button
-                              type="button"
-                              onClick={() => addAdjustment('discount')}
-                              className="p-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
-                              title="Adicionar Desconto"
-                            >
-                              <Minus size={10} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => addAdjustment('surcharge')}
-                              className="p-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
-                              title="Adicionar Acréscimo"
-                            >
-                              <Plus size={10} />
-                            </button>
+                          <div className="flex flex-col gap-0.5 opacity-0">
+                            {/* Hidden space holder to maintain layout if needed, or just remove if not needed */}
                           </div>
                         )}
                       </div>
@@ -1319,16 +1304,34 @@ export const TransactionModal: React.FC = () => {
                   </div>
                 )})}
 
-                {remainingValue > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {remainingValue > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => addPayment(remainingValue)}
+                      className="py-2 border-2 border-dashed border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 text-sm font-medium flex items-center justify-center gap-2"
+                    >
+                      <Plus size={16} />
+                      Pagamento (R$ {remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => addPayment(remainingValue)}
-                    className="w-full py-2 border-2 border-dashed border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 text-sm font-medium flex items-center justify-center gap-2"
+                    onClick={() => addAdjustment('discount')}
+                    className="py-2 border-2 border-dashed border-green-200 text-green-600 rounded-lg hover:bg-green-50 text-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    <Minus size={16} />
+                    Desconto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addAdjustment('surcharge')}
+                    className="py-2 border-2 border-dashed border-red-200 text-red-600 rounded-lg hover:bg-red-50 text-sm font-medium flex items-center justify-center gap-2"
                   >
                     <Plus size={16} />
-                    Adicionar Pagamento de R$ {remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    Acréscimo
                   </button>
-                )}
+                </div>
               </div>
             </div>
           ) : null}

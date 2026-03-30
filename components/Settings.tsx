@@ -42,7 +42,17 @@ export const Settings: React.FC = () => {
   const [notificationSettings, setNotificationSettings] = useState(contextNotificationSettings);
 
   // Banks State
-  const [newAccount, setNewAccount] = useState<Partial<Account>>({ name: '', type: 'bank', balance: 0 });
+  const [newAccount, setNewAccount] = useState<Partial<Account>>({ 
+    name: '', 
+    type: 'bank', 
+    balance: 0, 
+    bank: '', 
+    color: '#10B981', 
+    accountPlanId: '', 
+    accountPlanName: '', 
+    accountPlanCode: '',
+    accountNumber: ''
+  });
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [editingAccountForm, setEditingAccountForm] = useState<Partial<Account>>({});
 
@@ -97,12 +107,23 @@ export const Settings: React.FC = () => {
         type: newAccount.type as any,
         balance: Number(newAccount.balance) || 0,
         bank: newAccount.bank,
+        accountNumber: newAccount.accountNumber,
         color: newAccount.color,
         accountPlanId: newAccount.accountPlanId,
         accountPlanName: newAccount.accountPlanName,
         accountPlanCode: newAccount.accountPlanCode
       });
-      setNewAccount({ name: '', type: 'bank', balance: 0, bank: '', color: '#10B981', accountPlanId: '', accountPlanName: '', accountPlanCode: '' });
+      setNewAccount({ 
+        name: '', 
+        type: 'bank', 
+        balance: 0, 
+        bank: '', 
+        color: '#10B981', 
+        accountPlanId: '', 
+        accountPlanName: '', 
+        accountPlanCode: '',
+        accountNumber: ''
+      });
     }
   };
 
@@ -348,6 +369,15 @@ export const Settings: React.FC = () => {
                             />
                           </div>
                           <div className="md:col-span-1">
+                            <input 
+                              type="text" 
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                              value={editingAccountForm.accountNumber || ''}
+                              onChange={e => setEditingAccountForm({...editingAccountForm, accountNumber: e.target.value})}
+                              placeholder="Nº Conta"
+                            />
+                          </div>
+                          <div className="md:col-span-1">
                             <select 
                               className="w-full border border-gray-300 rounded px-2 py-1 text-sm"
                               value={editingAccountForm.accountPlanId || ''}
@@ -362,9 +392,11 @@ export const Settings: React.FC = () => {
                               }}
                             >
                               <option value="">Tipo de conta...</option>
-                              {accountPlans.map(plan => (
-                                <option key={plan.id} value={plan.id}>{plan.code} - {plan.name}</option>
-                              ))}
+                              {accountPlans
+                                .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))
+                                .map(plan => (
+                                  <option key={plan.id} value={plan.id}>{plan.code} - {plan.name}</option>
+                                ))}
                             </select>
                           </div>
                           <div className="md:col-span-1">
@@ -392,6 +424,7 @@ export const Settings: React.FC = () => {
                             <p className="font-medium text-gray-900">{acc.name}</p>
                             <p className="text-xs text-gray-500 capitalize">
                               {acc.type} {acc.bank ? `- ${acc.bank}` : ''} 
+                              {acc.accountNumber ? ` (Nº ${acc.accountNumber})` : ''}
                               {acc.accountPlanName ? ` (${acc.accountPlanName})` : ''}
                             </p>
                           </div>
@@ -414,7 +447,7 @@ export const Settings: React.FC = () => {
                   ))}
                 </div>
 
-                <form onSubmit={handleAddAccount} className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end bg-gray-50 p-4 rounded-lg border border-gray-200 border-dashed">
+                <form onSubmit={handleAddAccount} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-end bg-gray-50 p-4 rounded-lg border border-gray-200 border-dashed">
                   <div className="md:col-span-1">
                     <label className="block text-xs font-medium text-gray-700 mb-1">Nome da Conta</label>
                     <input 
@@ -437,7 +470,28 @@ export const Settings: React.FC = () => {
                     />
                   </div>
                   <div className="md:col-span-1">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Tipo de conta</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Nº Conta</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ex: 12345-6"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      value={newAccount.accountNumber || ''}
+                      onChange={e => setNewAccount({...newAccount, accountNumber: e.target.value})}
+                    />
+                  </div>
+                  <div className="md:col-span-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Saldo Inicial</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      placeholder="0,00"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      value={newAccount.balance || ''}
+                      onChange={e => setNewAccount({...newAccount, balance: e.target.value === '' ? 0 : parseFloat(e.target.value) || 0})}
+                    />
+                  </div>
+                  <div className="md:col-span-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Plano de Contas</label>
                     <select 
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                       value={newAccount.accountPlanId || ''}
@@ -452,9 +506,11 @@ export const Settings: React.FC = () => {
                       }}
                     >
                       <option value="">Selecione...</option>
-                      {accountPlans.map(plan => (
-                        <option key={plan.id} value={plan.id}>{plan.code} - {plan.name}</option>
-                      ))}
+                      {accountPlans
+                        .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))
+                        .map(plan => (
+                          <option key={plan.id} value={plan.id}>{plan.code} - {plan.name}</option>
+                        ))}
                     </select>
                   </div>
                   <div className="md:col-span-1">

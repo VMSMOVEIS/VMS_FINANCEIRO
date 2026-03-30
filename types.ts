@@ -110,6 +110,7 @@ export interface Account {
   accountNumber?: string;
   type: 'bank' | 'cash' | 'investment' | 'other';
   balance: number;
+  initialBalance?: number;
   color?: string;
   accountPlanId?: string;
   accountPlanName?: string;

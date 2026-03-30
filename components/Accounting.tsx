@@ -24,7 +24,30 @@ export const Accounting: React.FC<AccountingProps> = ({ initialView = 'contab_dr
     }
   }, [initialView]);
 
-  const entries = useMemo(() => generateAccountingEntries(transactions, accountPlans, sales, purchases, accounts), [transactions, accountPlans, sales, purchases, accounts]);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  const years = useMemo(() => {
+    const transactionYears = transactions.map(t => new Date(t.date).getFullYear());
+    const salesYears = sales.map(s => new Date(s.date).getFullYear());
+    const purchaseYears = purchases.map(p => new Date(p.date).getFullYear());
+    const allYears = Array.from(new Set([...transactionYears, ...salesYears, ...purchaseYears, new Date().getFullYear()]));
+    return allYears.sort((a, b) => b - a);
+  }, [transactions, sales, purchases]);
+
+  const entries = useMemo(() => {
+    const filteredTransactions = transactions.filter(t => new Date(t.date).getFullYear() === selectedYear);
+    const filteredSales = sales.filter(s => new Date(s.date).getFullYear() === selectedYear);
+    const filteredPurchases = purchases.filter(p => new Date(p.date).getFullYear() === selectedYear);
+
+    return generateAccountingEntries(
+      filteredTransactions,
+      accountPlans,
+      filteredSales,
+      filteredPurchases,
+      accounts,
+      selectedYear
+    );
+  }, [transactions, accountPlans, sales, purchases, accounts, selectedYear]);
 
   const renderContent = () => {
     const commonProps = { transactions, accountPlans, entries, reportLevel, showZeroBalances };
@@ -117,9 +140,14 @@ export const Accounting: React.FC<AccountingProps> = ({ initialView = 'contab_dr
         <div className="flex-1"></div>
 
         <div className="flex gap-2">
-          <select className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-            <option>Exercício 2026</option>
-            <option>Exercício 2025</option>
+          <select 
+            className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+          >
+            {years.map(year => (
+              <option key={year} value={year}>Exercício {year}</option>
+            ))}
           </select>
           <button className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm">
             Exportar PDF
@@ -152,9 +180,17 @@ const TabButton = ({ id, label, icon: Icon, active, onClick }: any) => (
 );
 
 // Helper to generate accounting entries from transactions using the Chart of Accounts
-const generateAccountingEntries = (transactions: any[], accountPlans: any[], sales: any[] = [], purchases: any[] = [], accounts: any[] = []) => {
+const generateAccountingEntries = (
+  transactions: any[], 
+  accountPlans: any[], 
+  sales: any[] = [], 
+  purchases: any[] = [], 
+  accounts: any[] = [],
+  year: number = new Date().getFullYear()
+) => {
   const entries: any[] = [];
   let entryId = 1;
+  const startDate = `${year}-01-01`;
 
   const findPlan = (identifier: string) => {
     if (!identifier) return null;
@@ -183,22 +219,25 @@ const generateAccountingEntries = (transactions: any[], accountPlans: any[], sal
       const accPlan = findPlan(acc.name) || findPlan(acc.id);
       if (!accPlan) return;
 
-      let netMovements = 0;
+      let movementsAfterStart = 0;
       transactions.forEach(t => {
-        t.payments.forEach((p: any) => {
-          if (p.status === 'completed') {
-            if (p.destination === acc.name || p.destination === acc.id) netMovements += p.value;
-            if (p.source === acc.name || p.source === acc.id) netMovements -= p.value;
-          }
-        });
+        const tDate = new Date(t.date);
+        if (tDate >= new Date(startDate)) {
+          t.payments.forEach((p: any) => {
+            if (p.status === 'completed') {
+              if (p.destination === acc.name || p.destination === acc.id) movementsAfterStart += p.value;
+              if (p.source === acc.name || p.source === acc.id) movementsAfterStart -= p.value;
+            }
+          });
+        }
       });
 
-      const openingBalance = acc.balance - netMovements;
+      const openingBalance = acc.balance - movementsAfterStart;
       if (Math.abs(openingBalance) > 0.01) {
         entries.push({
           id: entryId++,
           transactionId: 0,
-          date: '2026-01-01',
+          date: startDate,
           description: `Saldo Inicial - ${acc.name}`,
           debit: openingBalance > 0 ? getLabel(accPlan) : getLabel(planOpeningBalance),
           credit: openingBalance > 0 ? getLabel(planOpeningBalance) : getLabel(accPlan),
@@ -477,11 +516,22 @@ const BalanceSheetView = ({ transactions, accounts, accountPlans, entries, repor
             <tbody className="divide-y divide-gray-100">
               {balances.details.filter(p => p.type === 'ativo').map((p, idx) => {
                 const parts = p.code.split('.').length;
+                const isAsset = p.code.startsWith('1');
+                const hasError = (isAsset && p.balance < -0.01);
+
                 return (
-                  <tr key={idx} className={`${parts === 1 ? 'bg-gray-50 font-bold' : parts === 2 ? 'font-semibold' : ''}`}>
+                  <tr key={idx} className={`${parts === 1 ? 'bg-gray-50 font-bold' : parts === 2 ? 'font-semibold' : ''} ${hasError ? 'bg-red-50 text-red-700' : ''}`}>
                     <td className={`px-4 py-2 ${parts > 1 ? `pl-${(parts - 1) * 4}` : ''}`}>
-                      <span className="font-mono text-xs text-gray-400 mr-2">{p.code}</span>
-                      {p.name}
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-gray-400 mr-2">{p.code}</span>
+                        {p.name}
+                        {hasError && (
+                          <span className="text-[10px] bg-red-100 px-1 rounded flex items-center gap-1">
+                            <AlertTriangle size={10} />
+                            Saldo Invertido
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-2 text-right">
                       R$ {Math.abs(p.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -509,11 +559,22 @@ const BalanceSheetView = ({ transactions, accounts, accountPlans, entries, repor
             <tbody className="divide-y divide-gray-100">
               {balances.details.filter(p => p.type === 'passivo' || p.type === 'patrimonio_liquido').map((p, idx) => {
                 const parts = p.code.split('.').length;
+                const isLiabilityOrEquity = p.code.startsWith('2');
+                const hasError = (isLiabilityOrEquity && p.balance < -0.01); // In BP, Passivo/PL are usually shown as positive values, but if the calculated balance is negative, it's an error.
+
                 return (
-                  <tr key={idx} className={`${parts === 1 ? 'bg-gray-50 font-bold' : parts === 2 ? 'font-semibold' : ''}`}>
+                  <tr key={idx} className={`${parts === 1 ? 'bg-gray-50 font-bold' : parts === 2 ? 'font-semibold' : ''} ${hasError ? 'bg-red-50 text-red-700' : ''}`}>
                     <td className={`px-4 py-2 ${parts > 1 ? `pl-${(parts - 1) * 4}` : ''}`}>
-                      <span className="font-mono text-xs text-gray-400 mr-2">{p.code}</span>
-                      {p.name}
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-gray-400 mr-2">{p.code}</span>
+                        {p.name}
+                        {hasError && (
+                          <span className="text-[10px] bg-red-100 px-1 rounded flex items-center gap-1">
+                            <AlertTriangle size={10} />
+                            Saldo Invertido
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-2 text-right">
                       R$ {Math.abs(p.balance).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}

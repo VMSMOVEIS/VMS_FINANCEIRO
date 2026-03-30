@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, ArrowUpCircle, ArrowDownCircle, X, Landmark, ShieldCheck, BarChart3, Wallet } from 'lucide-react';
+import { Plus, Trash2, Edit2, ArrowUpCircle, ArrowDownCircle, X, Landmark, ShieldCheck, BarChart3, Wallet, ListTree } from 'lucide-react';
 import { AccountPlan } from '../services/financialData';
 import { useTransactions } from '@/src/context/TransactionContext';
 
@@ -188,59 +188,82 @@ export const ChartOfAccounts: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {/* 1. ATIVO */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-          <div className="p-4 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
-            <Wallet className="text-blue-600" size={20} />
-            <h3 className="font-bold text-blue-800">1. Ativo</h3>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+        <div className="p-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ListTree className="text-blue-600" size={20} />
+            <h3 className="font-bold text-gray-800">Estrutura do Plano de Contas</h3>
           </div>
-          {renderAccountList('1')}
+          <div className="text-xs text-gray-500 font-medium">
+            {accountPlans.length} contas cadastradas
+          </div>
         </div>
-
-        {/* 2. PASSIVO */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-          <div className="p-4 bg-purple-50 border-b border-purple-100 flex items-center gap-2">
-            <ShieldCheck className="text-purple-600" size={20} />
-            <h3 className="font-bold text-purple-800">2. Passivo</h3>
-          </div>
-          {renderAccountList('2')}
-        </div>
-
-        {/* 3. PATRIMÔNIO LÍQUIDO */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-          <div className="p-4 bg-indigo-50 border-b border-indigo-100 flex items-center gap-2">
-            <Landmark className="text-indigo-600" size={20} />
-            <h3 className="font-bold text-indigo-800">3. Patrimônio Líquido</h3>
-          </div>
-          {renderAccountList('3')}
-        </div>
-
-        {/* 4. RECEITAS */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-          <div className="p-4 bg-emerald-50 border-b border-emerald-100 flex items-center gap-2">
-            <ArrowUpCircle className="text-emerald-600" size={20} />
-            <h3 className="font-bold text-emerald-800">4. Receitas</h3>
-          </div>
-          {renderAccountList('4')}
-        </div>
-
-        {/* 5. CUSTOS DE PRODUÇÃO */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-          <div className="p-4 bg-orange-50 border-b border-orange-100 flex items-center gap-2">
-            <BarChart3 className="text-orange-600" size={20} />
-            <h3 className="font-bold text-orange-800">5. Custos de Produção</h3>
-          </div>
-          {renderAccountList('5')}
-        </div>
-
-        {/* 6. DESPESAS OPERACIONAIS */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-          <div className="p-4 bg-red-50 border-b border-red-100 flex items-center gap-2">
-            <ArrowDownCircle className="text-red-600" size={20} />
-            <h3 className="font-bold text-red-800">6. Despesas Operacionais</h3>
-          </div>
-          {renderAccountList('6')}
+        <div className="divide-y divide-gray-100 overflow-y-auto max-h-[calc(100vh-300px)]">
+          {accountPlans
+            .sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))
+            .map(account => {
+              const parts = account.code.split('.');
+              const level = parts.length;
+              const isHeader = level <= 2;
+              const isSynthetic = account.level === 'sintetica';
+              
+              return (
+                <div 
+                  key={account.id} 
+                  className={`p-3 flex justify-between items-center hover:bg-gray-50 group transition-colors ${
+                    level === 1 ? 'bg-blue-50/30' : level === 2 ? 'bg-gray-50/50' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-3" style={{ paddingLeft: `${(level - 1) * 1.5}rem` }}>
+                    <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded shadow-sm ${
+                      level === 1 ? 'bg-blue-600 text-white font-bold' : 
+                      level === 2 ? 'bg-gray-200 text-gray-700 font-bold' : 
+                      'bg-gray-100 text-gray-500'
+                    }`}>
+                      {account.code}
+                    </span>
+                    <span className={`
+                      ${level === 1 ? 'font-black text-blue-900 text-base' : 
+                        level === 2 ? 'font-bold text-gray-900 text-sm' : 
+                        isSynthetic ? 'font-bold text-blue-600 text-sm' : 
+                        'text-gray-700 text-sm'}
+                    `}>
+                      {account.name}
+                    </span>
+                  </div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => handleEdit(account)}
+                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                      title="Editar Conta"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(account.id)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      title="Excluir Conta"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          {accountPlans.length === 0 && (
+            <div className="p-12 text-center">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 text-gray-400 mb-4">
+                <ListTree size={24} />
+              </div>
+              <p className="text-gray-500 text-sm italic">Nenhuma conta cadastrada no plano de contas.</p>
+              <button 
+                onClick={resetAccountPlans}
+                className="mt-4 text-blue-600 text-sm font-medium hover:underline"
+              >
+                Restaurar Plano Padrão
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
