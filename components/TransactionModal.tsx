@@ -114,9 +114,6 @@ export const TransactionModal: React.FC = () => {
         const payment = original?.payments.find(p => p.id === targetPaymentId);
 
         if (original && payment) {
-          const defaultMethod = paymentMethods.find(pm => pm.type === 'pix');
-          const defaultAccount = accounts.find(acc => acc.id === defaultMethod?.defaultAccountId);
-
           setFormData({
             type: original.type,
             date: new Date().toISOString().split('T')[0],
@@ -131,11 +128,11 @@ export const TransactionModal: React.FC = () => {
             linkedPaymentId: payment.id,
             payments: [{
               id: String(Date.now()),
-              method: defaultMethod?.name || 'Pix',
+              method: 'A Definir',
               value: payment.value,
               dueDate: new Date().toISOString().split('T')[0],
-              destination: defaultAccount?.name || 'Caixa',
-              status: 'completed'
+              destination: original.type === 'income' ? 'Contas a Receber' : 'Contas a Pagar',
+              status: 'pending'
             }]
           });
           hasPreFilled.current = true;
@@ -164,7 +161,7 @@ export const TransactionModal: React.FC = () => {
   const isTransfer = formData.transactionTypeId === 'transferencia';
   const isAdvance = formData.transactionTypeId?.includes('adiantamento');
   const isDuplicata = formData.transactionTypeId?.includes('duplicata');
-  const isAccountingEnabled = !isTransfer;
+  const isAccountingEnabled = true;
   
   const totalPayments = formData.payments?.reduce((sum, p) => {
     const val = Number(p.value) || 0;
@@ -273,10 +270,42 @@ export const TransactionModal: React.FC = () => {
     const totalDiscount = (formData.payments || []).reduce((sum, p) => sum + (p.type === 'discount' ? p.value : (p.discount || 0)), 0);
     const totalSurcharge = (formData.payments || []).reduce((sum, p) => sum + (p.type === 'surcharge' ? p.value : (p.surcharge || 0)), 0);
     const netValue = (Number(formData.value) || 0) - totalDiscount + totalSurcharge;
-
-    if (isTransfer) return;
-
     const newSplits: TransactionSplit[] = [];
+
+    if (isTransfer) {
+      const payment = formData.payments?.[0];
+      if (!payment) return;
+
+      const sourceAccount = accounts.find(a => a.id === payment.bankId);
+      const destAccount = accounts.find(a => a.name === payment.destination);
+
+      if (sourceAccount && destAccount) {
+        const sourcePlan = accountPlans.find(ap => ap.id === sourceAccount.accountPlanId);
+        const destPlan = accountPlans.find(ap => ap.id === destAccount.accountPlanId);
+
+        if (sourcePlan && destPlan) {
+          newSplits.push({
+            accountPlanId: destPlan.id,
+            accountPlanName: destPlan.name,
+            accountPlanCode: destPlan.code,
+            value: payment.value,
+            type: 'debit',
+            description: `Transferência para ${destAccount.name}`
+          });
+          newSplits.push({
+            accountPlanId: sourcePlan.id,
+            accountPlanName: sourcePlan.name,
+            accountPlanCode: sourcePlan.code,
+            value: payment.value,
+            type: 'credit',
+            description: `Transferência de ${sourceAccount.name}`
+          });
+        }
+      }
+      setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
+      return;
+    }
+
     const isIncome = formData.type === 'income';
 
     // 1. Main Entry (Revenue, Expense, or Liability/Asset for Payments/Receipts)
@@ -552,19 +581,17 @@ export const TransactionModal: React.FC = () => {
   };
 
   const addPayment = (amount: number) => {
-    const isDuplicata = formData.transactionTypeId === 'duplicata_receber' || formData.transactionTypeId === 'duplicata_pagar';
-    const defaultMethod = paymentMethods.find(pm => pm.type === 'pix');
-    const defaultAccount = accounts.find(acc => acc.id === defaultMethod?.defaultAccountId);
-
+    const isTransfer = formData.transactionTypeId === 'transferencia';
+    
     const payment: Payment = {
       id: Date.now().toString(),
-      method: isDuplicata ? 'A Definir' : (defaultMethod?.name || 'Pix'), 
+      method: isTransfer ? 'Transferência' : 'A Definir', 
       value: amount,
       dueDate: formData.date || new Date().toISOString().split('T')[0],
-      destination: isDuplicata 
-        ? (formData.transactionTypeId === 'duplicata_receber' ? 'Contas a Receber' : 'Contas a Pagar')
-        : (defaultAccount?.name || 'Caixa'), 
-      status: isDuplicata ? 'pending' : 'completed' 
+      destination: isTransfer 
+        ? (accounts[1]?.name || '')
+        : (formData.type === 'income' ? 'Contas a Receber' : 'Contas a Pagar'), 
+      status: isTransfer ? 'completed' : 'pending' 
     };
 
     setFormData(prev => ({
