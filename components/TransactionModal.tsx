@@ -280,27 +280,25 @@ export const TransactionModal: React.FC = () => {
       const destAccount = accounts.find(a => a.name === payment.destination);
 
       if (sourceAccount && destAccount) {
-        const sourcePlan = accountPlans.find(ap => ap.id === sourceAccount.accountPlanId);
-        const destPlan = accountPlans.find(ap => ap.id === destAccount.accountPlanId);
+        const sourcePlan = accountPlans.find(ap => ap.id === sourceAccount.accountPlanId && ap.level === 'analitica');
+        const destPlan = accountPlans.find(ap => ap.id === destAccount.accountPlanId && ap.level === 'analitica');
 
-        if (sourcePlan && destPlan) {
-          newSplits.push({
-            accountPlanId: destPlan.id,
-            accountPlanName: destPlan.name,
-            accountPlanCode: destPlan.code,
-            value: payment.value,
-            type: 'debit',
-            description: `Transferência para ${destAccount.name}`
-          });
-          newSplits.push({
-            accountPlanId: sourcePlan.id,
-            accountPlanName: sourcePlan.name,
-            accountPlanCode: sourcePlan.code,
-            value: payment.value,
-            type: 'credit',
-            description: `Transferência de ${sourceAccount.name}`
-          });
-        }
+        newSplits.push({
+          accountPlanId: destPlan?.id || '',
+          accountPlanName: destPlan?.name || '',
+          accountPlanCode: destPlan?.code || '',
+          value: payment.value,
+          type: 'debit',
+          description: `Transferência para ${destAccount.name}`
+        });
+        newSplits.push({
+          accountPlanId: sourcePlan?.id || '',
+          accountPlanName: sourcePlan?.name || '',
+          accountPlanCode: sourcePlan?.code || '',
+          value: payment.value,
+          type: 'credit',
+          description: `Transferência de ${sourceAccount.name}`
+        });
       }
       setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
       return;
@@ -310,38 +308,29 @@ export const TransactionModal: React.FC = () => {
 
     // 1. Main Entry (Revenue, Expense, or Liability/Asset for Payments/Receipts)
     // Use net value as requested by user to "abate" discounts/surcharges
-    let mainAccount = accountPlans.find(acc => acc.name === formData.category);
+    let mainAccount = accountPlans.find(acc => acc.name === formData.category && acc.level === 'analitica');
     let mainDescription = '';
     let mainType: 'debit' | 'credit' = isIncome ? 'credit' : 'debit';
 
     if (!mainAccount) {
       if (formData.transactionTypeId === 'adiantamento_cliente') {
-        mainAccount = accountPlans.find(acc => acc.code === '2.1.05.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento de clientes'));
-        mainDescription = 'Adiantamento Recebido';
+        mainDescription = 'Adiantamento Recebido (Selecione conta analítica)';
       } else if (formData.transactionTypeId === 'adiantamento_fornecedor') {
-        mainAccount = accountPlans.find(acc => acc.code === '1.1.04.02') || accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento a fornecedores'));
-        mainDescription = 'Adiantamento Pago';
+        mainDescription = 'Adiantamento Pago (Selecione conta analítica)';
       } else if (formData.transactionTypeId === 'pagamento') {
         // Paying a debt: Debit Fornecedores
-        mainAccount = accountPlans.find(acc => acc.code === '2.1.01.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('fornecedores'));
-        mainDescription = 'Baixa de Fornecedores';
+        mainDescription = 'Baixa de Fornecedores (Selecione conta analítica)';
         mainType = 'debit';
       } else if (formData.transactionTypeId === 'recebimento') {
         // Receiving a credit: Credit Clientes
-        mainAccount = accountPlans.find(acc => acc.code === '1.1.02.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('clientes'));
-        mainDescription = 'Baixa de Clientes';
+        mainDescription = 'Baixa de Clientes (Selecione conta analítica)';
         mainType = 'credit';
       } else if (formData.transactionTypeId === 'venda') {
-        mainAccount = accountPlans.find(acc => acc.code === '4.1.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('venda'));
-        mainDescription = 'Receita de Venda';
+        mainDescription = 'Receita de Venda (Selecione conta analítica)';
       } else if (formData.transactionTypeId === 'compra') {
-        mainAccount = accountPlans.find(acc => acc.code === '1.1.03') || accountPlans.find(acc => acc.name.toLowerCase().includes('estoque'));
-        mainDescription = 'Compra de Mercadoria/Insumo';
+        mainDescription = 'Compra de Mercadoria/Insumo (Selecione conta analítica)';
       } else {
-        mainAccount = isIncome ? 
-          (accountPlans.find(acc => acc.code === '4.1.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('venda'))) :
-          (accountPlans.find(acc => acc.code === '6.1.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('administrativa')));
-        mainDescription = isIncome ? 'Receita de Venda' : 'Despesa Operacional';
+        mainDescription = isIncome ? 'Receita (Selecione conta analítica)' : 'Despesa (Selecione conta analítica)';
       }
     } else {
       mainDescription = formData.description || (isIncome ? 'Receita' : 'Despesa');
@@ -375,70 +364,66 @@ export const TransactionModal: React.FC = () => {
         // 2.1.1. Try to find the account plan linked to the bank account selected for this payment
         const account = accounts.find(a => a.id === payment.bankId);
         if (account && account.accountPlanId) {
-          paymentAccount = accountPlans.find(ap => ap.id === account.accountPlanId);
+          paymentAccount = accountPlans.find(ap => ap.id === account.accountPlanId && ap.level === 'analitica');
           paymentDescription = isIncome ? `Recebimento (${account.name})` : `Pagamento (${account.name})`;
         }
 
         // 2.1.2. Fallback to method-based logic if no specific account was found
         if (!paymentAccount) {
           if (payment.method === 'Dinheiro' || payment.method === 'Espécie') {
-            paymentAccount = accountPlans.find(acc => acc.code === '1.1.01.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('caixa'));
+            paymentAccount = accountPlans.find(acc => acc.code === '1.1.01.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('caixa') && acc.level === 'analitica');
             paymentDescription = isIncome ? 'Recebimento em Caixa' : 'Pagamento em Caixa';
           } else if (['Transferência', 'PIX', 'Cartão de Débito', 'Cartão de Crédito', 'Boleto', 'Cartão'].includes(payment.method)) {
-            paymentAccount = accountPlans.find(acc => acc.code === '1.1.01.02') || accountPlans.find(acc => acc.name.toLowerCase().includes('banco'));
+            paymentAccount = accountPlans.find(acc => acc.code === '1.1.01.02' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('banco') && acc.level === 'analitica');
             paymentDescription = isIncome ? 'Recebimento em Banco' : 'Pagamento em Banco';
           } else if (payment.method === 'Adiantamento') {
             paymentAccount = isIncome ? 
-              (accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento de clientes')) || accountPlans.find(acc => acc.code === '2.1.05.01')) :
-              (accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento a fornecedores')) || accountPlans.find(acc => acc.code === '1.1.04.02'));
+              (accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento de clientes') && acc.level === 'analitica') || accountPlans.find(acc => acc.code === '2.1.05.01' && acc.level === 'analitica')) :
+              (accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento a fornecedores') && acc.level === 'analitica') || accountPlans.find(acc => acc.code === '1.1.04.02' && acc.level === 'analitica'));
             paymentDescription = isIncome ? 'Uso de Adiantamento' : 'Uso de Adiantamento';
           } else {
             // A Definir, Cheque, etc. -> Clientes or Fornecedores
             paymentAccount = isIncome ?
-              (accountPlans.find(acc => acc.code === '1.1.02.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('clientes'))) :
-              (accountPlans.find(acc => acc.code === '2.1.01.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('fornecedores')));
+              (accountPlans.find(acc => acc.code === '1.1.02.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('clientes') && acc.level === 'analitica')) :
+              (accountPlans.find(acc => acc.code === '2.1.01.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('fornecedores') && acc.level === 'analitica'));
             paymentDescription = isIncome ? 'Contas a Receber (Clientes)' : 'Contas a Pagar (Fornecedores)';
           }
         }
 
-        if (paymentAccount) {
-          newSplits.push({
-            accountPlanId: paymentAccount.id,
-            accountPlanName: paymentAccount.name,
-            accountPlanCode: paymentAccount.code,
-            value: payment.value,
-            type: paymentType,
-            description: paymentDescription
-          });
-        }
+        newSplits.push({
+          accountPlanId: paymentAccount?.id || '',
+          accountPlanName: paymentAccount?.name || '',
+          accountPlanCode: paymentAccount?.code || '',
+          value: payment.value,
+          type: paymentType,
+          description: paymentDescription
+        });
       }
     });
 
     // 3. Inventory and COGS (Extra entries for Sales/Purchases)
     if (formData.transactionTypeId === 'venda') {
-      const estoqueAcc = accountPlans.find(acc => acc.code === '1.1.03.10') || accountPlans.find(acc => acc.name.toLowerCase().includes('produtos acabados')) || accountPlans.find(acc => acc.code === '1.1.03');
-      const cmvAcc = accountPlans.find(acc => acc.code === '5.1.01') || accountPlans.find(acc => acc.name.toLowerCase().includes('mdf')) || accountPlans.find(acc => acc.type === 'despesa' && acc.name.toLowerCase().includes('custo'));
+      const estoqueAcc = accountPlans.find(acc => (acc.code === '1.1.03.10' || acc.code === '1.1.03') && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('produtos acabados') && acc.level === 'analitica');
+      const cmvAcc = accountPlans.find(acc => acc.code === '5.1.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.type === 'despesa' && acc.name.toLowerCase().includes('custo') && acc.level === 'analitica');
 
-      if (estoqueAcc && cmvAcc) {
-        // Suggesting inventory reduction (Credit Inventory, Debit COGS)
-        // Value is 0 as we don't know the cost, user must fill
-        newSplits.push({
-          accountPlanId: cmvAcc.id,
-          accountPlanName: cmvAcc.name,
-          accountPlanCode: cmvAcc.code,
-          value: 0,
-          type: 'debit',
-          description: 'Custo da Mercadoria Vendida (CMV)'
-        });
-        newSplits.push({
-          accountPlanId: estoqueAcc.id,
-          accountPlanName: estoqueAcc.name,
-          accountPlanCode: estoqueAcc.code,
-          value: 0,
-          type: 'credit',
-          description: 'Baixa de Estoque'
-        });
-      }
+      // Suggesting inventory reduction (Credit Inventory, Debit COGS)
+      // Value is 0 as we don't know the cost, user must fill
+      newSplits.push({
+        accountPlanId: cmvAcc?.id || '',
+        accountPlanName: cmvAcc?.name || '',
+        accountPlanCode: cmvAcc?.code || '',
+        value: 0,
+        type: 'debit',
+        description: 'Custo da Mercadoria Vendida (CMV)'
+      });
+      newSplits.push({
+        accountPlanId: estoqueAcc?.id || '',
+        accountPlanName: estoqueAcc?.name || '',
+        accountPlanCode: estoqueAcc?.code || '',
+        value: 0,
+        type: 'credit',
+        description: 'Baixa de Estoque'
+      });
     }
 
     setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
@@ -460,7 +445,7 @@ export const TransactionModal: React.FC = () => {
 
       // Auto-fill category when code is entered
       if (name === 'categoryCode') {
-        const plan = accountPlans.find(p => p.code === value);
+        const plan = accountPlans.find(p => p.code === value && p.level === 'analitica');
         if (plan) {
           newData.category = plan.name;
         }
@@ -468,7 +453,7 @@ export const TransactionModal: React.FC = () => {
 
       // Auto-fill code when category is selected
       if (name === 'category') {
-        const plan = accountPlans.find(p => p.name === value);
+        const plan = accountPlans.find(p => p.name === value && p.level === 'analitica');
         if (plan) {
           newData.categoryCode = plan.code;
         }
