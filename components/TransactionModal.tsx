@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Calendar, FileText, DollarSign, Briefcase, Wallet, Hash, User, Plus, Minus, AlertCircle, Search } from 'lucide-react';
+import { X, Calendar, FileText, DollarSign, Briefcase, Wallet, Hash, User, Plus, Minus, AlertCircle, Search, Tag } from 'lucide-react';
 import { getAccountPlans, getTransactionTypes, AccountPlan, TransactionType } from '../services/financialData';
 import { useTransactions } from '@/src/context/TransactionContext';
 import { Transaction, Payment, TransactionSplit } from '../types';
@@ -300,6 +300,75 @@ export const TransactionModal: React.FC = () => {
           description: `Transferência de ${sourceAccount.name}`
         });
       }
+      setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
+      return;
+    }
+
+    // Special logic for Purchase (Compra) as requested by user
+    if (formData.transactionTypeId === 'compra') {
+      const payment = formData.payments?.[0];
+      const isADefinir = payment?.method === 'A Definir';
+      
+      const estoqueAcc = accountPlans.find(acc => acc.name === formData.category && acc.level === 'analitica') || accountPlans.find(acc => (acc.code === '1.1.03.10' || acc.code === '1.1.03') && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('estoque') && acc.level === 'analitica');
+      
+      let paymentAcc: AccountPlan | undefined;
+      let taxAcc: AccountPlan | undefined;
+      let paymentDesc = '';
+      let taxDesc = '';
+
+      if (isADefinir) {
+        paymentAcc = accountPlans.find(acc => acc.code === '2.1.01.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('fornecedores') && acc.level === 'analitica');
+        taxAcc = accountPlans.find(acc => acc.code === '2.1.05.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('impostos a recolher') && acc.level === 'analitica');
+        paymentDesc = 'Contas a Pagar (Fornecedores)';
+        taxDesc = 'Impostos a Recolher (Compra)';
+      } else {
+        // Try to find bank account first
+        const account = accounts.find(a => a.id === payment?.bankId);
+        if (account && account.accountPlanId) {
+          paymentAcc = accountPlans.find(ap => ap.id === account.accountPlanId && ap.level === 'analitica');
+        }
+        
+        if (!paymentAcc) {
+          if (payment?.method === 'Dinheiro' || payment?.method === 'Espécie') {
+            paymentAcc = accountPlans.find(acc => acc.code === '1.1.01.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('caixa') && acc.level === 'analitica');
+          } else {
+            paymentAcc = accountPlans.find(acc => acc.code === '1.1.01.02' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('banco') && acc.level === 'analitica');
+          }
+        }
+        
+        taxAcc = accountPlans.find(acc => acc.code === '1.1.04.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('imposto a recuperar') && acc.level === 'analitica');
+        paymentDesc = `Pagamento (${payment?.method || 'Caixa/Banco'})`;
+        taxDesc = 'Imposto a Recuperar (Compra)';
+      }
+
+      // Add the 3 splits for Compra
+      newSplits.push({
+        accountPlanId: estoqueAcc?.id || '',
+        accountPlanName: estoqueAcc?.name || '',
+        accountPlanCode: estoqueAcc?.code || '',
+        value: netValue,
+        type: 'debit',
+        description: 'Compra de Mercadoria/Insumo (Estoque)'
+      });
+
+      newSplits.push({
+        accountPlanId: paymentAcc?.id || '',
+        accountPlanName: paymentAcc?.name || '',
+        accountPlanCode: paymentAcc?.code || '',
+        value: netValue,
+        type: 'credit',
+        description: paymentDesc
+      });
+
+      newSplits.push({
+        accountPlanId: taxAcc?.id || '',
+        accountPlanName: taxAcc?.name || '',
+        accountPlanCode: taxAcc?.code || '',
+        value: 0, // User must fill the tax value, initially 0 to keep it balanced
+        type: 'credit',
+        description: taxDesc
+      });
+
       setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
       return;
     }
@@ -904,7 +973,7 @@ export const TransactionModal: React.FC = () => {
               <p className="text-sm font-medium">{error}</p>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
              <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Lançamento</label>
               <div className="relative">
@@ -919,6 +988,24 @@ export const TransactionModal: React.FC = () => {
                   <option value="">Selecione...</option>
                   {transactionTypes.map(type => (
                     <option key={type.id} value={type.id}>{type.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria (Conta Principal)</label>
+              <div className="relative">
+                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <select 
+                  name="category"
+                  value={formData.category || ''}
+                  onChange={handleInputChange}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                >
+                  <option value="">Selecione conta analítica...</option>
+                  {accountPlans.filter(ap => ap.level === 'analitica').sort((a, b) => a.code.localeCompare(b.code)).map(ap => (
+                    <option key={ap.id} value={ap.name}>{ap.code} - {ap.name}</option>
                   ))}
                 </select>
               </div>
