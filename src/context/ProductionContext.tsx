@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { StockAgingConfig, InventoryItem, ProductionOrder, StockConfigItem } from '../../types';
+import { StockAgingConfig, InventoryItem, ProductionOrder, StockConfigItem, StockMovement, Supplier } from '../../types';
 import { supabase } from '../lib/supabase';
 
 interface ProductionContextType {
@@ -16,10 +16,16 @@ interface ProductionContextType {
   addInventoryItem: (item: InventoryItem) => void;
   deleteInventoryItem: (id: string) => void;
   finalizeProcess: (id: string) => void;
+  stockMovements: StockMovement[];
+  addStockMovement: (movement: Partial<StockMovement>) => Promise<void>;
   productionOrders: ProductionOrder[];
   addProductionOrder: (order: ProductionOrder) => void;
   updateProductionOrder: (order: ProductionOrder) => void;
   deleteProductionOrder: (id: string) => void;
+  suppliers: Supplier[];
+  addSupplier: (supplier: Omit<Supplier, 'id'>) => void;
+  updateSupplier: (supplier: Supplier) => void;
+  deleteSupplier: (id: string) => void;
 }
 
 const MOCK_INVENTORY: InventoryItem[] = [
@@ -154,14 +160,71 @@ const MOCK_INVENTORY: InventoryItem[] = [
   },
 ];
 
+const MOCK_SUPPLIERS: Supplier[] = [
+  { id: 'S-001', name: 'Madeireira Central', cnpj: '12.345.678/0001-90', email: 'vendas@central.com', phone: '(11) 4002-8922', status: 'active', category: 'Madeiras' },
+  { id: 'S-002', name: 'Ferragens & Cia', cnpj: '98.765.432/0001-10', email: 'contato@ferragens.com', phone: '(11) 5555-4444', status: 'active', category: 'Ferragens' },
+];
+
 const ProductionContext = createContext<ProductionContextType | undefined>(undefined);
 
 export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [stockAgingConfigs, setStockAgingConfigs] = useState<StockAgingConfig[]>([]);
   const [stockConfigItems, setStockConfigItems] = useState<StockConfigItem[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [stockMovements, setStockMovements] = useState<any[]>([]);
   const [productionOrders, setProductionOrders] = useState<ProductionOrder[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const addSupplier = async (supplier: Omit<Supplier, 'id'>) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('suppliers')
+        .insert([supplier]);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error adding supplier:', error);
+    }
+  };
+
+  const updateSupplier = async (supplier: Supplier) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('suppliers')
+        .update({
+          name: supplier.name,
+          cnpj: supplier.cnpj,
+          email: supplier.email,
+          phone: supplier.phone,
+          address: supplier.address,
+          category: supplier.category,
+          status: supplier.status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', supplier.id);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error updating supplier:', error);
+    }
+  };
+
+  const deleteSupplier = async (id: string) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('suppliers')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (error) {
+      console.error('Error deleting supplier:', error);
+    }
+  };
 
   const fetchData = async () => {
     if (!supabase) {
@@ -170,20 +233,27 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
     setIsLoading(true);
     try {
-      const [
-        { data: configsData },
-        { data: stockItemsData },
-        { data: inventoryData },
-        { data: ordersData }
-      ] = await Promise.all([
+      const results = await Promise.all([
         supabase.from('stock_aging_configs').select('*'),
         supabase.from('stock_config_items').select('*'),
         supabase.from('inventory').select('*'),
-        supabase.from('production_orders').select('*').order('deadline', { ascending: true })
+        supabase.from('production_orders').select('*').order('deadline', { ascending: true }),
+        supabase.from('stock_movements').select('*').order('date', { ascending: false }),
+        supabase.from('suppliers').select('*').order('name')
       ]);
+
+      const configsData = results[0].data;
+      const stockItemsData = results[1].data;
+      const inventoryData = results[2].data;
+      const ordersData = results[3].data;
+      const movementsData = results[4].data;
+      const suppliersData = results[5].data;
 
       if (configsData) setStockAgingConfigs(configsData);
       if (stockItemsData) setStockConfigItems(stockItemsData);
+      if (movementsData) setStockMovements(movementsData);
+      if (suppliersData) setSuppliers(suppliersData);
+      
       if (inventoryData) setInventory(inventoryData.map(i => ({
         id: i.id,
         code: i.code || '',
@@ -561,6 +631,51 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  const addStockMovement = async (movement: Partial<StockMovement>) => {
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('stock_movements')
+        .insert([{
+          inventory_id: movement.inventory_id,
+          type: movement.type,
+          quantity: movement.quantity,
+          unit_cost: movement.unit_cost,
+          total_value: movement.total_value,
+          reason: movement.reason,
+          reference_id: movement.reference_id,
+          responsible: movement.responsible,
+          date: movement.date || new Date().toISOString(),
+          supplier: movement.supplier,
+          item_code: movement.item_code,
+          discount: movement.discount
+        }]);
+      
+      if (error) throw error;
+
+      // Update inventory quantity
+      const item = inventory.find(i => i.id === movement.inventory_id);
+      if (item) {
+        const newQuantity = movement.type === 'entry' 
+          ? item.quantity + (movement.quantity || 0) 
+          : item.quantity - (movement.quantity || 0);
+        
+        await updateInventoryItem({
+          ...item,
+          quantity: newQuantity,
+          lastPurchaseCost: movement.type === 'entry' ? (movement.unit_cost || item.lastPurchaseCost) : item.lastPurchaseCost,
+          averageCost: movement.type === 'entry' 
+            ? (item.averageCost * item.quantity + (movement.total_value || 0)) / (item.quantity + (movement.quantity || 0))
+            : item.averageCost
+        });
+      }
+
+      await fetchData();
+    } catch (error) {
+      console.error('Error adding stock movement:', error);
+    }
+  };
+
   return (
     <ProductionContext.Provider value={{ 
       stockAgingConfigs, 
@@ -576,10 +691,16 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       addInventoryItem,
       deleteInventoryItem,
       finalizeProcess,
+      stockMovements,
+      addStockMovement,
       productionOrders,
       addProductionOrder,
       updateProductionOrder,
-      deleteProductionOrder
+      deleteProductionOrder,
+      suppliers,
+      addSupplier,
+      updateSupplier,
+      deleteSupplier
     }}>
       {children}
     </ProductionContext.Provider>

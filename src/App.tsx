@@ -53,7 +53,7 @@ import { SalesCatalog } from '../components/SalesCatalog';
 import { SalesQuotes } from '../components/SalesQuotes';
 import { SalesSettings } from '../components/SalesSettings';
 import { ProductionSettings } from '../components/ProductionSettings';
-import { ProductionInventory } from '../components/ProductionInventory';
+import { InventoryManagement } from '../components/InventoryManagement';
 import { ProjectManagement } from '../components/ProjectManagement';
 import ProjectDashboard from '../components/ProjectDashboard';
 import ProjectBoards from '../components/ProjectBoards';
@@ -279,7 +279,11 @@ const App: React.FC = () => {
       case ModuleId.PRODUCAO_ORDENS:
         return <ProductionOrders activeSubItem={activeSubItem} />;
       case ModuleId.PRODUCAO_ESTOQUE:
-        return <ProductionInventory activeSubItem={activeSubItem} />;
+        return <InventoryManagement activeSubItem={activeSubItem} />;
+      case ModuleId.VENDAS_ESTOQUE:
+        return <InventoryManagement activeSubItem={activeSubItem} />;
+      case ModuleId.COMPRAS_ESTOQUE:
+        return <InventoryManagement activeSubItem={activeSubItem} />;
       case ModuleId.PRODUCAO_QUALIDADE:
         return <ProductionQuality />;
       case ModuleId.PRODUCAO_MANUTENCAO:

@@ -63,6 +63,7 @@ export enum ModuleId {
   VENDAS_CLIENTES = 'vendas_clientes',
   VENDAS_CATALOGO = 'vendas_catalogo',
   VENDAS_METAS = 'vendas_metas',
+  VENDAS_ESTOQUE = 'vendas_estoque',
   VENDAS_CONFIG = 'vendas_config',
 
   // Compras Modules
@@ -70,6 +71,7 @@ export enum ModuleId {
   COMPRAS_PEDIDOS = 'compras_pedidos',
   COMPRAS_FORNECEDORES = 'compras_fornecedores',
   COMPRAS_COTACAO = 'compras_cotacao',
+  COMPRAS_ESTOQUE = 'compras_estoque',
   COMPRAS_CONFIG = 'compras_config',
 
   // Projetos Modules
@@ -356,6 +358,33 @@ export interface ProductionOrder {
   orderNumber?: string; // nº Pedido de venda
   startDate?: string; // Data início
   responsible?: string; // Responsável
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  cnpj?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  category?: string;
+  status: 'active' | 'inactive';
+}
+
+export interface StockMovement {
+  id: string;
+  inventory_id: string;
+  type: 'entry' | 'exit';
+  quantity: number;
+  unit_cost: number;
+  total_value: number;
+  reason: string;
+  reference_id?: string;
+  responsible: string;
+  date: string;
+  supplier?: string;
+  item_code?: string;
+  discount?: number;
 }
 
 export interface InventoryItem {

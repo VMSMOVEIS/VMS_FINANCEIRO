@@ -343,6 +343,15 @@ export const VENDAS_MENU_ITEMS: MenuItem[] = [
     icon: BookOpen,
   },
   {
+    id: ModuleId.VENDAS_ESTOQUE,
+    label: 'Estoques (Vendas)',
+    icon: Package,
+    subItems: [
+      { id: 'vendas_estoque_pa', label: 'Produtos Acabados' },
+      { id: 'vendas_estoque_kits', label: 'Kits de Venda' },
+    ]
+  },
+  {
     id: ModuleId.VENDAS_METAS,
     label: 'Metas & Performance',
     icon: BarChart3,
@@ -382,6 +391,15 @@ export const COMPRAS_MENU_ITEMS: MenuItem[] = [
     subItems: [
       { id: 'compras_cot_ativas', label: 'Cotações Ativas' },
       { id: 'compras_cot_historico', label: 'Histórico de Cotações' },
+    ]
+  },
+  {
+    id: ModuleId.COMPRAS_ESTOQUE,
+    label: 'Estoques (Compras)',
+    icon: Package,
+    subItems: [
+      { id: 'compras_estoque_mp', label: 'Matéria-Prima' },
+      { id: 'compras_estoque_insumos', label: 'Insumos & Consumo' },
     ]
   },
   {
