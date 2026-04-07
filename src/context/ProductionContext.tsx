@@ -456,7 +456,7 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           average_cost: item.averageCost,
           last_purchase_cost: item.lastPurchaseCost,
           standard_cost: item.standardCost,
-          default_supplier_id: item.defaultSupplierId,
+          default_supplier_id: item.defaultSupplierId || null,
           purchase_lead_time: item.purchaseLeadTime,
           min_purchase_quantity: item.minPurchaseQuantity,
           purchase_unit: item.purchaseUnit,
@@ -513,7 +513,7 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           average_cost: item.averageCost,
           last_purchase_cost: item.lastPurchaseCost,
           standard_cost: item.standardCost,
-          default_supplier_id: item.defaultSupplierId,
+          default_supplier_id: item.defaultSupplierId || null,
           purchase_lead_time: item.purchaseLeadTime,
           min_purchase_quantity: item.minPurchaseQuantity,
           purchase_unit: item.purchaseUnit,
@@ -637,7 +637,7 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const { error } = await supabase
         .from('stock_movements')
         .insert([{
-          inventory_id: movement.inventory_id,
+          inventory_id: movement.inventory_id || null,
           type: movement.type,
           quantity: movement.quantity,
           unit_cost: movement.unit_cost,
