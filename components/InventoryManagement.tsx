@@ -80,11 +80,18 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
   const [supplierFormData, setSupplierFormData] = useState<Omit<Supplier, 'id'>>({
     name: '',
     cnpj: '',
+    contactName: '',
     email: '',
     phone: '',
     address: '',
+    city: '',
+    state: '',
+    zipCode: '',
     category: '',
-    status: 'active'
+    status: 'active',
+    notes: '',
+    rating: 0,
+    lastOrderDate: ''
   });
 
   const [newItem, setNewItem] = useState({
@@ -679,11 +686,18 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
                 setSupplierFormData({
                   name: '',
                   cnpj: '',
+                  contactName: '',
                   email: '',
                   phone: '',
                   address: '',
+                  city: '',
+                  state: '',
+                  zipCode: '',
                   category: '',
-                  status: 'active'
+                  status: 'active',
+                  notes: '',
+                  rating: 0,
+                  lastOrderDate: ''
                 });
                 setIsSupplierModalOpen(true);
               }}
@@ -713,8 +727,9 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{s.cnpj || '-'}</td>
                     <td className="px-6 py-4">
-                      <p className="text-sm text-gray-600">{s.email}</p>
-                      <p className="text-xs text-gray-400">{s.phone}</p>
+                      <p className="text-sm text-gray-900 font-medium">{s.contactName || '-'}</p>
+                      <p className="text-xs text-gray-500">{s.email}</p>
+                      <p className="text-[10px] text-gray-400">{s.phone}</p>
                     </td>
                     <td className="px-6 py-4">
                       <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-[10px] font-bold uppercase">
@@ -2119,7 +2134,7 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleSupplierSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSupplierSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome / Razão Social</label>
@@ -2141,13 +2156,12 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Categoria</label>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Contato Responsável</label>
                   <input 
                     type="text" 
-                    value={supplierFormData.category}
-                    onChange={(e) => setSupplierFormData({...supplierFormData, category: e.target.value})}
+                    value={supplierFormData.contactName}
+                    onChange={(e) => setSupplierFormData({...supplierFormData, contactName: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm" 
-                    placeholder="Ex: Madeiras, Ferragens"
                   />
                 </div>
                 <div>
@@ -2168,12 +2182,49 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm" 
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Categoria</label>
+                  <input 
+                    type="text" 
+                    value={supplierFormData.category}
+                    onChange={(e) => setSupplierFormData({...supplierFormData, category: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm" 
+                    placeholder="Ex: Madeiras, Ferragens"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CEP</label>
+                  <input 
+                    type="text" 
+                    value={supplierFormData.zipCode}
+                    onChange={(e) => setSupplierFormData({...supplierFormData, zipCode: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm" 
+                  />
+                </div>
                 <div className="md:col-span-2">
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Endereço</label>
                   <input 
                     type="text" 
                     value={supplierFormData.address}
                     onChange={(e) => setSupplierFormData({...supplierFormData, address: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cidade</label>
+                  <input 
+                    type="text" 
+                    value={supplierFormData.city}
+                    onChange={(e) => setSupplierFormData({...supplierFormData, city: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Estado</label>
+                  <input 
+                    type="text" 
+                    value={supplierFormData.state}
+                    onChange={(e) => setSupplierFormData({...supplierFormData, state: e.target.value})}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm" 
                   />
                 </div>
@@ -2187,6 +2238,27 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
                     <option value="active">Ativo</option>
                     <option value="inactive">Inativo</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Avaliação (0-5)</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    value={supplierFormData.rating}
+                    onChange={(e) => setSupplierFormData({...supplierFormData, rating: Number(e.target.value)})}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm" 
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Observações</label>
+                  <textarea 
+                    value={supplierFormData.notes}
+                    onChange={(e) => setSupplierFormData({...supplierFormData, notes: e.target.value})}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm resize-none" 
+                  />
                 </div>
               </div>
               <div className="flex gap-3 pt-4 border-t border-gray-100">

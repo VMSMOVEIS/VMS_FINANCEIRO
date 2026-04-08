@@ -364,11 +364,18 @@ export interface Supplier {
   id: string;
   name: string;
   cnpj?: string;
+  contactName?: string;
   email?: string;
   phone?: string;
   address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
   category?: string;
   status: 'active' | 'inactive';
+  notes?: string;
+  rating?: number;
+  lastOrderDate?: string;
 }
 
 export interface StockMovement {

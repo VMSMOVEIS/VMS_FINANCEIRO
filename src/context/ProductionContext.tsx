@@ -181,7 +181,22 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const { error } = await supabase
         .from('suppliers')
-        .insert([supplier]);
+        .insert([{
+          name: supplier.name,
+          cnpj: supplier.cnpj,
+          contact_name: supplier.contactName,
+          email: supplier.email,
+          phone: supplier.phone,
+          address: supplier.address,
+          city: supplier.city,
+          state: supplier.state,
+          zip_code: supplier.zipCode,
+          category: supplier.category,
+          status: supplier.status,
+          notes: supplier.notes,
+          rating: supplier.rating,
+          last_order_date: supplier.lastOrderDate
+        }]);
       if (error) throw error;
       await fetchData();
     } catch (error) {
@@ -197,11 +212,18 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         .update({
           name: supplier.name,
           cnpj: supplier.cnpj,
+          contact_name: supplier.contactName,
           email: supplier.email,
           phone: supplier.phone,
           address: supplier.address,
+          city: supplier.city,
+          state: supplier.state,
+          zip_code: supplier.zipCode,
           category: supplier.category,
           status: supplier.status,
+          notes: supplier.notes,
+          rating: supplier.rating,
+          last_order_date: supplier.lastOrderDate,
           updated_at: new Date().toISOString()
         })
         .eq('id', supplier.id);
@@ -252,7 +274,23 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (configsData) setStockAgingConfigs(configsData);
       if (stockItemsData) setStockConfigItems(stockItemsData);
       if (movementsData) setStockMovements(movementsData);
-      if (suppliersData) setSuppliers(suppliersData);
+      if (suppliersData) setSuppliers(suppliersData.map(s => ({
+        id: s.id,
+        name: s.name,
+        cnpj: s.cnpj,
+        contactName: s.contact_name,
+        email: s.email,
+        phone: s.phone,
+        address: s.address,
+        city: s.city,
+        state: s.state,
+        zipCode: s.zip_code,
+        category: s.category,
+        status: s.status as any,
+        notes: s.notes,
+        rating: Number(s.rating || 0),
+        lastOrderDate: s.last_order_date
+      })));
       
       if (inventoryData) setInventory(inventoryData.map(i => ({
         id: i.id,
