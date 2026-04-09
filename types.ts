@@ -148,6 +148,7 @@ export interface TransactionSplit {
   value: number;
   description?: string;
   type: 'debit' | 'credit';
+  entryId?: string; // To group multiple splits into separate journal entries
 }
 
 export interface Transaction {

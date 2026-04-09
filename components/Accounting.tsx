@@ -251,43 +251,54 @@ const generateAccountingEntries = (
   transactions.forEach(t => {
     // If transaction has multiAccounts, use them as the source of truth for accounting
     if (t.multiAccounts && t.multiAccounts.length > 0) {
-      const debits = t.multiAccounts.filter((s: any) => s.type === 'debit' && s.value > 0);
-      const credits = t.multiAccounts.filter((s: any) => s.type === 'credit' && s.value > 0);
+      // Group splits by entryId
+      const groups: { [key: string]: any[] } = {};
+      t.multiAccounts.forEach((s: any) => {
+        const gid = s.entryId || '1';
+        if (!groups[gid]) groups[gid] = [];
+        groups[gid].push(s);
+      });
 
-      let dIdx = 0;
-      let cIdx = 0;
-      let dRemaining = debits[dIdx]?.value || 0;
-      let cRemaining = credits[cIdx]?.value || 0;
+      // Process each group separately
+      Object.values(groups).forEach(groupSplits => {
+        const debits = groupSplits.filter((s: any) => s.type === 'debit' && s.value > 0);
+        const credits = groupSplits.filter((s: any) => s.type === 'credit' && s.value > 0);
 
-      while (dIdx < debits.length && cIdx < credits.length) {
-        const val = Math.min(dRemaining, cRemaining);
-        if (val > 0.001) {
-          const debitPlan = findPlan(debits[dIdx].accountPlanId) || { code: debits[dIdx].accountPlanCode, name: debits[dIdx].accountPlanName };
-          const creditPlan = findPlan(credits[cIdx].accountPlanId) || { code: credits[cIdx].accountPlanCode, name: credits[cIdx].accountPlanName };
+        let dIdx = 0;
+        let cIdx = 0;
+        let dRemaining = debits[dIdx]?.value || 0;
+        let cRemaining = credits[cIdx]?.value || 0;
 
-          entries.push({
-            id: entryId++,
-            transactionId: t.id,
-            date: t.date,
-            description: t.description,
-            debit: getLabel(debitPlan),
-            credit: getLabel(creditPlan),
-            value: val
-          });
+        while (dIdx < debits.length && cIdx < credits.length) {
+          const val = Math.min(dRemaining, cRemaining);
+          if (val > 0.001) {
+            const debitPlan = findPlan(debits[dIdx].accountPlanId) || { code: debits[dIdx].accountPlanCode, name: debits[dIdx].accountPlanName };
+            const creditPlan = findPlan(credits[cIdx].accountPlanId) || { code: credits[cIdx].accountPlanCode, name: credits[cIdx].accountPlanName };
+
+            entries.push({
+              id: entryId++,
+              transactionId: t.id,
+              date: t.date,
+              description: debits[dIdx].description || credits[cIdx].description || t.description,
+              debit: getLabel(debitPlan),
+              credit: getLabel(creditPlan),
+              value: val
+            });
+          }
+
+          dRemaining -= val;
+          cRemaining -= val;
+
+          if (dRemaining < 0.001) {
+            dIdx++;
+            dRemaining = debits[dIdx]?.value || 0;
+          }
+          if (cRemaining < 0.001) {
+            cIdx++;
+            cRemaining = credits[cIdx]?.value || 0;
+          }
         }
-
-        dRemaining -= val;
-        cRemaining -= val;
-
-        if (dRemaining < 0.001) {
-          dIdx++;
-          dRemaining = debits[dIdx]?.value || 0;
-        }
-        if (cRemaining < 0.001) {
-          cIdx++;
-          cRemaining = credits[cIdx]?.value || 0;
-        }
-      }
+      });
     }
     // Note: Automatic generation for transactions without multiAccounts has been removed 
     // to ensure the journal only reflects explicit accounting entries as requested.

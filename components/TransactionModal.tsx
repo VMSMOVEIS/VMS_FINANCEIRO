@@ -41,7 +41,7 @@ export const TransactionModal: React.FC = () => {
   const [searchModalTransactionType, setSearchModalTransactionType] = useState<'income' | 'expense'>('income');
   const [accountingAlerts, setAccountingAlerts] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isChartOfAccountsOpen, setIsChartOfAccountsOpen] = useState(false);
+  const [isChartOfAccountsOpen, setIsChartOfAccountsOpen] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingCompletion, setPendingCompletion] = useState(false);
   const [targetPaymentId, setTargetPaymentId] = useState<string | null>(null);
@@ -331,9 +331,10 @@ export const TransactionModal: React.FC = () => {
       const payment = formData.payments?.[0];
       const isADefinir = payment?.method === 'A Definir';
       
-      const estoqueAcc = accountPlans.find(acc => acc.name === formData.category && acc.level === 'analitica') || 
+      // Ensure we find an ASSET account for Matéria Prima (usually starts with 1)
+      const estoqueAcc = accountPlans.find(acc => acc.name === formData.category && acc.level === 'analitica' && acc.code.startsWith('1')) || 
                          accountPlans.find(acc => (acc.code === '1.1.03.10' || acc.code === '1.1.03') && acc.level === 'analitica') || 
-                         accountPlans.find(acc => (acc.name.toLowerCase().includes('matéria prima') || acc.name.toLowerCase().includes('insumos') || acc.name.toLowerCase().includes('estoque')) && acc.level === 'analitica');
+                         accountPlans.find(acc => (acc.name.toLowerCase().includes('matéria prima') || acc.name.toLowerCase().includes('insumos') || acc.name.toLowerCase().includes('estoque')) && acc.level === 'analitica' && acc.code.startsWith('1'));
       
       let paymentAcc: AccountPlan | undefined;
       let taxAcc: AccountPlan | undefined;
@@ -362,32 +363,143 @@ export const TransactionModal: React.FC = () => {
 
       taxAcc = accountPlans.find(acc => (acc.code === '1.1.04.01' || acc.name.toLowerCase().includes('imposto a recuperar')) && acc.level === 'analitica');
 
-      // Add the 3 splits for Compra
+      // Scenario A & B: D: Materia Prima e Insumos (Ativo)
       newSplits.push({
         accountPlanId: estoqueAcc?.id || '',
         accountPlanName: estoqueAcc?.name || '',
         accountPlanCode: estoqueAcc?.code || '',
         value: netValue,
         type: 'debit',
-        description: 'Compra de Matéria Prima e Insumos'
+        description: 'Compra de Matéria Prima e Insumos (Ativo)',
+        entryId: '1'
       });
 
+      // Scenario A & B: C: Banco/Caixa or Fornecedores
       newSplits.push({
         accountPlanId: paymentAcc?.id || '',
         accountPlanName: paymentAcc?.name || '',
         accountPlanCode: paymentAcc?.code || '',
         value: netValue,
         type: 'credit',
-        description: paymentDesc
+        description: paymentDesc,
+        entryId: '1'
+      });
+
+      // Scenario A: D: Impostos a recuperar (Ativo)
+      if (!isADefinir) {
+        newSplits.push({
+          accountPlanId: taxAcc?.id || '',
+          accountPlanName: taxAcc?.name || '',
+          accountPlanCode: taxAcc?.code || '',
+          value: 0, // User can fill if there are recoverable taxes
+          type: 'debit',
+          description: 'Impostos a Recuperar (Ativo)',
+          entryId: '1'
+        });
+      }
+
+      setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
+      return;
+    }
+
+    // Special logic for Sale (Venda) as requested by user
+    if (formData.transactionTypeId === 'venda') {
+      const payment = formData.payments?.[0];
+      const isADefinir = payment?.method === 'A Definir';
+      
+      let paymentAcc: AccountPlan | undefined;
+      let paymentDesc = '';
+
+      if (isADefinir) {
+        paymentAcc = accountPlans.find(acc => (acc.code === '1.1.02.01' || acc.name.toLowerCase().includes('clientes')) && acc.level === 'analitica');
+        paymentDesc = 'Contas a Receber (Clientes)';
+      } else {
+        const account = accounts.find(a => a.id === payment?.bankId);
+        if (account && account.accountPlanId) {
+          paymentAcc = accountPlans.find(ap => ap.id === account.accountPlanId && ap.level === 'analitica');
+        }
+        if (!paymentAcc) {
+          if (payment?.method === 'Dinheiro' || payment?.method === 'Espécie') {
+            paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.01' || acc.name.toLowerCase().includes('caixa')) && acc.level === 'analitica');
+          } else {
+            paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.02' || acc.name.toLowerCase().includes('banco')) && acc.level === 'analitica');
+          }
+        }
+        paymentDesc = `Recebimento (${payment?.method || 'Caixa/Banco'})`;
+      }
+
+      // Revenue account (Credit)
+      const receitaAcc = accountPlans.find(acc => (acc.name.toLowerCase().includes('venda de produto') || acc.name.toLowerCase().includes('receita de venda')) && acc.level === 'analitica' && (acc.type === 'receita' || acc.code.startsWith('3')));
+      // Liability account (Credit)
+      const impostoPassivoAcc = accountPlans.find(acc => (acc.name.toLowerCase().includes('impostos a recolher') || acc.name.toLowerCase().includes('icms a recolher')) && acc.level === 'analitica' && (acc.type === 'passivo' || acc.code.startsWith('2')));
+      // Cost account (Debit) - User referred to this as "D: Venda de produto"
+      const custoAcc = accountPlans.find(acc => (acc.name.toLowerCase().includes('venda de produto') || acc.name.toLowerCase().includes('custo') || acc.name.toLowerCase().includes('cmv')) && acc.level === 'analitica' && (acc.type === 'despesa' || acc.code.startsWith('4') || acc.code.startsWith('5')));
+      // Inventory account (Credit) - Asset
+      const estoqueAcc = accountPlans.find(acc => (acc.name.toLowerCase().includes('matéria prima') || acc.name.toLowerCase().includes('insumos') || acc.name.toLowerCase().includes('estoque')) && acc.level === 'analitica' && acc.code.startsWith('1'));
+
+      // Lançamento A/B: Emissão da Nota Fiscal
+      newSplits.push({
+        accountPlanId: paymentAcc?.id || '',
+        accountPlanName: paymentAcc?.name || '',
+        accountPlanCode: paymentAcc?.code || '',
+        value: netValue,
+        type: 'debit',
+        description: paymentDesc,
+        entryId: '1'
       });
 
       newSplits.push({
-        accountPlanId: taxAcc?.id || '',
-        accountPlanName: taxAcc?.name || '',
-        accountPlanCode: taxAcc?.code || '',
-        value: 0, // User must fill the tax value, initially 0 to keep it balanced
+        accountPlanId: receitaAcc?.id || '',
+        accountPlanName: receitaAcc?.name || '',
+        accountPlanCode: receitaAcc?.code || '',
+        value: netValue,
+        type: 'credit',
+        description: 'Receita de Venda de Produtos',
+        entryId: '1'
+      });
+
+      // Lançamento C: Baixa no Estoque
+      newSplits.push({
+        accountPlanId: custoAcc?.id || '',
+        accountPlanName: custoAcc?.name || '',
+        accountPlanCode: custoAcc?.code || '',
+        value: 0,
         type: 'debit',
-        description: taxDesc
+        description: 'Custo do Produto Vendido (CPV)',
+        entryId: '2'
+      });
+
+      newSplits.push({
+        accountPlanId: estoqueAcc?.id || '',
+        accountPlanName: estoqueAcc?.name || '',
+        accountPlanCode: estoqueAcc?.code || '',
+        value: 0,
+        type: 'credit',
+        description: 'Baixa de Matéria Prima e Insumos (Ativo)',
+        entryId: '2'
+      });
+
+      // Lançamento D: Impostos (Optional separate entry)
+      newSplits.push({
+        accountPlanId: impostoPassivoAcc?.id || '',
+        accountPlanName: impostoPassivoAcc?.name || '',
+        accountPlanCode: impostoPassivoAcc?.code || '',
+        value: 0,
+        type: 'credit',
+        description: 'Impostos a Recolher (Venda)',
+        entryId: '3'
+      });
+
+      // To balance Entry 3, we usually debit a revenue deduction account
+      const deducaoAcc = accountPlans.find(acc => acc.name.toLowerCase().includes('impostos sobre vendas') && acc.level === 'analitica');
+      newSplits.push({
+        accountPlanId: deducaoAcc?.id || '',
+        accountPlanName: deducaoAcc?.name || '',
+        accountPlanCode: deducaoAcc?.code || '',
+        value: 0,
+        type: 'debit',
+        description: 'Dedução de Receita (Impostos)',
+        entryId: '3'
       });
 
       setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
@@ -495,27 +607,11 @@ export const TransactionModal: React.FC = () => {
 
     // 3. Inventory and COGS (Extra entries for Sales/Purchases)
     if (formData.transactionTypeId === 'venda') {
-      const estoqueAcc = accountPlans.find(acc => (acc.code === '1.1.03.10' || acc.code === '1.1.03') && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('produtos acabados') && acc.level === 'analitica');
-      const cmvAcc = accountPlans.find(acc => acc.code === '5.1.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.type === 'despesa' && acc.name.toLowerCase().includes('custo') && acc.level === 'analitica');
-
-      // Suggesting inventory reduction (Credit Inventory, Debit COGS)
-      // Value is 0 as we don't know the cost, user must fill
-      newSplits.push({
-        accountPlanId: cmvAcc?.id || '',
-        accountPlanName: cmvAcc?.name || '',
-        accountPlanCode: cmvAcc?.code || '',
-        value: 0,
-        type: 'debit',
-        description: 'Custo da Mercadoria Vendida (CMV)'
-      });
-      newSplits.push({
-        accountPlanId: estoqueAcc?.id || '',
-        accountPlanName: estoqueAcc?.name || '',
-        accountPlanCode: estoqueAcc?.code || '',
-        value: 0,
-        type: 'credit',
-        description: 'Baixa de Estoque'
-      });
+        // Handled by special block above
+    } else if (formData.transactionTypeId === 'compra') {
+        // Handled by special block above
+    } else {
+        // Generic inventory logic if needed for other types
     }
 
     setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
@@ -791,6 +887,7 @@ export const TransactionModal: React.FC = () => {
           const credits = splits.filter(s => s.type === 'credit').reduce((sum, s) => sum + s.value, 0);
 
           // The new rule: Debits must equal Credits. They don't have to match the transaction value.
+          // We allow zero-value splits as long as the total is balanced.
           if (Math.abs(debits - credits) > 0.01) {
             setError(`O lançamento contábil não está balanceado!\nTotal Débitos: R$ ${debits.toFixed(2)}\nTotal Créditos: R$ ${credits.toFixed(2)}\nDiferença: R$ ${Math.abs(debits - credits).toFixed(2)}`);
             setIsSubmitting(false);
@@ -1465,94 +1562,152 @@ export const TransactionModal: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                {(formData.multiAccounts || []).map((split, index) => (
-                  <div key={index} className={`grid grid-cols-12 gap-3 items-end bg-white p-3 rounded-lg border shadow-sm ${split.type === 'debit' ? 'border-emerald-200' : 'border-red-200'}`}>
-                    <div className="col-span-1">
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Tipo</label>
-                      <div className={`text-[10px] font-bold text-center py-1.5 rounded uppercase ${split.type === 'debit' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                        {split.type === 'debit' ? 'D' : 'C'}
+              <div className="space-y-6">
+                {(() => {
+                  const splits = formData.multiAccounts || [];
+                  const groups: { [key: string]: TransactionSplit[] } = {};
+                  
+                  // Group splits by entryId (default to '1' if not present)
+                  splits.forEach(s => {
+                    const gid = s.entryId || '1';
+                    if (!groups[gid]) groups[gid] = [];
+                    groups[gid].push(s);
+                  });
+
+                  return Object.entries(groups).map(([gid, groupSplits], groupIndex) => (
+                    <div key={gid} className="space-y-3 bg-gray-50/50 p-4 rounded-xl border border-gray-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                          <div className="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[8px]">
+                            {groupIndex + 1}
+                          </div>
+                          Lançamento Contábil #{gid}
+                        </h4>
+                        <div className="text-[10px] text-gray-400">
+                          {groupSplits.length} partidas
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {groupSplits.map((split, splitIdx) => {
+                          // Find original index in formData.multiAccounts
+                          const originalIndex = splits.indexOf(split);
+                          return (
+                            <div key={splitIdx} className={`grid grid-cols-12 gap-3 items-end bg-white p-3 rounded-lg border shadow-sm ${split.type === 'debit' ? 'border-emerald-200' : 'border-red-200'}`}>
+                              <div className="col-span-1">
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Tipo</label>
+                                <div className={`text-[10px] font-bold text-center py-1.5 rounded uppercase ${split.type === 'debit' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                  {split.type === 'debit' ? 'D' : 'C'}
+                                </div>
+                              </div>
+                              <div className="col-span-2">
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Código</label>
+                                <input
+                                  type="text"
+                                  value={split.accountPlanCode || ''}
+                                  onChange={(e) => updateSplit(originalIndex, 'accountPlanCode', e.target.value)}
+                                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Código"
+                                />
+                              </div>
+                              <div className="col-span-1 flex justify-center pb-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setIsChartOfAccountsOpen(originalIndex)}
+                                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-blue-100"
+                                  title="Pesquisar no Plano de Contas"
+                                >
+                                  <Search size={14} />
+                                </button>
+                              </div>
+                              <div className="col-span-3">
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Conta</label>
+                                <input
+                                  list={`account-plans-splits-${originalIndex}`}
+                                  value={split.accountPlanName || ''}
+                                  onChange={(e) => {
+                                    const name = e.target.value;
+                                    const plan = accountPlans.find(p => p.name === name);
+                                    if (plan && (plan.level === 'analitica' || plan.code.split('.').length === 4)) {
+                                      updateSplit(originalIndex, 'accountPlanId', plan.id);
+                                    } else {
+                                      updateSplit(originalIndex, 'accountPlanName', name);
+                                    }
+                                  }}
+                                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Digite ou selecione..."
+                                  required
+                                />
+                                <datalist id={`account-plans-splits-${originalIndex}`}>
+                                  {accountPlans
+                                    .filter(acc => acc.level === 'analitica' || acc.code.split('.').length === 4)
+                                    .map(plan => (
+                                      <option key={plan.id} value={plan.name}>{plan.code} - {plan.name}</option>
+                                    ))}
+                                </datalist>
+                              </div>
+                              <div className="col-span-2">
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Valor (R$)</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={split.value || ''}
+                                  onChange={(e) => updateSplit(originalIndex, 'value', Number(e.target.value))}
+                                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                                  placeholder="0,00"
+                                  required
+                                />
+                              </div>
+                              <div className="col-span-2">
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Obs.</label>
+                                <input
+                                  type="text"
+                                  value={split.description || ''}
+                                  onChange={(e) => updateSplit(originalIndex, 'description', e.target.value)}
+                                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Opcional"
+                                />
+                              </div>
+                              <div className="col-span-1 flex justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() => removeSplit(originalIndex)}
+                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                  <X size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex justify-between items-center px-2 pt-1">
+                        <div className="flex gap-4">
+                          <div className="text-[9px] text-gray-500">
+                            D: <span className="font-bold text-emerald-600">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                                groupSplits.filter(s => s.type === 'debit').reduce((sum, s) => sum + s.value, 0)
+                              )}
+                            </span>
+                          </div>
+                          <div className="text-[9px] text-gray-500">
+                            C: <span className="font-bold text-red-600">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                                groupSplits.filter(s => s.type === 'credit').reduce((sum, s) => sum + s.value, 0)
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                        {Math.abs(groupSplits.filter(s => s.type === 'debit').reduce((sum, s) => sum + s.value, 0) - groupSplits.filter(s => s.type === 'credit').reduce((sum, s) => sum + s.value, 0)) > 0.01 && (
+                          <div className="text-[9px] font-bold text-red-500 animate-pulse">
+                            Lançamento Desbalanceado
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="col-span-2">
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Código</label>
-                      <input
-                        type="text"
-                        value={split.accountPlanCode || ''}
-                        onChange={(e) => updateSplit(index, 'accountPlanCode', e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
-                        placeholder="Código"
-                      />
-                    </div>
-                    <div className="col-span-1 flex justify-center pb-1">
-                      <button
-                        type="button"
-                        onClick={() => setIsChartOfAccountsOpen(true)}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-blue-100"
-                        title="Pesquisar no Plano de Contas"
-                      >
-                        <Search size={14} />
-                      </button>
-                    </div>
-                    <div className="col-span-3">
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Conta</label>
-                      <input
-                        list={`account-plans-splits-${index}`}
-                        value={split.accountPlanName || ''}
-                        onChange={(e) => {
-                          const name = e.target.value;
-                          const plan = accountPlans.find(p => p.name === name);
-                          if (plan && (plan.level === 'analitica' || plan.code.split('.').length === 4)) {
-                            updateSplit(index, 'accountPlanId', plan.id);
-                          } else {
-                            updateSplit(index, 'accountPlanName', name);
-                          }
-                        }}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
-                        placeholder="Digite ou selecione..."
-                        required
-                      />
-                      <datalist id={`account-plans-splits-${index}`}>
-                        {accountPlans
-                          .filter(acc => acc.level === 'analitica' || acc.code.split('.').length === 4)
-                          .map(plan => (
-                            <option key={plan.id} value={plan.name}>{plan.code} - {plan.name}</option>
-                          ))}
-                      </datalist>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Valor (R$)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={split.value || ''}
-                        onChange={(e) => updateSplit(index, 'value', Number(e.target.value))}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
-                        placeholder="0,00"
-                        required
-                      />
-                    </div>
-                    <div className="col-span-3">
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Obs.</label>
-                      <input
-                        type="text"
-                        value={split.description || ''}
-                        onChange={(e) => updateSplit(index, 'description', e.target.value)}
-                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
-                        placeholder="Opcional"
-                      />
-                    </div>
-                    <div className="col-span-1 flex justify-center">
-                      <button
-                        type="button"
-                        onClick={() => removeSplit(index)}
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ));
+                })()}
                 
                 {formData.multiAccounts && formData.multiAccounts.length > 0 && (
                   <div className="flex justify-between pt-2 border-t border-gray-200">
@@ -1622,7 +1777,7 @@ export const TransactionModal: React.FC = () => {
       />
 
       {/* Chart of Accounts Modal */}
-      {isChartOfAccountsOpen && (
+      {isChartOfAccountsOpen !== null && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
@@ -1631,18 +1786,23 @@ export const TransactionModal: React.FC = () => {
                 Plano de Contas
               </h3>
               <button 
-                onClick={() => setIsChartOfAccountsOpen(false)} 
+                onClick={() => setIsChartOfAccountsOpen(null)} 
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
               >
                 <X size={24} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
-              <ChartOfAccounts />
+              <ChartOfAccounts onSelect={(account) => {
+                if (isChartOfAccountsOpen !== null) {
+                  updateSplit(isChartOfAccountsOpen, 'accountPlanId', account.id);
+                  setIsChartOfAccountsOpen(null);
+                }
+              }} />
             </div>
             <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
               <button
-                onClick={() => setIsChartOfAccountsOpen(false)}
+                onClick={() => setIsChartOfAccountsOpen(null)}
                 className="px-6 py-2 bg-gray-800 text-white rounded-lg font-medium hover:bg-gray-900 transition-all shadow-md"
               >
                 Fechar

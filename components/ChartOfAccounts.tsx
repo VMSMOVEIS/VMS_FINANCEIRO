@@ -3,7 +3,11 @@ import { Plus, Trash2, Edit2, ArrowUpCircle, ArrowDownCircle, X, Landmark, Shiel
 import { AccountPlan } from '../services/financialData';
 import { useTransactions } from '@/src/context/TransactionContext';
 
-export const ChartOfAccounts: React.FC = () => {
+interface ChartOfAccountsProps {
+  onSelect?: (account: AccountPlan) => void;
+}
+
+export const ChartOfAccounts: React.FC<ChartOfAccountsProps> = ({ onSelect }) => {
   const { accountPlans, addAccountPlan, deleteAccountPlan, updateAccountPlan, resetAccountPlans } = useTransactions();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -232,6 +236,14 @@ export const ChartOfAccounts: React.FC = () => {
                     </span>
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {onSelect && (account.level === 'analitica' || level === 4) && (
+                      <button 
+                        onClick={() => onSelect(account)}
+                        className="px-3 py-1 text-[10px] font-bold uppercase bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-sm mr-2"
+                      >
+                        Selecionar
+                      </button>
+                    )}
                     <button 
                       onClick={() => handleEdit(account)}
                       className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
