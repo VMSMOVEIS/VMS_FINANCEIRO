@@ -256,6 +256,19 @@ export const TransactionModal: React.FC = () => {
         }
     }
 
+    // Suggestions for Recebimento / Pagamento (Baixa)
+    if (formData.transactionTypeId === 'recebimento') {
+      const hasClientesCredit = splits.some(s => s.type === 'credit' && (s.accountPlanName?.toLowerCase().includes('clientes') || s.accountPlanCode?.startsWith('1.1.02.01')));
+      if (!hasClientesCredit) {
+        alerts.push(`Sugestão: Para Recebimento, considere creditar a conta "Clientes a Receber" (Baixa).`);
+      }
+    } else if (formData.transactionTypeId === 'pagamento') {
+      const hasFornecedoresDebit = splits.some(s => s.type === 'debit' && (s.accountPlanName?.toLowerCase().includes('fornecedores') || s.accountPlanCode?.startsWith('2.1.01.01')));
+      if (!hasFornecedoresDebit) {
+        alerts.push(`Sugestão: Para Pagamento, considere debitar a conta "Fornecedores a Pagar" (Baixa).`);
+      }
+    }
+
     // Check for totals balance
     if (Math.abs(debits - credits) > 0.01) {
       alerts.push(`Aviso: O lançamento contábil não está balanceado (Débitos != Créditos).`);
@@ -388,11 +401,13 @@ export const TransactionModal: React.FC = () => {
         mainDescription = 'Adiantamento Pago (Selecione conta analítica)';
       } else if (formData.transactionTypeId === 'pagamento') {
         // Paying a debt: Debit Fornecedores
-        mainDescription = 'Baixa de Fornecedores (Selecione conta analítica)';
+        mainAccount = accountPlans.find(acc => (acc.code === '2.1.01.01' || acc.name.toLowerCase().includes('fornecedores')) && acc.level === 'analitica');
+        mainDescription = 'Baixa de Fornecedores';
         mainType = 'debit';
       } else if (formData.transactionTypeId === 'recebimento') {
         // Receiving a credit: Credit Clientes
-        mainDescription = 'Baixa de Clientes (Selecione conta analítica)';
+        mainAccount = accountPlans.find(acc => (acc.code === '1.1.02.01' || acc.name.toLowerCase().includes('clientes')) && acc.level === 'analitica');
+        mainDescription = 'Baixa de Clientes';
         mainType = 'credit';
       } else if (formData.transactionTypeId === 'venda') {
         mainDescription = 'Receita de Venda (Selecione conta analítica)';

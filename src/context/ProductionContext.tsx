@@ -183,19 +183,19 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         .from('suppliers')
         .insert([{
           name: supplier.name,
-          cnpj: supplier.cnpj,
-          contact_name: supplier.contactName,
-          email: supplier.email,
-          phone: supplier.phone,
-          address: supplier.address,
-          city: supplier.city,
-          state: supplier.state,
-          zip_code: supplier.zipCode,
-          category: supplier.category,
+          cnpj: supplier.cnpj || null,
+          contact_name: supplier.contactName || null,
+          email: supplier.email || null,
+          phone: supplier.phone || null,
+          address: supplier.address || null,
+          city: supplier.city || null,
+          state: supplier.state || null,
+          zip_code: supplier.zipCode || null,
+          category: supplier.category || null,
           status: supplier.status,
-          notes: supplier.notes,
-          rating: supplier.rating,
-          last_order_date: supplier.lastOrderDate
+          notes: supplier.notes || null,
+          rating: supplier.rating || 0,
+          last_order_date: supplier.lastOrderDate || null
         }]);
       if (error) throw error;
       await fetchData();
@@ -211,19 +211,19 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         .from('suppliers')
         .update({
           name: supplier.name,
-          cnpj: supplier.cnpj,
-          contact_name: supplier.contactName,
-          email: supplier.email,
-          phone: supplier.phone,
-          address: supplier.address,
-          city: supplier.city,
-          state: supplier.state,
-          zip_code: supplier.zipCode,
-          category: supplier.category,
+          cnpj: supplier.cnpj || null,
+          contact_name: supplier.contactName || null,
+          email: supplier.email || null,
+          phone: supplier.phone || null,
+          address: supplier.address || null,
+          city: supplier.city || null,
+          state: supplier.state || null,
+          zip_code: supplier.zipCode || null,
+          category: supplier.category || null,
           status: supplier.status,
-          notes: supplier.notes,
-          rating: supplier.rating,
-          last_order_date: supplier.lastOrderDate,
+          notes: supplier.notes || null,
+          rating: supplier.rating || 0,
+          last_order_date: supplier.lastOrderDate || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', supplier.id);
@@ -489,7 +489,7 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ncm: item.ncm,
           cfop: item.cfop,
           cst_csosn: item.cst_csosn,
-          entry_date: item.entryDate,
+          entry_date: item.entryDate || null,
           track_stock: item.trackStock,
           average_cost: item.averageCost,
           last_purchase_cost: item.lastPurchaseCost,
@@ -546,7 +546,7 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           ncm: item.ncm,
           cfop: item.cfop,
           cst_csosn: item.cst_csosn,
-          entry_date: item.entryDate,
+          entry_date: item.entryDate || null,
           track_stock: item.trackStock,
           average_cost: item.averageCost,
           last_purchase_cost: item.lastPurchaseCost,
@@ -613,14 +613,14 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           product_name: order.productName,
           client_name: order.client,
           quantity: order.quantity,
-          deadline: order.deadline,
+          deadline: order.deadline || null,
           status: order.status,
           priority: order.priority,
           progress: order.progress,
-          quote_id: order.quoteId,
-          order_number: order.orderNumber,
-          start_date: order.startDate,
-          responsible: order.responsible
+          quote_id: order.quoteId || null,
+          order_number: order.orderNumber || null,
+          start_date: order.startDate || null,
+          responsible: order.responsible || null
         }]);
       if (error) throw error;
       await fetchData();
@@ -638,14 +638,14 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           product_name: order.productName,
           client_name: order.client,
           quantity: order.quantity,
-          deadline: order.deadline,
+          deadline: order.deadline || null,
           status: order.status,
           priority: order.priority,
           progress: order.progress,
-          quote_id: order.quoteId,
-          order_number: order.orderNumber,
-          start_date: order.startDate,
-          responsible: order.responsible
+          quote_id: order.quoteId || null,
+          order_number: order.orderNumber || null,
+          start_date: order.startDate || null,
+          responsible: order.responsible || null
         })
         .eq('id', order.id);
       if (error) throw error;
