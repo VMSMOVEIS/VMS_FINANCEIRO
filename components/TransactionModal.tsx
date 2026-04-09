@@ -267,6 +267,15 @@ export const TransactionModal: React.FC = () => {
       if (!hasFornecedoresDebit) {
         alerts.push(`Sugestão: Para Pagamento, considere debitar a conta "Fornecedores a Pagar" (Baixa).`);
       }
+    } else if (formData.transactionTypeId === 'compra') {
+      const hasEstoqueDebit = splits.some(s => s.type === 'debit' && (s.accountPlanName?.toLowerCase().includes('matéria prima') || s.accountPlanName?.toLowerCase().includes('insumos') || s.accountPlanName?.toLowerCase().includes('estoque')));
+      if (!hasEstoqueDebit) {
+        alerts.push(`Sugestão: Para Compra, considere debitar a conta de "Matéria Prima e Insumos" (Estoque).`);
+      }
+      const hasTaxDebit = splits.some(s => s.type === 'debit' && (s.accountPlanName?.toLowerCase().includes('imposto a recuperar') || s.accountPlanCode?.startsWith('1.1.04.01')));
+      if (!hasTaxDebit) {
+        alerts.push(`Sugestão: Para Compra, considere debitar a conta de "Impostos a Recuperar" (Ativo).`);
+      }
     }
 
     // Check for totals balance
@@ -322,18 +331,18 @@ export const TransactionModal: React.FC = () => {
       const payment = formData.payments?.[0];
       const isADefinir = payment?.method === 'A Definir';
       
-      const estoqueAcc = accountPlans.find(acc => acc.name === formData.category && acc.level === 'analitica') || accountPlans.find(acc => (acc.code === '1.1.03.10' || acc.code === '1.1.03') && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('estoque') && acc.level === 'analitica');
+      const estoqueAcc = accountPlans.find(acc => acc.name === formData.category && acc.level === 'analitica') || 
+                         accountPlans.find(acc => (acc.code === '1.1.03.10' || acc.code === '1.1.03') && acc.level === 'analitica') || 
+                         accountPlans.find(acc => (acc.name.toLowerCase().includes('matéria prima') || acc.name.toLowerCase().includes('insumos') || acc.name.toLowerCase().includes('estoque')) && acc.level === 'analitica');
       
       let paymentAcc: AccountPlan | undefined;
       let taxAcc: AccountPlan | undefined;
       let paymentDesc = '';
-      let taxDesc = '';
+      let taxDesc = 'Imposto a Recuperar (Ativo)';
 
       if (isADefinir) {
-        paymentAcc = accountPlans.find(acc => acc.code === '2.1.01.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('fornecedores') && acc.level === 'analitica');
-        taxAcc = accountPlans.find(acc => acc.code === '2.1.05.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('impostos a recolher') && acc.level === 'analitica');
+        paymentAcc = accountPlans.find(acc => (acc.code === '2.1.01.01' || acc.name.toLowerCase().includes('fornecedores')) && acc.level === 'analitica');
         paymentDesc = 'Contas a Pagar (Fornecedores)';
-        taxDesc = 'Impostos a Recolher (Compra)';
       } else {
         // Try to find bank account first
         const account = accounts.find(a => a.id === payment?.bankId);
@@ -343,16 +352,15 @@ export const TransactionModal: React.FC = () => {
         
         if (!paymentAcc) {
           if (payment?.method === 'Dinheiro' || payment?.method === 'Espécie') {
-            paymentAcc = accountPlans.find(acc => acc.code === '1.1.01.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('caixa') && acc.level === 'analitica');
+            paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.01' || acc.name.toLowerCase().includes('caixa')) && acc.level === 'analitica');
           } else {
-            paymentAcc = accountPlans.find(acc => acc.code === '1.1.01.02' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('banco') && acc.level === 'analitica');
+            paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.02' || acc.name.toLowerCase().includes('banco')) && acc.level === 'analitica');
           }
         }
-        
-        taxAcc = accountPlans.find(acc => acc.code === '1.1.04.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('imposto a recuperar') && acc.level === 'analitica');
         paymentDesc = `Pagamento (${payment?.method || 'Caixa/Banco'})`;
-        taxDesc = 'Imposto a Recuperar (Compra)';
       }
+
+      taxAcc = accountPlans.find(acc => (acc.code === '1.1.04.01' || acc.name.toLowerCase().includes('imposto a recuperar')) && acc.level === 'analitica');
 
       // Add the 3 splits for Compra
       newSplits.push({
@@ -361,7 +369,7 @@ export const TransactionModal: React.FC = () => {
         accountPlanCode: estoqueAcc?.code || '',
         value: netValue,
         type: 'debit',
-        description: 'Compra de Mercadoria/Insumo (Estoque)'
+        description: 'Compra de Matéria Prima e Insumos'
       });
 
       newSplits.push({
@@ -378,7 +386,7 @@ export const TransactionModal: React.FC = () => {
         accountPlanName: taxAcc?.name || '',
         accountPlanCode: taxAcc?.code || '',
         value: 0, // User must fill the tax value, initially 0 to keep it balanced
-        type: 'credit',
+        type: 'debit',
         description: taxDesc
       });
 
