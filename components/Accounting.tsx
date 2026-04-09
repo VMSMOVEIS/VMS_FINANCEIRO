@@ -261,8 +261,8 @@ const generateAccountingEntries = (
 
       // Process each group separately
       Object.values(groups).forEach(groupSplits => {
-        const debits = groupSplits.filter((s: any) => s.type === 'debit' && s.value > 0);
-        const credits = groupSplits.filter((s: any) => s.type === 'credit' && s.value > 0);
+        const debits = groupSplits.filter((s: any) => s.type === 'debit');
+        const credits = groupSplits.filter((s: any) => s.type === 'credit');
 
         let dIdx = 0;
         let cIdx = 0;
@@ -271,20 +271,19 @@ const generateAccountingEntries = (
 
         while (dIdx < debits.length && cIdx < credits.length) {
           const val = Math.min(dRemaining, cRemaining);
-          if (val > 0.001) {
-            const debitPlan = findPlan(debits[dIdx].accountPlanId) || { code: debits[dIdx].accountPlanCode, name: debits[dIdx].accountPlanName };
-            const creditPlan = findPlan(credits[cIdx].accountPlanId) || { code: credits[cIdx].accountPlanCode, name: credits[cIdx].accountPlanName };
+          // Include entries even if value is 0, as long as they are paired
+          const debitPlan = findPlan(debits[dIdx].accountPlanId) || { code: debits[dIdx].accountPlanCode, name: debits[dIdx].accountPlanName };
+          const creditPlan = findPlan(credits[cIdx].accountPlanId) || { code: credits[cIdx].accountPlanCode, name: credits[cIdx].accountPlanName };
 
-            entries.push({
-              id: entryId++,
-              transactionId: t.id,
-              date: t.date,
-              description: debits[dIdx].description || credits[cIdx].description || t.description,
-              debit: getLabel(debitPlan),
-              credit: getLabel(creditPlan),
-              value: val
-            });
-          }
+          entries.push({
+            id: entryId++,
+            transactionId: t.id,
+            date: t.date,
+            description: debits[dIdx].description || credits[cIdx].description || t.description,
+            debit: getLabel(debitPlan),
+            credit: getLabel(creditPlan),
+            value: val
+          });
 
           dRemaining -= val;
           cRemaining -= val;
