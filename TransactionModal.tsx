@@ -1,239 +1,1880 @@
-import React, { useState, useMemo } from 'react';
-import { Search, X, Check, AlertCircle } from 'lucide-react';
-import { useTransactions } from '../src/context/TransactionContext';
-import { Transaction, Payment } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Calendar, FileText, DollarSign, Briefcase, Wallet, Hash, User, Plus, Minus, AlertCircle, Search, Tag } from 'lucide-react';
+import { getAccountPlans, getTransactionTypes, AccountPlan, TransactionType } from '../services/financialData';
+import { useTransactions } from '@/src/context/TransactionContext';
+import { Transaction, Payment, TransactionSplit } from '../types';
+import { SearchTransactionModal } from './SearchTransactionModal';
+import { ChartOfAccounts } from './ChartOfAccounts';
 
-interface SearchTransactionModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  type: 'payment_receipt' | 'advance';
-  transactionType: 'income' | 'expense'; // The context of the current operation
-  onSelect: (result: any) => void;
-  onRegisterNew: () => void;
-}
+export const TransactionModal: React.FC = () => {
+  const { 
+    isModalOpen, 
+    openModal,
+    closeModal, 
+    editingTransaction, 
+    addTransaction, 
+    updateTransaction, 
+    transactions,
+    accounts, 
+    paymentMethods,
+    accountPlans
+  } = useTransactions();
 
-interface SearchableItem {
-    id: string | number;
-    date: string;
-    description: string;
-    customerName: string;
-    value: number;
-    originalTransaction: Transaction;
-    paymentId?: string; // Only for payments
-    isPayment: boolean;
-}
+  const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
+  const [linkedTransactionIds, setLinkedTransactionIds] = useState<number[]>([]);
+  
+  const [formData, setFormData] = useState<Partial<Transaction>>({
+    type: 'income',
+    date: new Date().toISOString().split('T')[0],
+    transactionTypeId: '',
+    category: '',
+    categoryCode: '',
+    documentType: 'NF',
+    orderNumber: '',
+    customerName: '',
+    value: 0,
+    payments: []
+  });
 
-export const SearchTransactionModal: React.FC<SearchTransactionModalProps> = ({
-  isOpen,
-  onClose,
-  type,
-  transactionType,
-  onSelect,
-  onRegisterNew
-}) => {
-  const { transactions } = useTransactions();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedIds, setSelectedIds] = useState<(string | number)[]>([]);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [searchModalType, setSearchModalType] = useState<'payment_receipt' | 'advance'>('payment_receipt');
+  const [searchModalTransactionType, setSearchModalTransactionType] = useState<'income' | 'expense'>('income');
+  const [accountingAlerts, setAccountingAlerts] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isChartOfAccountsOpen, setIsChartOfAccountsOpen] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pendingCompletion, setPendingCompletion] = useState(false);
+  const [targetPaymentId, setTargetPaymentId] = useState<string | null>(null);
+  const [targetTransactionId, setTargetTransactionId] = useState<number | null>(null);
+  const prevIsModalOpen = useRef(false);
+  const hasPreFilled = useRef(false);
 
-  const filteredItems = useMemo(() => {
-    let items: SearchableItem[] = [];
+  useEffect(() => {
+    setTransactionTypes(getTransactionTypes());
+  }, []);
 
-    if (type === 'payment_receipt') {
-        // Flatten transactions into pending payments
-        transactions.forEach(t => {
-            // Filter by type (Income/Expense) and exclude advances
-            if (t.type === transactionType && !t.transactionTypeId?.includes('adiantamento')) {
-                t.payments.forEach((p, index) => {
-                    if (p.status !== 'completed') {
-                        items.push({
-                            id: p.id,
-                            paymentId: p.id,
-                            date: p.dueDate,
-                            description: `${t.description} ${t.payments.length > 1 ? `(${index + 1}/${t.payments.length})` : ''}`,
-                            customerName: t.customerName || '-',
-                            value: p.value,
-                            originalTransaction: t,
-                            isPayment: true
-                        });
-                    }
-                });
-            }
-        });
-    } else if (type === 'advance') {
-        // List transactions that are advances and pending
-        transactions.forEach(t => {
-            let matchesType = false;
-            if (transactionType === 'income') {
-                matchesType = (t.transactionTypeId === 'adiantamento_cliente' || t.transactionTypeId?.includes('adiantamento')) && t.type === 'income';
-            } else {
-                matchesType = (t.transactionTypeId === 'adiantamento_fornecedor' || t.transactionTypeId?.includes('adiantamento')) && t.type === 'expense';
-            }
-
-            if (matchesType && t.status === 'pending') {
-                items.push({
-                    id: t.id,
-                    date: t.date,
-                    description: t.description,
-                    customerName: t.customerName || '-',
-                    value: t.value,
-                    originalTransaction: t,
-                    isPayment: false
-                });
-            }
-        });
+  useEffect(() => {
+    if (!isModalOpen) {
+      prevIsModalOpen.current = false;
+      hasPreFilled.current = false;
+      setError(null);
+      return;
     }
 
-    // Filter by search term
-    const searchLower = searchTerm.toLowerCase();
-    return items.filter(item => 
-        item.description.toLowerCase().includes(searchLower) ||
-        item.customerName.toLowerCase().includes(searchLower) ||
-        item.value.toString().includes(searchLower)
-    );
+    const justOpened = !prevIsModalOpen.current;
+    prevIsModalOpen.current = true;
 
-  }, [transactions, type, transactionType, searchTerm]);
+    if (editingTransaction) {
+      // If we are pending completion (came from "Recebimento"/"Pagamento" selection),
+      // we want to auto-complete the transaction and its payments.
+      if (pendingCompletion && !hasPreFilled.current) {
+        const completedPayments = editingTransaction.payments?.map(p => {
+            // If a specific payment was targeted, only complete that one
+            if (targetPaymentId) {
+                return p.id === targetPaymentId ? { ...p, status: 'completed' as const } : p;
+            }
+            // Otherwise complete all (legacy behavior or if no specific target)
+            return { ...p, status: 'completed' as const };
+        }) || [];
 
-  const toggleSelection = (id: string | number) => {
-    setSelectedIds(prev => 
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
-  };
+        // Determine overall status
+        const allCompleted = completedPayments.every(p => p.status === 'completed');
+        
+        setFormData({
+            ...editingTransaction,
+            status: allCompleted ? 'completed' : 'partial',
+            payments: completedPayments
+        });
+        hasPreFilled.current = true;
+      } else if (!hasPreFilled.current) {
+        setFormData({ ...editingTransaction });
+      }
+      
+      setLinkedTransactionIds([]);
 
-  const handleConfirm = () => {
-    const selected = filteredItems.filter(item => selectedIds.includes(item.id));
-    // If it's advance, we return array of transactions (mapped from items)
-    // If it's payment, we return the item itself (which contains paymentId)
-    if (type === 'advance') {
-        onSelect(selected.map(i => i.originalTransaction));
+      // If it's a new transaction (no ID) but has a type (e.g. from "Adicionar Conta"), initialize payments if needed
+      if (!editingTransaction.id && (editingTransaction.transactionTypeId === 'duplicata_receber' || editingTransaction.transactionTypeId === 'duplicata_pagar')) {
+         if (!editingTransaction.payments || editingTransaction.payments.length === 0) {
+            const typeId = editingTransaction.transactionTypeId;
+            const initialPayments: Payment[] = [{
+                id: Date.now().toString(),
+                method: 'A Definir',
+                value: editingTransaction.value || 0,
+                dueDate: editingTransaction.date || new Date().toISOString().split('T')[0],
+                destination: typeId === 'duplicata_receber' ? 'Contas a Receber' : 'Contas a Pagar',
+                status: 'pending'
+            }];
+            setFormData(prev => ({ ...prev, payments: initialPayments }));
+         }
+      }
     } else {
-        onSelect(selected[0]); // Single selection for payment
+      if (pendingCompletion && targetTransactionId && targetPaymentId && !hasPreFilled.current) {
+        // Find the original transaction to get details for the independent launch
+        const original = transactions.find(t => t.id === targetTransactionId);
+        const payment = original?.payments.find(p => p.id === targetPaymentId);
+
+        if (original && payment) {
+          setFormData({
+            type: original.type,
+            date: new Date().toISOString().split('T')[0],
+            transactionTypeId: original.type === 'income' ? 'recebimento' : 'pagamento',
+            category: original.category || '',
+            documentType: original.documentType,
+            orderNumber: original.orderNumber || '',
+            customerName: original.customerName || '',
+            description: `Recebimento: ${original.description}`,
+            value: payment.value,
+            linkedTransactionId: original.id,
+            linkedPaymentId: payment.id,
+            payments: [{
+              id: String(Date.now()),
+              method: 'A Definir',
+              value: payment.value,
+              dueDate: new Date().toISOString().split('T')[0],
+              destination: original.type === 'income' ? 'Contas a Receber' : 'Contas a Pagar',
+              status: 'pending'
+            }]
+          });
+          hasPreFilled.current = true;
+          return;
+        }
+      }
+
+      if (justOpened && !pendingCompletion) {
+        setFormData({
+          type: 'income',
+          date: new Date().toISOString().split('T')[0],
+          transactionTypeId: '',
+          category: '',
+          documentType: 'NF',
+          orderNumber: '',
+          customerName: '',
+          value: 0,
+          payments: []
+        });
+        setLinkedTransactionIds([]);
+      }
+    }
+  }, [editingTransaction, isModalOpen, pendingCompletion, targetTransactionId, targetPaymentId, transactions]);
+
+  const isVenda = formData.transactionTypeId === 'venda';
+  const isTransfer = formData.transactionTypeId === 'transferencia';
+  const isAdvance = formData.transactionTypeId?.includes('adiantamento');
+  const isDuplicata = formData.transactionTypeId?.includes('duplicata');
+  const isAccountingEnabled = true;
+  
+  const totalPayments = formData.payments?.reduce((sum, p) => {
+    const val = Number(p.value) || 0;
+    const disc = Number(p.discount) || 0;
+    const surch = Number(p.surcharge) || 0;
+    
+    if (p.type === 'discount') return sum + val;
+    if (p.type === 'surcharge') return sum - val;
+    
+    return sum + val + disc - surch;
+  }, 0) || 0;
+  const remainingValue = (formData.value || 0) - totalPayments;
+  const debits = formData.multiAccounts?.filter(s => s.type === 'debit').reduce((sum, s) => sum + s.value, 0) || 0;
+  const credits = formData.multiAccounts?.filter(s => s.type === 'credit').reduce((sum, s) => sum + s.value, 0) || 0;
+  const totalValue = Number(formData.value) || 0;
+  const isAccountingBalanced = !isAccountingEnabled || (
+    Math.abs(debits - credits) < 0.01 && debits > 0
+  );
+
+  useEffect(() => {
+    if (!isAccountingEnabled) {
+      setAccountingAlerts([]);
+      return;
+    }
+
+    const alerts: string[] = [];
+    const payments = formData.payments || [];
+    const splits = formData.multiAccounts || [];
+
+    // Check for Adiantamento
+    const adiantamentoValue = payments.filter(p => p.method === 'Adiantamento').reduce((sum, p) => sum + p.value, 0);
+    if (adiantamentoValue > 0) {
+      if (formData.type === 'income') {
+        const hasAdiantamentoDebit = splits.some(s => s.type === 'debit' && (s.accountPlanName?.toLowerCase().includes('adiantamento de clientes') || s.accountPlanCode?.startsWith('2.1.05')));
+        if (!hasAdiantamentoDebit) {
+          alerts.push(`Sugestão: Você tem R$ ${adiantamentoValue.toLocaleString('pt-BR')} em Adiantamento. Considere debitar a conta "Adiantamento de Clientes".`);
+        }
+      } else {
+        const hasAdiantamentoCredit = splits.some(s => s.type === 'credit' && (s.accountPlanName?.toLowerCase().includes('adiantamento a fornecedores') || s.accountPlanCode?.startsWith('1.1.04.02')));
+        if (!hasAdiantamentoCredit) {
+          alerts.push(`Sugestão: Você tem R$ ${adiantamentoValue.toLocaleString('pt-BR')} em Adiantamento. Considere creditar a conta "Adiantamento a Fornecedores".`);
+        }
+      }
+    }
+
+    // Special check for Advance creation transactions
+    if (formData.transactionTypeId === 'adiantamento_cliente') {
+      const hasAdiantamentoCredit = splits.some(s => s.type === 'credit' && (s.accountPlanName?.toLowerCase().includes('adiantamento de clientes') || s.accountPlanCode?.startsWith('2.1.05')));
+      if (!hasAdiantamentoCredit) {
+        alerts.push(`Atenção: Para Adiantamento de Cliente, considere creditar a conta "Adiantamento de Clientes".`);
+      }
+    } else if (formData.transactionTypeId === 'adiantamento_fornecedor') {
+      const hasAdiantamentoDebit = splits.some(s => s.type === 'debit' && (s.accountPlanName?.toLowerCase().includes('adiantamento a fornecedores') || s.accountPlanCode?.startsWith('1.1.04.02')));
+      if (!hasAdiantamentoDebit) {
+        alerts.push(`Atenção: Para Adiantamento a Fornecedor, considere debitar a conta "Adiantamento a Fornecedores".`);
+      }
+    }
+
+    // Check for Dinheiro (Cash) -> Debit/Credit Caixa
+    const cashValue = payments.filter(p => p.method === 'Dinheiro' || p.method === 'Espécie').reduce((sum, p) => sum + p.value, 0);
+    if (cashValue > 0) {
+      const type = formData.type === 'income' ? 'debit' : 'credit';
+      const hasCaixaEntry = splits.some(s => s.type === type && (s.accountPlanName?.toLowerCase().includes('caixa') || s.accountPlanCode?.startsWith('1.1.01.01')));
+      if (!hasCaixaEntry) {
+        alerts.push(`Atenção: Pagamento em Dinheiro detectado. Considere ${type === 'debit' ? 'debitar' : 'creditar'} a conta "Caixa".`);
+      }
+    }
+
+    // Check for Banco (Bank) -> Debit/Credit Banco
+    const bankValue = payments.filter(p => ['Transferência', 'PIX', 'Cartão de Débito', 'Cartão de Crédito', 'Boleto', 'Cartão'].includes(p.method)).reduce((sum, p) => sum + p.value, 0);
+    if (bankValue > 0) {
+      const type = formData.type === 'income' ? 'debit' : 'credit';
+      const hasBancoEntry = splits.some(s => s.type === type && (s.accountPlanName?.toLowerCase().includes('banco') || s.accountPlanCode?.startsWith('1.1.01.02')));
+      if (!hasBancoEntry) {
+        alerts.push(`Atenção: Pagamento via Banco/PIX/Cartão/Boleto detectado. Considere ${type === 'debit' ? 'debitar' : 'creditar'} a conta "Banco".`);
+      }
+    }
+
+    // Check for "A Prazo" (Receivables/Payables) -> Debit Clientes / Credit Fornecedores
+    const termValue = payments.filter(p => p.method === 'Cheque' || p.method === 'A Definir').reduce((sum, p) => sum + p.value, 0);
+    if (termValue > 0) {
+        if (formData.type === 'income') {
+            const hasClientesDebit = splits.some(s => s.type === 'debit' && (s.accountPlanName?.toLowerCase().includes('clientes') || s.accountPlanCode?.startsWith('1.1.02.01')));
+            if (!hasClientesDebit) {
+                alerts.push(`Atenção: Pagamento a prazo/a definir detectado. Considere debitar a conta "Clientes a Receber".`);
+            }
+        } else {
+            const hasFornecedoresCredit = splits.some(s => s.type === 'credit' && (s.accountPlanName?.toLowerCase().includes('fornecedores') || s.accountPlanCode?.startsWith('2.1.01.01')));
+            if (!hasFornecedoresCredit) {
+                alerts.push(`Atenção: Pagamento a prazo/a definir detectado. Considere creditar a conta "Fornecedores a Pagar".`);
+            }
+        }
+    }
+
+    // Suggestions for Recebimento / Pagamento (Baixa)
+    if (formData.transactionTypeId === 'recebimento') {
+      const hasClientesCredit = splits.some(s => s.type === 'credit' && (s.accountPlanName?.toLowerCase().includes('clientes') || s.accountPlanCode?.startsWith('1.1.02.01')));
+      if (!hasClientesCredit) {
+        alerts.push(`Sugestão: Para Recebimento, considere creditar a conta "Clientes a Receber" (Baixa).`);
+      }
+    } else if (formData.transactionTypeId === 'pagamento') {
+      const hasFornecedoresDebit = splits.some(s => s.type === 'debit' && (s.accountPlanName?.toLowerCase().includes('fornecedores') || s.accountPlanCode?.startsWith('2.1.01.01')));
+      if (!hasFornecedoresDebit) {
+        alerts.push(`Sugestão: Para Pagamento, considere debitar a conta "Fornecedores a Pagar" (Baixa).`);
+      }
+    } else if (formData.transactionTypeId === 'compra') {
+      const hasEstoqueDebit = splits.some(s => s.type === 'debit' && (s.accountPlanName?.toLowerCase().includes('matéria prima') || s.accountPlanName?.toLowerCase().includes('insumos') || s.accountPlanName?.toLowerCase().includes('estoque')));
+      if (!hasEstoqueDebit) {
+        alerts.push(`Sugestão: Para Compra, considere debitar a conta de "Matéria Prima e Insumos" (Estoque).`);
+      }
+      const hasTaxDebit = splits.some(s => s.type === 'debit' && (s.accountPlanName?.toLowerCase().includes('imposto a recuperar') || s.accountPlanCode?.startsWith('1.1.04.01')));
+      if (!hasTaxDebit) {
+        alerts.push(`Sugestão: Para Compra, considere debitar a conta de "Impostos a Recuperar" (Ativo).`);
+      }
+    }
+
+    // Check for totals balance
+    if (Math.abs(debits - credits) > 0.01) {
+      alerts.push(`Aviso: O lançamento contábil não está balanceado (Débitos != Créditos).`);
+    }
+
+    setAccountingAlerts(alerts);
+  }, [formData.payments, formData.multiAccounts, isAccountingEnabled, formData.type, totalValue, debits, credits]);
+
+  const autoFillAccounting = () => {
+    if (!isAccountingEnabled) return;
+    
+    const totalDiscount = (formData.payments || []).reduce((sum, p) => sum + (p.type === 'discount' ? p.value : (p.discount || 0)), 0);
+    const totalSurcharge = (formData.payments || []).reduce((sum, p) => sum + (p.type === 'surcharge' ? p.value : (p.surcharge || 0)), 0);
+    const netValue = (Number(formData.value) || 0) - totalDiscount + totalSurcharge;
+    const newSplits: TransactionSplit[] = [];
+
+    if (isTransfer) {
+      const payment = formData.payments?.[0];
+      if (!payment) return;
+
+      const sourceAccount = accounts.find(a => a.id === payment.bankId);
+      const destAccount = accounts.find(a => a.name === payment.destination);
+
+      if (sourceAccount && destAccount) {
+        const sourcePlan = accountPlans.find(ap => ap.id === sourceAccount.accountPlanId && ap.level === 'analitica');
+        const destPlan = accountPlans.find(ap => ap.id === destAccount.accountPlanId && ap.level === 'analitica');
+
+        newSplits.push({
+          accountPlanId: destPlan?.id || '',
+          accountPlanName: destPlan?.name || '',
+          accountPlanCode: destPlan?.code || '',
+          value: payment.value,
+          type: 'debit',
+          description: `Transferência para ${destAccount.name}`
+        });
+        newSplits.push({
+          accountPlanId: sourcePlan?.id || '',
+          accountPlanName: sourcePlan?.name || '',
+          accountPlanCode: sourcePlan?.code || '',
+          value: payment.value,
+          type: 'credit',
+          description: `Transferência de ${sourceAccount.name}`
+        });
+      }
+      setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
+      return;
+    }
+
+    // Special logic for Purchase (Compra) as requested by user
+    if (formData.transactionTypeId === 'compra') {
+      // Ensure we find an ASSET account for Matéria Prima (usually starts with 1)
+      const estoqueAcc = accountPlans.find(acc => acc.name === formData.category && acc.level === 'analitica' && acc.code.startsWith('1')) || 
+                         accountPlans.find(acc => (acc.code === '1.1.03.10' || acc.code === '1.1.03') && acc.level === 'analitica') || 
+                         accountPlans.find(acc => (acc.name.toLowerCase().includes('matéria prima') || acc.name.toLowerCase().includes('insumos') || acc.name.toLowerCase().includes('estoque')) && acc.level === 'analitica' && acc.code.startsWith('1'));
+      
+      const taxAcc = accountPlans.find(acc => (acc.code === '1.1.04.01' || acc.name.toLowerCase().includes('imposto a recuperar')) && acc.level === 'analitica');
+
+      // --- Entry 1: Purchase Recognition (D: Inventory, D: Taxes, C: Payments) ---
+      
+      // Debit: Inventory
+      newSplits.push({
+        accountPlanId: estoqueAcc?.id || '',
+        accountPlanName: estoqueAcc?.name || '',
+        accountPlanCode: estoqueAcc?.code || '',
+        value: netValue,
+        type: 'debit',
+        description: 'Compra de Matéria Prima e Insumos (Ativo)',
+        entryId: '1'
+      });
+
+      // Debit: Taxes (Recoverable)
+      newSplits.push({
+        accountPlanId: taxAcc?.id || '',
+        accountPlanName: taxAcc?.name || '',
+        accountPlanCode: taxAcc?.code || '',
+        value: 0, // User can fill if there are recoverable taxes
+        type: 'debit',
+        description: 'Impostos a Recuperar (Ativo)',
+        entryId: '1'
+      });
+
+      // Credits: Payments
+      (formData.payments || []).forEach(payment => {
+        let paymentAcc: AccountPlan | undefined;
+        let paymentDesc = '';
+
+        if (payment.method === 'A Definir') {
+          paymentAcc = accountPlans.find(acc => (acc.code === '2.1.01.01' || acc.name.toLowerCase().includes('fornecedores')) && acc.level === 'analitica');
+          paymentDesc = 'Contas a Pagar (Fornecedores)';
+        } else {
+          const account = accounts.find(a => a.id === payment.bankId);
+          if (account && account.accountPlanId) {
+            paymentAcc = accountPlans.find(ap => ap.id === account.accountPlanId && ap.level === 'analitica');
+          }
+          if (!paymentAcc) {
+            if (payment.method === 'Dinheiro' || payment.method === 'Espécie') {
+              paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.01' || acc.name.toLowerCase().includes('caixa')) && acc.level === 'analitica');
+            } else {
+              paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.02' || acc.name.toLowerCase().includes('banco')) && acc.level === 'analitica');
+            }
+          }
+          paymentDesc = `Pagamento (${payment.method || 'Caixa/Banco'})`;
+        }
+
+        newSplits.push({
+          accountPlanId: paymentAcc?.id || '',
+          accountPlanName: paymentAcc?.name || '',
+          accountPlanCode: paymentAcc?.code || '',
+          value: payment.value,
+          type: 'credit',
+          description: paymentDesc,
+          entryId: '1'
+        });
+      });
+
+      setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
+      return;
+    }
+
+    // Special logic for Sale (Venda) as requested by user
+    if (formData.transactionTypeId === 'venda') {
+      // 1. Revenue account (Credit)
+      const receitaAcc = accountPlans.find(acc => (acc.name.toLowerCase().includes('venda de produto') || acc.name.toLowerCase().includes('receita de venda')) && acc.level === 'analitica' && (acc.type === 'receita' || acc.code.startsWith('3')));
+      
+      // 2. Liability accounts (Credit)
+      const icmsAcc = accountPlans.find(acc => acc.name.toLowerCase().includes('icms a recolher') && acc.level === 'analitica');
+      const issAcc = accountPlans.find(acc => acc.name.toLowerCase().includes('iss a recolher') && acc.level === 'analitica');
+      const impostoPassivoAcc = icmsAcc || accountPlans.find(acc => (acc.name.toLowerCase().includes('impostos a recolher')) && acc.level === 'analitica');
+      
+      // 3. Cost account (Debit)
+      const custoAcc = accountPlans.find(acc => (acc.name.toLowerCase().includes('cpv') || acc.name.toLowerCase().includes('custo do produto vendido')) && acc.level === 'analitica');
+      
+      // 4. Inventory account (Credit) - Asset
+      const estoqueAcc = accountPlans.find(acc => (acc.name.toLowerCase().includes('produtos acabados')) && acc.level === 'analitica' && acc.code.startsWith('1')) ||
+                         accountPlans.find(acc => (acc.name.toLowerCase().includes('estoque')) && acc.level === 'analitica' && acc.code.startsWith('1'));
+
+      // 5. Revenue deduction account (Debit)
+      const deducaoAcc = accountPlans.find(acc => (acc.name.toLowerCase().includes('dedução de vendas') || acc.name.toLowerCase().includes('impostos sobre vendas')) && acc.level === 'analitica');
+
+      // --- Entry 1: Sale Recognition (Multiple Debits from payments, Single Credit to Revenue) ---
+      (formData.payments || []).forEach(payment => {
+        let paymentAcc: AccountPlan | undefined;
+        let paymentDesc = '';
+
+        if (payment.method === 'A Definir') {
+          paymentAcc = accountPlans.find(acc => (acc.code === '1.1.02.01' || acc.name.toLowerCase().includes('clientes')) && acc.level === 'analitica');
+          paymentDesc = 'Contas a Receber (Clientes)';
+        } else {
+          const account = accounts.find(a => a.id === payment.bankId);
+          if (account && account.accountPlanId) {
+            paymentAcc = accountPlans.find(ap => ap.id === account.accountPlanId && ap.level === 'analitica');
+          }
+          if (!paymentAcc) {
+            if (payment.method === 'Dinheiro' || payment.method === 'Espécie') {
+              paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.01' || acc.name.toLowerCase().includes('caixa')) && acc.level === 'analitica');
+            } else {
+              paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.02' || acc.name.toLowerCase().includes('banco')) && acc.level === 'analitica');
+            }
+          }
+          paymentDesc = `Recebimento (${payment.method || 'Caixa/Banco'})`;
+        }
+
+        newSplits.push({
+          accountPlanId: paymentAcc?.id || '',
+          accountPlanName: paymentAcc?.name || '',
+          accountPlanCode: paymentAcc?.code || '',
+          value: payment.value,
+          type: 'debit',
+          description: paymentDesc,
+          entryId: '1'
+        });
+      });
+
+      newSplits.push({
+        accountPlanId: receitaAcc?.id || '',
+        accountPlanName: receitaAcc?.name || '',
+        accountPlanCode: receitaAcc?.code || '',
+        value: netValue,
+        type: 'credit',
+        description: 'Venda de Produto',
+        entryId: '1'
+      });
+
+      // --- Entry 2: Taxes (D: Dedução, C: ICMS, C: ISS) ---
+      newSplits.push({
+        accountPlanId: deducaoAcc?.id || '',
+        accountPlanName: deducaoAcc?.name || '',
+        accountPlanCode: deducaoAcc?.code || '',
+        value: 0,
+        type: 'debit',
+        description: 'Dedução de Vendas (Impostos)',
+        entryId: '2'
+      });
+
+      newSplits.push({
+        accountPlanId: icmsAcc?.id || impostoPassivoAcc?.id || '',
+        accountPlanName: icmsAcc?.name || impostoPassivoAcc?.name || '',
+        accountPlanCode: icmsAcc?.code || impostoPassivoAcc?.code || '',
+        value: 0,
+        type: 'credit',
+        description: 'ICMS a Recolher',
+        entryId: '2'
+      });
+
+      if (issAcc) {
+        newSplits.push({
+          accountPlanId: issAcc.id,
+          accountPlanName: issAcc.name,
+          accountPlanCode: issAcc.code,
+          value: 0,
+          type: 'credit',
+          description: 'ISS a Recolher',
+          entryId: '2'
+        });
+      }
+
+      // --- Entry 3: Inventory Reduction (D: CPV, C: Produtos Acabados) ---
+      newSplits.push({
+        accountPlanId: custoAcc?.id || '',
+        accountPlanName: custoAcc?.name || '',
+        accountPlanCode: custoAcc?.code || '',
+        value: 0,
+        type: 'debit',
+        description: 'Custo do Produto Vendido (CPV)',
+        entryId: '3'
+      });
+
+      newSplits.push({
+        accountPlanId: estoqueAcc?.id || '',
+        accountPlanName: estoqueAcc?.name || '',
+        accountPlanCode: estoqueAcc?.code || '',
+        value: 0,
+        type: 'credit',
+        description: 'Baixa de Produtos Acabados (Ativo)',
+        entryId: '3'
+      });
+
+      setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
+      return;
+    }
+
+    if (formData.transactionTypeId === 'pagamento' || formData.transactionTypeId === 'recebimento') {
+      const isRecebimento = formData.transactionTypeId === 'recebimento';
+      const payment = formData.payments?.[0];
+      
+      // 1. Account for the debt/credit (Clientes or Fornecedores)
+      let debtAcc: AccountPlan | undefined;
+      let debtDesc = '';
+      let debtType: 'debit' | 'credit';
+
+      if (isRecebimento) {
+        debtAcc = accountPlans.find(acc => (acc.code === '1.1.02.01' || acc.name.toLowerCase().includes('clientes')) && acc.level === 'analitica');
+        debtDesc = 'Baixa de Clientes (Contas a Receber)';
+        debtType = 'credit';
+      } else {
+        debtAcc = accountPlans.find(acc => (acc.code === '2.1.01.01' || acc.name.toLowerCase().includes('fornecedores')) && acc.level === 'analitica');
+        debtDesc = 'Baixa de Fornecedores (Contas a Pagar)';
+        debtType = 'debit';
+      }
+
+      // 2. Account for the money (Banco or Caixa)
+      let moneyAcc: AccountPlan | undefined;
+      let moneyDesc = '';
+      let moneyType: 'debit' | 'credit' = isRecebimento ? 'debit' : 'credit';
+
+      const account = accounts.find(a => a.id === payment?.bankId);
+      if (account && account.accountPlanId) {
+        moneyAcc = accountPlans.find(ap => ap.id === account.accountPlanId && ap.level === 'analitica');
+      }
+      
+      if (!moneyAcc) {
+        if (payment?.method === 'Dinheiro' || payment?.method === 'Espécie') {
+          moneyAcc = accountPlans.find(acc => (acc.code === '1.1.01.01' || acc.name.toLowerCase().includes('caixa')) && acc.level === 'analitica');
+        } else {
+          moneyAcc = accountPlans.find(acc => (acc.code === '1.1.01.02' || acc.name.toLowerCase().includes('banco')) && acc.level === 'analitica');
+        }
+      }
+      moneyDesc = `${isRecebimento ? 'Recebimento' : 'Pagamento'} (${payment?.method || 'Caixa/Banco'})`;
+
+      newSplits.push({
+        accountPlanId: moneyAcc?.id || '',
+        accountPlanName: moneyAcc?.name || '',
+        accountPlanCode: moneyAcc?.code || '',
+        value: netValue,
+        type: moneyType,
+        description: moneyDesc,
+        entryId: '1'
+      });
+
+      newSplits.push({
+        accountPlanId: debtAcc?.id || '',
+        accountPlanName: debtAcc?.name || '',
+        accountPlanCode: debtAcc?.code || '',
+        value: netValue,
+        type: debtType,
+        description: debtDesc,
+        entryId: '1'
+      });
+
+      setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
+      return;
+    }
+
+    const isIncome = formData.type === 'income';
+
+    // 1. Main Entry (Revenue, Expense, or Liability/Asset for Payments/Receipts)
+    // Use net value as requested by user to "abate" discounts/surcharges
+    let mainAccount = accountPlans.find(acc => acc.name === formData.category && acc.level === 'analitica');
+    let mainDescription = '';
+    let mainType: 'debit' | 'credit' = isIncome ? 'credit' : 'debit';
+
+    if (!mainAccount) {
+      if (formData.transactionTypeId === 'adiantamento_cliente') {
+        mainDescription = 'Adiantamento Recebido (Selecione conta analítica)';
+      } else if (formData.transactionTypeId === 'adiantamento_fornecedor') {
+        mainDescription = 'Adiantamento Pago (Selecione conta analítica)';
+      } else if (formData.transactionTypeId === 'venda') {
+        mainDescription = 'Receita de Venda (Selecione conta analítica)';
+      } else if (formData.transactionTypeId === 'compra') {
+        mainDescription = 'Compra de Mercadoria/Insumo (Selecione conta analítica)';
+      } else {
+        mainDescription = isIncome ? 'Receita (Selecione conta analítica)' : 'Despesa (Selecione conta analítica)';
+      }
+    } else {
+      mainDescription = formData.description || (isIncome ? 'Receita' : 'Despesa');
+    }
+    
+    newSplits.push({
+      accountPlanId: mainAccount?.id || '',
+      accountPlanName: mainAccount?.name || '',
+      accountPlanCode: mainAccount?.code || '',
+      value: netValue,
+      type: mainType,
+      description: mainDescription
+    });
+
+    // 2. Payment Entries (The other side of the double entry)
+    (formData.payments || []).forEach(payment => {
+      const isDiscountRow = payment.type === 'discount';
+      const isSurchargeRow = payment.type === 'surcharge';
+      const isRegularPayment = !isDiscountRow && !isSurchargeRow;
+
+      // 2.1. Process the net value paid/received (Only for regular payments)
+      if (isRegularPayment && payment.value > 0) {
+        let paymentAccount: AccountPlan | undefined;
+        let paymentDescription = '';
+        let paymentType: 'debit' | 'credit' = isIncome ? 'debit' : 'credit';
+
+        // If it's a 'pagamento' or 'recebimento', the payment type logic is inverted relative to the main entry
+        if (formData.transactionTypeId === 'pagamento') paymentType = 'credit';
+        if (formData.transactionTypeId === 'recebimento') paymentType = 'debit';
+
+        // 2.1.1. Try to find the account plan linked to the bank account selected for this payment
+        const account = accounts.find(a => a.id === payment.bankId);
+        if (account && account.accountPlanId) {
+          paymentAccount = accountPlans.find(ap => ap.id === account.accountPlanId && ap.level === 'analitica');
+          paymentDescription = isIncome ? `Recebimento (${account.name})` : `Pagamento (${account.name})`;
+        }
+
+        // 2.1.2. Fallback to method-based logic if no specific account was found
+        if (!paymentAccount) {
+          if (payment.method === 'Dinheiro' || payment.method === 'Espécie') {
+            paymentAccount = accountPlans.find(acc => acc.code === '1.1.01.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('caixa') && acc.level === 'analitica');
+            paymentDescription = isIncome ? 'Recebimento em Caixa' : 'Pagamento em Caixa';
+          } else if (['Transferência', 'PIX', 'Cartão de Débito', 'Cartão de Crédito', 'Boleto', 'Cartão'].includes(payment.method)) {
+            paymentAccount = accountPlans.find(acc => acc.code === '1.1.01.02' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('banco') && acc.level === 'analitica');
+            paymentDescription = isIncome ? 'Recebimento em Banco' : 'Pagamento em Banco';
+          } else if (payment.method === 'Adiantamento') {
+            paymentAccount = isIncome ? 
+              (accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento de clientes') && acc.level === 'analitica') || accountPlans.find(acc => acc.code === '2.1.05.01' && acc.level === 'analitica')) :
+              (accountPlans.find(acc => acc.name.toLowerCase().includes('adiantamento a fornecedores') && acc.level === 'analitica') || accountPlans.find(acc => acc.code === '1.1.04.02' && acc.level === 'analitica'));
+            paymentDescription = isIncome ? 'Uso de Adiantamento' : 'Uso de Adiantamento';
+          } else {
+            // A Definir, Cheque, etc. -> Clientes or Fornecedores
+            paymentAccount = isIncome ?
+              (accountPlans.find(acc => acc.code === '1.1.02.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('clientes') && acc.level === 'analitica')) :
+              (accountPlans.find(acc => acc.code === '2.1.01.01' && acc.level === 'analitica') || accountPlans.find(acc => acc.name.toLowerCase().includes('fornecedores') && acc.level === 'analitica'));
+            paymentDescription = isIncome ? 'Contas a Receber (Clientes)' : 'Contas a Pagar (Fornecedores)';
+          }
+        }
+
+        newSplits.push({
+          accountPlanId: paymentAccount?.id || '',
+          accountPlanName: paymentAccount?.name || '',
+          accountPlanCode: paymentAccount?.code || '',
+          value: payment.value,
+          type: paymentType,
+          description: paymentDescription
+        });
+      }
+    });
+
+    // 3. Inventory and COGS (Extra entries for Sales/Purchases)
+    if (formData.transactionTypeId === 'venda') {
+        // Handled by special block above
+    } else if (formData.transactionTypeId === 'compra') {
+        // Handled by special block above
+    } else {
+        // Generic inventory logic if needed for other types
+    }
+
+    setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setError(null);
+    setFormData(prev => {
+      const newData = { ...prev, [name]: value };
+      
+      // If date changes, update all payments' due dates to match
+      if (name === 'date') {
+        newData.payments = prev.payments?.map(p => ({
+          ...p,
+          dueDate: value
+        })) || [];
+      }
+
+      // Auto-fill category when code is entered
+      if (name === 'categoryCode') {
+        const plan = accountPlans.find(p => p.code === value && p.level === 'analitica');
+        if (plan) {
+          newData.category = plan.name;
+        }
+      }
+
+      // Auto-fill code when category is selected
+      if (name === 'category') {
+        const plan = accountPlans.find(p => p.name === value && p.level === 'analitica');
+        if (plan) {
+          newData.categoryCode = plan.code;
+        }
+      }
+      
+      return newData;
+    });
+  };
+
+  const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const typeId = e.target.value;
+    setError(null);
+    const selectedType = transactionTypes.find(t => t.id === typeId);
+    
+    if (selectedType) {
+      const newType = selectedType.defaultType;
+      let initialPayments: Payment[] = [];
+
+      if (typeId === 'duplicata_receber' || typeId === 'duplicata_pagar') {
+        initialPayments = [{
+          id: Date.now().toString(),
+          method: 'A Definir',
+          value: formData.value || 0,
+          dueDate: formData.date || new Date().toISOString().split('T')[0],
+          destination: typeId === 'duplicata_receber' ? 'Contas a Receber' : 'Contas a Pagar',
+          status: 'pending'
+        }];
+      } else if (typeId === 'transferencia') {
+        initialPayments = [{
+          id: Date.now().toString(),
+          method: 'Transferência',
+          value: formData.value || 0,
+          dueDate: formData.date || new Date().toISOString().split('T')[0],
+          source: accounts[0]?.name || '',
+          bankId: accounts[0]?.id,
+          destination: accounts[1]?.name || '',
+          status: 'completed'
+        }];
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        transactionTypeId: typeId,
+        type: typeId === 'transferencia' ? 'transfer' : newType,
+        category: typeId === 'transferencia' ? 'Transferência' : '',
+        payments: initialPayments,
+        multiAccounts: typeId === 'venda' ? [
+          { accountPlanId: '', value: prev.value || 0, description: '', type: 'debit' },
+          { accountPlanId: '', value: prev.value || 0, description: '', type: 'credit' }
+        ] : null
+      }));
+
+      if (!editingTransaction) {
+        if (['pagamento', 'recebimento'].includes(typeId)) {
+          setSearchModalType('payment_receipt');
+          setSearchModalTransactionType(newType);
+          setIsSearchModalOpen(true);
+        } else if (['venda', 'compra'].includes(typeId)) {
+          setSearchModalType('advance');
+          setSearchModalTransactionType(newType);
+          setIsSearchModalOpen(true);
+        }
+      }
+    } else {
+      setFormData(prev => ({ ...prev, transactionTypeId: typeId }));
     }
   };
 
-  if (!isOpen) return null;
+  const handleSearchModalSelect = (selected: any) => {
+    if (searchModalType === 'payment_receipt') {
+        // Single selection for payment/receipt
+        // 'selected' is now a SearchableItem which contains originalTransaction and paymentId
+        const item = selected;
+        if (!item || !item.originalTransaction) return;
 
-  const title = type === 'payment_receipt' 
-    ? (transactionType === 'income' ? 'Buscar Contas a Receber' : 'Buscar Contas a Pagar')
-    : (transactionType === 'income' ? 'Buscar Adiantamento de Cliente' : 'Buscar Adiantamento a Fornecedor');
+        setPendingCompletion(true);
+        setTargetPaymentId(item.paymentId); // Set the specific payment to complete
+        setTargetTransactionId(item.originalTransaction.id);
+        
+        // Open modal for a NEW independent transaction
+        openModal(); 
+        setIsSearchModalOpen(false);
+    } else if (searchModalType === 'advance') {
+        const selectedTransactions = Array.isArray(selected) ? selected : [selected];
+        if (selectedTransactions.length === 0) return;
+
+        const ids = selectedTransactions.map(t => t.id);
+        setLinkedTransactionIds(ids);
+
+        const advancePayments: Payment[] = selectedTransactions.map(t => ({
+            id: `adv-${t.id}-${Date.now()}`,
+            method: 'Adiantamento',
+            value: t.value,
+            dueDate: formData.date || new Date().toISOString().split('T')[0],
+            destination: 'Adiantamento Abatido',
+            status: 'completed'
+        }));
+
+        // Use the first transaction's details for pre-filling if not already set
+        const first = selectedTransactions[0];
+
+        setFormData(prev => ({
+            ...prev,
+            customerName: first.customerName || prev.customerName,
+            orderNumber: first.orderNumber || prev.orderNumber,
+            payments: [...(prev.payments || []).filter(p => p.method !== 'Adiantamento'), ...advancePayments]
+        }));
+        setIsSearchModalOpen(false);
+    }
+  };
+
+  const addPayment = (amount: number) => {
+    const isTransfer = formData.transactionTypeId === 'transferencia';
+    
+    const payment: Payment = {
+      id: Date.now().toString(),
+      method: isTransfer ? 'Transferência' : 'A Definir', 
+      value: amount,
+      dueDate: formData.date || new Date().toISOString().split('T')[0],
+      destination: isTransfer 
+        ? (accounts[1]?.name || '')
+        : (formData.type === 'income' ? 'Contas a Receber' : 'Contas a Pagar'), 
+      status: isTransfer ? 'completed' : 'pending' 
+    };
+
+    setFormData(prev => ({
+      ...prev,
+      payments: [...(prev.payments || []), payment]
+    }));
+  };
+
+  const addAdjustment = (type: 'discount' | 'surcharge') => {
+    const isDuplicata = formData.transactionTypeId === 'duplicata_receber' || formData.transactionTypeId === 'duplicata_pagar';
+    
+    const payment: Payment = {
+      id: Date.now().toString(),
+      method: isDuplicata ? 'A Definir' : 'Outros', 
+      value: 0,
+      dueDate: formData.date || new Date().toISOString().split('T')[0],
+      destination: isDuplicata 
+        ? (formData.transactionTypeId === 'duplicata_receber' ? 'Contas a Receber' : 'Contas a Pagar')
+        : 'Ajuste Financeiro', 
+      status: isDuplicata ? 'pending' : 'completed',
+      type: type
+    };
+
+    setFormData(prev => ({
+      ...prev,
+      payments: [...(prev.payments || []), payment]
+    }));
+  };
+
+  const updatePayment = (index: number, field: keyof Payment, value: any) => {
+    setError(null);
+    setFormData(prev => {
+      const updatedPayments = [...(prev.payments || [])];
+      const payment = { ...updatedPayments[index], [field]: value };
+
+      if (field === 'method') {
+        if (value === 'A Definir' || value === 'Outros') {
+          payment.destination = formData.type === 'income' ? 'Contas a Receber' : 'Contas a Pagar';
+          payment.status = 'pending';
+          payment.bankId = undefined;
+        } else {
+          const selectedMethod = paymentMethods.find(pm => pm.name === value);
+          if (selectedMethod && selectedMethod.defaultAccountId) {
+            const account = accounts.find(a => a.id === selectedMethod.defaultAccountId);
+            if (account) {
+              payment.destination = account.name;
+              payment.bankId = account.id;
+            }
+          } else if (selectedMethod) {
+            // Default logic if no specific account is linked
+            if (['pix', 'cash', 'debit_card', 'transfer'].includes(selectedMethod.type)) {
+                payment.destination = 'Caixa';
+            } else if (selectedMethod.type === 'credit_card') {
+                payment.destination = 'Banco';
+            } else {
+                payment.destination = formData.type === 'income' ? 'Contas a Receber' : 'Contas a Pagar';
+            }
+          }
+          
+          if (selectedMethod) {
+               // If the payment is assigned to a specific account (not "Contas a Pagar/Receber"), 
+               // it should be considered completed/realized in that account's ledger.
+               // This applies to Credit Cards too (it's a realized debt/expense on the card account).
+               const isSpecificAccount = accounts.some(a => a.name === payment.destination);
+               
+               if (isSpecificAccount) {
+                   payment.status = 'completed';
+               } else if (['credit_card', 'boleto', 'other'].includes(selectedMethod.type)) {
+                   payment.status = 'pending';
+               } else {
+                   payment.status = 'completed';
+               }
+          }
+        }
+      }
+
+      updatedPayments[index] = payment;
+      return { ...prev, payments: updatedPayments };
+    });
+  };
+
+  const removePayment = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      payments: (prev.payments || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+    
+    try {
+      // Validate that all payments have a dueDate
+      if (formData.payments?.some(p => !p.dueDate)) {
+        setError('Todos os pagamentos devem ter uma data de vencimento.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const allCompleted = formData.payments?.every(p => p.status === 'completed');
+      const allPending = formData.payments?.every(p => p.status === 'pending');
+      let status: 'completed' | 'pending' | 'partial' | 'a_compensar' = 'partial';
+      if (allCompleted) status = 'completed';
+      if (allPending) status = 'pending';
+
+      // Validate multi-account splits for transactions
+      if (isAccountingEnabled) {
+        const splits = formData.multiAccounts || [];
+        
+        if (formData.value > 0 && splits.length === 0) {
+          setError('O lançamento contábil é obrigatório. Use o botão "Sugerir Lançamento" para preencher automaticamente.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (splits.length > 0) {
+          const debits = splits.filter(s => s.type === 'debit').reduce((sum, s) => sum + s.value, 0);
+          const credits = splits.filter(s => s.type === 'credit').reduce((sum, s) => sum + s.value, 0);
+
+          // The new rule: Debits must equal Credits. They don't have to match the transaction value.
+          // We allow zero-value splits as long as the total is balanced.
+          if (Math.abs(debits - credits) > 0.01) {
+            setError(`O lançamento contábil não está balanceado!\nTotal Débitos: R$ ${debits.toFixed(2)}\nTotal Créditos: R$ ${credits.toFixed(2)}\nDiferença: R$ ${Math.abs(debits - credits).toFixed(2)}`);
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
+      // Force 'a_compensar' status for new advances
+      if (isAdvance && !editingTransaction) {
+          status = 'a_compensar';
+      }
+
+        const transaction: Omit<Transaction, 'id'> = {
+          date: formData.date || '',
+          description: formData.description || '',
+          category: isTransfer ? null : (formData.category || null),
+          categoryCode: isTransfer ? null : (formData.categoryCode || null),
+          value: Number(formData.value) || 0,
+          type: formData.type as 'income' | 'expense' | 'transfer',
+          transactionTypeId: formData.transactionTypeId || '',
+          documentType: isTransfer ? 'Transferência' : (formData.documentType || 'Outros'),
+          orderNumber: isTransfer ? null : (formData.orderNumber || null),
+          customerName: isTransfer ? null : (formData.customerName || null),
+          payments: formData.payments || [],
+          status: status,
+          linkedTransactionId: formData.linkedTransactionId,
+          linkedPaymentId: formData.linkedPaymentId,
+          multiAccounts: isAccountingEnabled ? (formData.multiAccounts || []) : null
+        };
+      
+      if (editingTransaction && editingTransaction.id) {
+        await updateTransaction(editingTransaction.id, transaction);
+      } else {
+        await addTransaction(transaction);
+        
+        // If this was a payment/receipt or advance for another transaction, settle it
+        if (formData.linkedTransactionId && formData.linkedPaymentId) {
+            const original = transactions.find(t => t.id === formData.linkedTransactionId);
+            if (original) {
+                const updatedPayments = original.payments.map(p => 
+                    p.id === formData.linkedPaymentId ? { ...p, status: 'completed' as const } : p
+                );
+                const allCompleted = updatedPayments.every(p => p.status === 'completed');
+                await updateTransaction(original.id, {
+                    ...original,
+                    status: allCompleted ? 'completed' : 'partial',
+                    payments: updatedPayments
+                });
+            }
+            // Reset flags
+            setPendingCompletion(false);
+            setTargetPaymentId(null);
+            setTargetTransactionId(null);
+        } else if (linkedTransactionIds.length > 0) {
+          for (const id of linkedTransactionIds) {
+            const original = transactions.find(t => t.id === id);
+            if (original) {
+              const updatedPayments = original.payments.map(p => ({ ...p, status: 'completed' as const }));
+              await updateTransaction(id, { 
+                ...original, 
+                status: 'completed', 
+                payments: updatedPayments 
+              });
+            }
+          }
+        }
+      }
+      // If this is a new transaction, handle separate launches for discounts and surcharges
+      if (!editingTransaction && formData.payments) {
+        for (const p of formData.payments) {
+          if (p.discount && p.discount > 0) {
+            const discountTransaction: Omit<Transaction, 'id'> = {
+              date: p.dueDate,
+              description: `Desconto: ${formData.description}`,
+              value: p.discount,
+              type: formData.type === 'income' ? 'expense' : 'income',
+              transactionTypeId: formData.type === 'income' ? 'pagamento' : 'recebimento',
+              category: formData.type === 'income' ? 'Descontos Concedidos' : 'Descontos Obtidos',
+              categoryCode: formData.type === 'income' ? '6.2.05' : '4.2.02',
+              documentType: 'Outros',
+              customerName: formData.customerName,
+              payments: [{
+                id: String(Date.now() + Math.random()),
+                method: p.method,
+                value: p.discount,
+                dueDate: p.dueDate,
+                destination: p.destination,
+                status: 'completed'
+              }],
+              status: 'completed'
+            };
+            await addTransaction(discountTransaction);
+          }
+          if (p.surcharge && p.surcharge > 0) {
+            const surchargeTransaction: Omit<Transaction, 'id'> = {
+              date: p.dueDate,
+              description: `Acréscimo/Juros: ${formData.description}`,
+              value: p.surcharge,
+              type: formData.type === 'income' ? 'income' : 'expense',
+              transactionTypeId: formData.type === 'income' ? 'recebimento' : 'pagamento',
+              category: formData.type === 'income' ? 'Juros Recebidos' : 'Juros Pagos',
+              categoryCode: formData.type === 'income' ? '4.2.03' : '6.3.01',
+              documentType: 'Outros',
+              customerName: formData.customerName,
+              payments: [{
+                id: String(Date.now() + Math.random()),
+                method: p.method,
+                value: p.surcharge,
+                dueDate: p.dueDate,
+                destination: p.destination,
+                status: 'completed'
+              }],
+              status: 'completed'
+            };
+            await addTransaction(surchargeTransaction);
+          }
+        }
+      }
+
+      closeModal();
+    } catch (err) {
+      console.error('Error submitting transaction:', err);
+      setError(err instanceof Error ? err.message : 'Erro ao salvar transação. Verifique os dados e tente novamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (!isModalOpen) return null;
+
+  const addSplit = (type: 'debit' | 'credit') => {
+    setFormData(prev => ({
+      ...prev,
+      multiAccounts: [
+        ...(prev.multiAccounts || []),
+        { accountPlanId: '', value: 0, description: '', type }
+      ]
+    }));
+  };
+
+  const removeSplit = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      multiAccounts: (prev.multiAccounts || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateSplit = (index: number, field: keyof TransactionSplit, value: any) => {
+    setFormData(prev => {
+      const updatedSplits = [...(prev.multiAccounts || [])];
+      const split = { ...updatedSplits[index], [field]: value };
+
+      if (field === 'accountPlanId') {
+        const plan = accountPlans.find(p => p.id === value);
+        if (plan && (plan.level === 'analitica' || plan.code.split('.').length === 4)) {
+          split.accountPlanName = plan.name;
+          split.accountPlanCode = plan.code;
+        }
+      }
+
+      if (field === 'accountPlanName') {
+        const plan = accountPlans.find(p => p.name === value);
+        if (plan && (plan.level === 'analitica' || plan.code.split('.').length === 4)) {
+          split.accountPlanId = plan.id;
+          split.accountPlanCode = plan.code;
+          split.accountPlanName = plan.name;
+        } else {
+          split.accountPlanName = value;
+        }
+      }
+
+      if (field === 'accountPlanCode') {
+        const plan = accountPlans.find(p => p.code === value);
+        if (plan && (plan.level === 'analitica' || plan.code.split('.').length === 4)) {
+          split.accountPlanId = plan.id;
+          split.accountPlanName = plan.name;
+          split.accountPlanCode = plan.code;
+        }
+      }
+
+      updatedSplits[index] = split;
+      return { ...prev, multiAccounts: updatedSplits };
+    });
+  };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-          <h3 className="text-lg font-bold text-gray-800">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 sticky top-0 z-10">
+          <h3 className="text-lg font-bold text-gray-800">
+            {editingTransaction ? 'Editar Lançamento' : 'Novo Lançamento'}
+          </h3>
+          <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X size={20} />
           </button>
         </div>
+        
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {error && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700 animate-in fade-in slide-in-from-top-2">
+              <AlertCircle size={20} className="shrink-0" />
+              <p className="text-sm font-medium">{error}</p>
+            </div>
+          )}
+          <div className="grid grid-cols-3 gap-4">
+             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Lançamento</label>
+              <div className="relative">
+                <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <select 
+                  name="transactionTypeId"
+                  required
+                  value={formData.transactionTypeId || ''}
+                  onChange={handleTypeChange}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                >
+                  <option value="">Selecione...</option>
+                  {transactionTypes.map(type => (
+                    <option key={type.id} value={type.id}>{type.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-        <div className="p-6 space-y-6">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Buscar por nome, descrição ou valor..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
-              autoFocus
-            />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria (Conta Principal)</label>
+              <div className="relative">
+                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <select 
+                  name="category"
+                  value={formData.category || ''}
+                  onChange={handleInputChange}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                >
+                  <option value="">Selecione conta analítica...</option>
+                  {accountPlans.filter(ap => ap.level === 'analitica').sort((a, b) => a.code.localeCompare(b.code)).map(ap => (
+                    <option key={ap.id} value={ap.name}>{ap.code} - {ap.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Natureza</label>
+              <div className="flex rounded-md shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setFormData({...formData, type: 'income'})}
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-l-md border ${
+                    formData.type === 'income' 
+                      ? 'bg-blue-600 text-white border-blue-600' 
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Entrada
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({...formData, type: 'expense'})}
+                  className={`flex-1 px-4 py-2 text-sm font-medium border-t border-b border-r ${
+                    formData.type === 'expense' 
+                      ? 'bg-red-600 text-white border-red-600' 
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Saída
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData(prev => ({
+                      ...prev, 
+                      type: 'transfer',
+                      transactionTypeId: 'transferencia',
+                      category: 'Transferência',
+                      payments: [{
+                        id: String(Date.now()),
+                        value: prev.value || 0,
+                        method: 'Transferência',
+                        dueDate: prev.date || new Date().toISOString().split('T')[0],
+                        status: 'completed',
+                        destination: '',
+                        source: ''
+                      }]
+                    }));
+                  }}
+                  className={`flex-1 px-4 py-2 text-sm font-medium rounded-r-md border-t border-b border-r ${
+                    formData.type === 'transfer' 
+                      ? 'bg-blue-600 text-white border-blue-600' 
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  Transferência
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Results List */}
-          <div className="max-h-[300px] overflow-y-auto border border-gray-100 rounded-lg">
-            {filteredItems.length === 0 ? (
-              <div className="p-8 text-center text-gray-500 flex flex-col items-center gap-2">
-                <AlertCircle size={32} className="text-gray-300" />
-                <p>Nenhum registro encontrado.</p>
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input 
+                  type="date" 
+                  name="date"
+                  required
+                  value={formData.date}
+                  onChange={handleInputChange}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                />
               </div>
-            ) : (
-              <table className="w-full text-sm text-left">
-                <thead className="bg-gray-50 text-gray-500 font-medium sticky top-0">
-                  <tr>
-                    {type === 'advance' && <th className="px-4 py-2 w-10"></th>}
-                    <th className="px-4 py-2">Vencimento</th>
-                    <th className="px-4 py-2">Nome</th>
-                    <th className="px-4 py-2">Descrição</th>
-                    <th className="px-4 py-2 text-right">Valor</th>
-                    {type === 'payment_receipt' && <th className="px-4 py-2 text-center">Ação</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredItems.map(item => (
-                    <tr 
-                      key={item.id} 
-                      className={`hover:bg-gray-50 transition-colors ${selectedIds.includes(item.id) ? 'bg-emerald-50' : ''}`}
-                      onClick={() => type === 'advance' && toggleSelection(item.id)}
+            </div>
+            {!isTransfer && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo Doc.</label>
+                  <div className="relative">
+                    <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <select 
+                      name="documentType"
+                      value={formData.documentType || 'Outros'}
+                      onChange={handleInputChange}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
                     >
-                      {type === 'advance' && (
-                        <td className="px-4 py-3">
-                          <div className={`w-5 h-5 rounded border flex items-center justify-center ${
-                            selectedIds.includes(item.id) 
-                              ? 'bg-emerald-500 border-emerald-500 text-white' 
-                              : 'border-gray-300'
-                          }`}>
-                            {selectedIds.includes(item.id) && <Check size={12} />}
-                          </div>
-                        </td>
-                      )}
-                      <td className="px-4 py-3 text-gray-500">{item.date.split('-').reverse().join('/')}</td>
-                      <td className="px-4 py-3 font-medium text-gray-800">{item.customerName}</td>
-                      <td className="px-4 py-3 text-gray-600">
-                        <div>{item.description}</div>
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-gray-900">
-                        R$ {item.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </td>
-                      {type === 'payment_receipt' && (
-                        <td className="px-4 py-3 text-center">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onSelect(item);
-                            }}
-                            className="p-1.5 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors"
-                            title="Selecionar"
-                          >
-                            <Check size={16} />
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      <option value="Nota">Nota</option>
+                      <option value="NF-e">Nota Fiscal (NF-e)</option>
+                      <option value="NFC-e">NFC-e</option>
+                      <option value="NFS-e">Nota de Serviço (NFS-e)</option>
+                      <option value="CT-e">CT-e</option>
+                      <option value="MDF-e">MDF-e</option>
+                      <option value="Recibo">Recibo</option>
+                      <option value="Pedido">Pedido de Venda/Compra</option>
+                      <option value="Contrato">Contrato</option>
+                      <option value="Boleto">Boleto Bancário</option>
+                      <option value="Outros">Outros</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nº Pedido {isAdvance ? '(Opcional)' : ''}</label>
+                  <div className="relative">
+                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input 
+                      type="text" 
+                      name="orderNumber"
+                      placeholder="Ex: 123"
+                      value={formData.orderNumber || ''}
+                      onChange={handleInputChange}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+            {!isTransfer && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {formData.type === 'income' ? 'Cliente' : 'Fornecedor'}
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                  <input 
+                    type="text" 
+                    name="customerName"
+                    placeholder={formData.type === 'income' ? 'Nome do Cliente' : 'Nome do Fornecedor'}
+                    value={formData.customerName || ''}
+                    onChange={handleInputChange}
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  />
+                </div>
+              </div>
             )}
           </div>
 
-          {/* Footer Actions */}
-          <div className="flex justify-end gap-3 pt-2">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+            <input 
+              type="text" 
+              name="description"
+              required
+              placeholder="Ex: Venda de Mercadorias para Cliente X"
+              value={formData.description || ''}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Valor Total (R$)</label>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input 
+                  type="number" 
+                  name="value"
+                  required
+                  step="0.01"
+                  min="0"
+                  placeholder="0,00"
+                  value={formData.value || ''}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                    setFormData(prev => {
+                      const updates: any = { value: val };
+                      if (isTransfer && prev.payments && prev.payments.length > 0) {
+                        const updatedPayments = [...prev.payments];
+                        updatedPayments[0] = { ...updatedPayments[0], value: val };
+                        updates.payments = updatedPayments;
+                      }
+                      return { ...prev, ...updates };
+                    });
+                  }}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {!isTransfer && (
+            <div>
+               <label className="block text-sm font-medium text-gray-700 mb-1">Valor do Adiantamento</label>
+               <div className="relative">
+                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                 <input 
+                   type="text" 
+                   value={(formData.payments?.filter(p => p.method === 'Adiantamento').reduce((sum, p) => sum + p.value, 0) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                   readOnly
+                   className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 text-sm"
+                 />
+               </div>
+            </div>
+          )}
+
+          {isTransfer && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Conta Origem</label>
+                <select
+                  required
+                  value={formData.payments?.[0]?.source || ''}
+                  onChange={(e) => {
+                    const account = accounts.find(acc => acc.name === e.target.value);
+                    updatePayment(0, 'source', e.target.value);
+                    if (account) updatePayment(0, 'bankId', account.id);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                >
+                  <option value="">Selecione...</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.name}>{acc.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Conta Destino</label>
+                <select
+                  required
+                  value={formData.payments?.[0]?.destination || ''}
+                  onChange={(e) => updatePayment(0, 'destination', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                >
+                  <option value="">Selecione...</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.name}>{acc.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {!isTransfer ? (
+            <div className="border-t border-gray-200 pt-4">
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                  <Wallet size={18} className="text-blue-600" />
+                  Pagamentos / Parcelas
+                </h4>
+                <div className="text-sm">
+                  <span className="text-gray-500">Restante: </span>
+                  <span className={`font-bold ${remainingValue !== 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                    R$ {remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                {formData.payments?.map((payment, index) => {
+                  if (payment.method === 'Adiantamento') return null;
+                  const isDiscount = payment.type === 'discount';
+                  const isSurcharge = payment.type === 'surcharge';
+                  const isAdjustment = isDiscount || isSurcharge;
+
+                  return (
+                  <div key={payment.id} className={`grid grid-cols-12 gap-2 items-end relative pr-8 p-2 rounded ${isDiscount ? 'bg-green-50 border-l-4 border-green-400' : isSurcharge ? 'bg-red-50 border-l-4 border-red-400' : ''}`}>
+                    <div className="col-span-2">
+                      <label className="text-xs text-gray-500 block mb-1">
+                        {isDiscount ? 'Valor Desconto' : isSurcharge ? 'Valor Acréscimo' : 'Valor'}
+                      </label>
+                      <div className="flex gap-1 items-center relative">
+                        {isAdjustment && (
+                          <span className={`absolute left-2 top-1/2 -translate-y-1/2 font-bold text-xs ${isDiscount ? 'text-green-600' : 'text-red-600'}`}>
+                            {isDiscount ? '-' : '+'}
+                          </span>
+                        )}
+                        <input
+                          type="number"
+                          value={payment.value || ''}
+                          onChange={(e) => updatePayment(index, 'value', e.target.value === '' ? 0 : parseFloat(e.target.value) || 0)}
+                          className={`w-full text-xs p-2 border rounded ${isAdjustment ? 'bg-white pl-5' : ''}`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="col-span-2">
+                      <label className="text-xs text-gray-500 block mb-1">Forma</label>
+                      <select
+                        value={payment.method}
+                        onChange={(e) => updatePayment(index, 'method', e.target.value)}
+                        className="w-full text-xs p-2 border rounded"
+                        disabled={isDuplicata && !isAdjustment}
+                      >
+                        <option value="A Definir">A Definir</option>
+                        {paymentMethods.map(pm => {
+                          const account = accounts.find(a => a.id === pm.defaultAccountId);
+                          return (
+                            <option key={pm.id} value={pm.name}>
+                              {pm.name} {account ? `(${account.name})` : ''}
+                            </option>
+                          );
+                        })}
+                        <option value="Adiantamento">Adiantamento</option>
+                        <option value="Outros">Outros</option>
+                        {isAdjustment && <option value="Ajuste Financeiro">Ajuste Financeiro</option>}
+                      </select>
+                    </div>
+
+                    <div className="col-span-2">
+                      <label className="text-xs text-gray-500 block mb-1">Vencimento</label>
+                      <input
+                        type="date"
+                        value={payment.dueDate}
+                        onChange={(e) => updatePayment(index, 'dueDate', e.target.value)}
+                        className="w-full text-xs p-2 border rounded"
+                      />
+                    </div>
+
+                    <div className="col-span-3">
+                      <label className="text-xs text-gray-500 block mb-1">Conta</label>
+                      <div className="w-full text-[10px] p-2 border rounded bg-gray-100 text-gray-600 truncate h-[34px] flex items-center">
+                        {(() => {
+                          if (isDiscount) return 'Descontos';
+                          if (isSurcharge) return 'Juros/Multas';
+                          const account = accounts.find(a => a.id === payment.bankId);
+                          return account?.accountPlanName || '-';
+                        })()}
+                      </div>
+                    </div>
+
+                    <div className="col-span-3">
+                       <label className="text-xs text-gray-500 block mb-1">Destino</label>
+                       <select
+                        value={payment.destination}
+                        onChange={(e) => updatePayment(index, 'destination', e.target.value)}
+                        className="w-full text-xs p-2 border rounded"
+                      >
+                        <option value="Caixa">Caixa</option>
+                        <option value="Banco">Banco</option>
+                        <option value="Contas a Receber">Contas a Receber</option>
+                        <option value="Contas a Pagar">Contas a Pagar</option>
+                        <option value="Ajuste Financeiro">Ajuste Financeiro</option>
+                        {accounts.map(acc => (
+                          <option key={acc.id} value={acc.name}>{acc.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-full pl-2">
+                      <button 
+                        type="button"
+                        onClick={() => removePayment(index)}
+                        className="text-red-500 hover:bg-red-50 p-1 rounded"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )})}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {remainingValue > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => addPayment(remainingValue)}
+                      className="py-2 border-2 border-dashed border-blue-200 text-blue-600 rounded-lg hover:bg-blue-50 text-sm font-medium flex items-center justify-center gap-2"
+                    >
+                      <Plus size={16} />
+                      Pagamento (R$ {remainingValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => addAdjustment('discount')}
+                    className="py-2 border-2 border-dashed border-green-200 text-green-600 rounded-lg hover:bg-green-50 text-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    <Minus size={16} />
+                    Desconto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => addAdjustment('surcharge')}
+                    className="py-2 border-2 border-dashed border-red-200 text-red-600 rounded-lg hover:bg-red-50 text-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    <Plus size={16} />
+                    Acréscimo
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {isAccountingEnabled && (
+            <div className="space-y-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                  <Briefcase size={16} className="text-blue-600" />
+                  Lançamento Contábil (Partidas Dobradas)
+                </h4>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!formData.transactionTypeId) {
+                        setError('Por favor, selecione o Tipo de Lançamento antes de prosseguir.');
+                        return;
+                      }
+                      autoFillAccounting();
+                    }}
+                    className="text-[10px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-100"
+                  >
+                    <Plus size={12} />
+                    Sugerir Lançamento
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!formData.transactionTypeId) {
+                        setError('Por favor, selecione o Tipo de Lançamento antes de prosseguir.');
+                        return;
+                      }
+                      addSplit('debit');
+                    }}
+                    className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded border border-emerald-100"
+                  >
+                    <Plus size={12} />
+                    + Adicionar Conta Débito
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!formData.transactionTypeId) {
+                        setError('Por favor, selecione o Tipo de Lançamento antes de prosseguir.');
+                        return;
+                      }
+                      addSplit('credit');
+                    }}
+                    className="text-[10px] font-bold text-red-600 hover:text-red-700 flex items-center gap-1 bg-red-50 px-2 py-1 rounded border border-red-100"
+                  >
+                    <Plus size={12} />
+                    + Adicionar Conta Crédito
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {(() => {
+                  const splits = formData.multiAccounts || [];
+                  const groups: { [key: string]: TransactionSplit[] } = {};
+                  
+                  // Group splits by entryId (default to '1' if not present)
+                  splits.forEach(s => {
+                    const gid = s.entryId || '1';
+                    if (!groups[gid]) groups[gid] = [];
+                    groups[gid].push(s);
+                  });
+
+                  return Object.entries(groups).map(([gid, groupSplits], groupIndex) => (
+                    <div key={gid} className="space-y-3 bg-gray-50/50 p-4 rounded-xl border border-gray-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                          <div className="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[8px]">
+                            {groupIndex + 1}
+                          </div>
+                          Lançamento Contábil #{gid}
+                        </h4>
+                        <div className="text-[10px] text-gray-400">
+                          {groupSplits.length} partidas
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {groupSplits.map((split, splitIdx) => {
+                          // Find original index in formData.multiAccounts
+                          const originalIndex = splits.indexOf(split);
+                          return (
+                            <div key={splitIdx} className={`grid grid-cols-12 gap-3 items-end bg-white p-3 rounded-lg border shadow-sm ${split.type === 'debit' ? 'border-emerald-200' : 'border-red-200'}`}>
+                              <div className="col-span-1">
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Tipo</label>
+                                <div className={`text-[10px] font-bold text-center py-1.5 rounded uppercase ${split.type === 'debit' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                  {split.type === 'debit' ? 'D' : 'C'}
+                                </div>
+                              </div>
+                              <div className="col-span-2">
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Código</label>
+                                <input
+                                  type="text"
+                                  value={split.accountPlanCode || ''}
+                                  onChange={(e) => updateSplit(originalIndex, 'accountPlanCode', e.target.value)}
+                                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Código"
+                                />
+                              </div>
+                              <div className="col-span-1 flex justify-center pb-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setIsChartOfAccountsOpen(originalIndex)}
+                                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-blue-100"
+                                  title="Pesquisar no Plano de Contas"
+                                >
+                                  <Search size={14} />
+                                </button>
+                              </div>
+                              <div className="col-span-3">
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Conta</label>
+                                <input
+                                  list={`account-plans-splits-${originalIndex}`}
+                                  value={split.accountPlanName || ''}
+                                  onChange={(e) => {
+                                    const name = e.target.value;
+                                    const plan = accountPlans.find(p => p.name === name);
+                                    if (plan && (plan.level === 'analitica' || plan.code.split('.').length === 4)) {
+                                      updateSplit(originalIndex, 'accountPlanId', plan.id);
+                                    } else {
+                                      updateSplit(originalIndex, 'accountPlanName', name);
+                                    }
+                                  }}
+                                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Digite ou selecione..."
+                                  required
+                                />
+                                <datalist id={`account-plans-splits-${originalIndex}`}>
+                                  {accountPlans
+                                    .filter(acc => acc.level === 'analitica' || acc.code.split('.').length === 4)
+                                    .map(plan => (
+                                      <option key={plan.id} value={plan.name}>{plan.code} - {plan.name}</option>
+                                    ))}
+                                </datalist>
+                              </div>
+                              <div className="col-span-2">
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Valor (R$)</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={split.value !== undefined ? split.value : ''}
+                                  onChange={(e) => updateSplit(originalIndex, 'value', e.target.value === '' ? 0 : Number(e.target.value))}
+                                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                                  placeholder="0,00"
+                                />
+                              </div>
+                              <div className="col-span-2">
+                                <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Obs.</label>
+                                <input
+                                  type="text"
+                                  value={split.description || ''}
+                                  onChange={(e) => updateSplit(originalIndex, 'description', e.target.value)}
+                                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Opcional"
+                                />
+                              </div>
+                              <div className="col-span-1 flex justify-center">
+                                <button
+                                  type="button"
+                                  onClick={() => removeSplit(originalIndex)}
+                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                  <X size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="flex justify-between items-center px-2 pt-1">
+                        <div className="flex gap-4">
+                          <div className="text-[9px] text-gray-500">
+                            D: <span className="font-bold text-emerald-600">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                                groupSplits.filter(s => s.type === 'debit').reduce((sum, s) => sum + s.value, 0)
+                              )}
+                            </span>
+                          </div>
+                          <div className="text-[9px] text-gray-500">
+                            C: <span className="font-bold text-red-600">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                                groupSplits.filter(s => s.type === 'credit').reduce((sum, s) => sum + s.value, 0)
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                        {Math.abs(groupSplits.filter(s => s.type === 'debit').reduce((sum, s) => sum + s.value, 0) - groupSplits.filter(s => s.type === 'credit').reduce((sum, s) => sum + s.value, 0)) > 0.01 && (
+                          <div className="text-[9px] font-bold text-red-500 animate-pulse">
+                            Lançamento Desbalanceado
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ));
+                })()}
+                
+                {formData.multiAccounts && formData.multiAccounts.length > 0 && (
+                  <div className="flex justify-between pt-2 border-t border-gray-200">
+                    <div className="text-left">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase">Total Débitos</p>
+                      <p className="text-sm font-bold text-emerald-600">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                          formData.multiAccounts.filter(s => s.type === 'debit').reduce((sum, s) => sum + s.value, 0)
+                        )}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase">Total Créditos</p>
+                      <p className="text-sm font-bold text-emerald-600">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                          formData.multiAccounts.filter(s => s.type === 'credit').reduce((sum, s) => sum + s.value, 0)
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {accountingAlerts.length > 0 && (
+                  <div className="mt-3 space-y-1">
+                    {accountingAlerts.map((alert, i) => (
+                      <div key={i} className="flex items-center gap-2 text-[10px] font-medium text-amber-700 bg-amber-50 px-2 py-1 rounded border border-amber-100">
+                        <div className="w-1 h-1 bg-amber-400 rounded-full" />
+                        {alert}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
             <button 
-              onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors"
+              type="button" 
+              onClick={closeModal}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Cancelar
             </button>
-            {type === 'advance' ? (
+            <button 
+              type="submit" 
+              disabled={Math.abs(remainingValue) > 0.01 || !isAccountingBalanced || isSubmitting}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isSubmitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
+              {editingTransaction ? 'Salvar Alterações' : 'Salvar Lançamento'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <SearchTransactionModal
+        isOpen={isSearchModalOpen}
+        onClose={() => setIsSearchModalOpen(false)}
+        type={searchModalType}
+        transactionType={searchModalTransactionType}
+        onSelect={handleSearchModalSelect}
+        onRegisterNew={() => {
+          setIsSearchModalOpen(false);
+          setLinkedTransactionIds([]);
+        }}
+      />
+
+      {/* Chart of Accounts Modal */}
+      {isChartOfAccountsOpen !== null && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <Search className="text-blue-600" size={20} />
+                Plano de Contas
+              </h3>
               <button 
-                onClick={handleConfirm}
-                disabled={selectedIds.length === 0}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                onClick={() => setIsChartOfAccountsOpen(null)} 
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
               >
-                <Check size={16} />
-                Confirmar Seleção ({selectedIds.length})
+                <X size={24} />
               </button>
-            ) : (
-              <button 
-                onClick={onRegisterNew}
-                className="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-900 transition-colors shadow-sm"
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <ChartOfAccounts onSelect={(account) => {
+                if (isChartOfAccountsOpen !== null) {
+                  updateSplit(isChartOfAccountsOpen, 'accountPlanId', account.id);
+                  setIsChartOfAccountsOpen(null);
+                }
+              }} />
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setIsChartOfAccountsOpen(null)}
+                className="px-6 py-2 bg-gray-800 text-white rounded-lg font-medium hover:bg-gray-900 transition-all shadow-md"
               >
-                Registrar Novo (Sem Vínculo)
+                Fechar
               </button>
-            )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
