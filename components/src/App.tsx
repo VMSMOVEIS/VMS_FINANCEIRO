@@ -280,6 +280,8 @@ const App: React.FC = () => {
         return <ProductionOrders activeSubItem={activeSubItem} />;
       case ModuleId.PRODUCAO_ESTOQUE:
         return <InventoryManagement activeSubItem={activeSubItem} />;
+      case ModuleId.ESTOQUE_MERCADORIAS:
+        return <InventoryManagement activeSubItem={activeSubItem} />;
       case ModuleId.VENDAS_ESTOQUE:
         return <InventoryManagement activeSubItem={activeSubItem} />;
       case ModuleId.COMPRAS_ESTOQUE:

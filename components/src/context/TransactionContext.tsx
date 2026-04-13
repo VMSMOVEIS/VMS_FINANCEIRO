@@ -558,6 +558,9 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const updateAccountPlan = async (id: string, plan: Partial<AccountPlan>) => {
     if (!supabase || !id) return;
     try {
+      const oldPlan = accountPlans.find(p => p.id === id);
+      if (!oldPlan) return;
+
       const { error } = await supabase
         .from('account_plans')
         .update({
@@ -568,6 +571,52 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
         })
         .eq('id', id);
       if (error) throw error;
+
+      // Cascade update to accounts and transactions if name or code changed
+      if ((plan.name && plan.name !== oldPlan.name) || (plan.code && plan.code !== oldPlan.code)) {
+        const newName = plan.name || oldPlan.name;
+        const newCode = plan.code || oldPlan.code;
+
+        // 1. Update accounts (denormalized fields)
+        await supabase
+          .from('accounts')
+          .update({
+            account_plan_name: newName,
+            account_plan_code: newCode
+          })
+          .eq('account_plan_id', id);
+
+        // 2. Update transactions (category and categoryCode)
+        await supabase
+          .from('transactions')
+          .update({
+            category: newName,
+            category_code: newCode
+          })
+          .eq('category_code', oldPlan.code);
+
+        // 3. Update transactions (multiAccounts JSONB)
+        const affectedTransactions = transactions.filter(t => 
+          t.multiAccounts && t.multiAccounts.some(split => split.accountPlanId === id)
+        );
+
+        if (affectedTransactions.length > 0) {
+          for (const trans of affectedTransactions) {
+            const updatedMultiAccounts = trans.multiAccounts?.map(split => {
+              if (split.accountPlanId === id) {
+                return { ...split, accountPlanName: newName, accountPlanCode: newCode };
+              }
+              return split;
+            });
+
+            await supabase
+              .from('transactions')
+              .update({ multi_accounts: updatedMultiAccounts })
+              .eq('id', trans.id);
+          }
+        }
+      }
+
       await fetchData();
     } catch (error) {
       console.error('Error updating account plan:', error);
@@ -577,6 +626,40 @@ export const TransactionProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const deleteAccountPlan = async (id: string) => {
     if (!supabase || !id) return;
     try {
+      const planToDelete = accountPlans.find(p => p.id === id);
+      if (!planToDelete) return;
+
+      // 1. Check if used in accounts
+      const isUsedInAccounts = accounts.some(a => a.accountPlanId === id);
+      if (isUsedInAccounts) {
+        alert('Esta conta não pode ser excluída pois está vinculada a uma Conta Bancária/Caixa. Por favor, ajuste a conta primeiramente.');
+        return;
+      }
+      
+      // 2. Check if used in transactions (categoryCode or multiAccounts)
+      const isUsedInTransactions = transactions.some(t => 
+        t.categoryCode === planToDelete.code || 
+        (t.multiAccounts && t.multiAccounts.some(split => split.accountPlanId === id))
+      );
+      if (isUsedInTransactions) {
+        alert('Esta conta não pode ser excluída pois já possui lançamentos financeiros vinculados. Por favor, ajuste os lançamentos primeiramente.');
+        return;
+      }
+
+      // 3. Check purchase orders
+      const { data: poData } = await supabase.from('purchase_orders').select('id').eq('account_plan_id', id).limit(1);
+      if (poData && poData.length > 0) {
+        alert('Esta conta não pode ser excluída pois está vinculada a Pedidos de Compra. Por favor, ajuste os pedidos primeiramente.');
+        return;
+      }
+
+      // 4. Check sales orders
+      const { data: soData } = await supabase.from('sales_orders').select('id').eq('account_plan_id', id).limit(1);
+      if (soData && soData.length > 0) {
+        alert('Esta conta não pode ser excluída pois está vinculada a Pedidos de Venda. Por favor, ajuste os pedidos primeiramente.');
+        return;
+      }
+
       const { error } = await supabase
         .from('account_plans')
         .delete()

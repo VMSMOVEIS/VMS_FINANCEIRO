@@ -259,6 +259,17 @@ export const PRODUCAO_MENU_ITEMS: MenuItem[] = [
     ]
   },
   {
+    id: ModuleId.ESTOQUE_MERCADORIAS,
+    label: 'Mercadorias para Revenda',
+    icon: ShoppingCart,
+    subItems: [
+      { id: 'mercadoria_cadastro', label: 'Cadastro' },
+      { id: 'mercadoria_movimentacoes', label: 'Movimentações' },
+      { id: 'mercadoria_fornecedores', label: 'Fornecedores' },
+      { id: 'mercadoria_dashboard', label: 'Dashboard' },
+    ]
+  },
+  {
     id: ModuleId.PRODUCAO_MAQUINAS,
     label: 'Máquinas & Equipamentos',
     icon: Factory,

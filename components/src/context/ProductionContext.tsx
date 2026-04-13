@@ -179,8 +179,12 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const addSupplier = async (supplier: Omit<Supplier, 'id'>) => {
     if (!supabase) return;
     try {
+      // Determine table based on category or context (default to mp if not specified)
+      const isMercadoria = supplier.category?.toLowerCase().includes('revenda') || supplier.notes?.toLowerCase().includes('mercadoria');
+      const table = isMercadoria ? 'suppliers_mercadoria' : 'suppliers_mp';
+
       const { error } = await supabase
-        .from('suppliers')
+        .from(table)
         .insert([{
           name: supplier.name,
           cnpj: supplier.cnpj || null,
@@ -207,8 +211,12 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const updateSupplier = async (supplier: Supplier) => {
     if (!supabase) return;
     try {
+      // Try both tables or use a flag if we added it
+      const isMercadoria = suppliers.find(s => s.id === supplier.id && (s as any).supplier_type === 'mercadoria');
+      const table = isMercadoria ? 'suppliers_mercadoria' : 'suppliers_mp';
+
       const { error } = await supabase
-        .from('suppliers')
+        .from(table)
         .update({
           name: supplier.name,
           cnpj: supplier.cnpj || null,
@@ -237,8 +245,11 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const deleteSupplier = async (id: string) => {
     if (!supabase) return;
     try {
+      const isMercadoria = suppliers.find(s => s.id === id && (s as any).supplier_type === 'mercadoria');
+      const table = isMercadoria ? 'suppliers_mercadoria' : 'suppliers_mp';
+
       const { error } = await supabase
-        .from('suppliers')
+        .from(table)
         .delete()
         .eq('id', id);
       if (error) throw error;
@@ -257,19 +268,57 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const results = await Promise.all([
         supabase.from('stock_aging_configs').select('*'),
-        supabase.from('stock_config_items').select('*'),
-        supabase.from('inventory').select('*'),
+        // Fetch from independent config tables
+        supabase.from('stock_config_items_mp').select('*'),
+        supabase.from('stock_config_items_pa').select('*'),
+        supabase.from('stock_config_items_mercadoria').select('*'),
+        // Fetch from independent inventory tables
+        supabase.from('inventory_mp').select('*'),
+        supabase.from('inventory_pa').select('*'),
+        supabase.from('inventory_processo').select('*'),
+        supabase.from('inventory_mercadoria').select('*'),
+        // Fetch from production orders
         supabase.from('production_orders').select('*').order('deadline', { ascending: true }),
-        supabase.from('stock_movements').select('*').order('date', { ascending: false }),
-        supabase.from('suppliers').select('*').order('name')
+        // Fetch from independent movement tables
+        supabase.from('stock_movements_mp').select('*').order('date', { ascending: false }),
+        supabase.from('stock_movements_pa').select('*').order('date', { ascending: false }),
+        supabase.from('stock_movements_mercadoria').select('*').order('date', { ascending: false }),
+        // Fetch from independent supplier tables
+        supabase.from('suppliers_mp').select('*').order('name'),
+        supabase.from('suppliers_mercadoria').select('*').order('name')
       ]);
 
       const configsData = results[0].data;
-      const stockItemsData = results[1].data;
-      const inventoryData = results[2].data;
-      const ordersData = results[3].data;
-      const movementsData = results[4].data;
-      const suppliersData = results[5].data;
+      
+      // Merge config items
+      const stockItemsData = [
+        ...(results[1].data || []),
+        ...(results[2].data || []),
+        ...(results[3].data || [])
+      ];
+
+      // Merge inventory items with type tagging
+      const inventoryData = [
+        ...(results[4].data || []).map(i => ({ ...i, type: 'mp' })),
+        ...(results[5].data || []).map(i => ({ ...i, type: 'pa' })),
+        ...(results[6].data || []).map(i => ({ ...i, type: 'processo' })),
+        ...(results[7].data || []).map(i => ({ ...i, type: 'mercadoria' }))
+      ];
+
+      const ordersData = results[8].data;
+
+      // Merge movements
+      const movementsData = [
+        ...(results[9].data || []),
+        ...(results[10].data || []),
+        ...(results[11].data || [])
+      ];
+
+      // Merge suppliers with type tagging (optional, but helps if needed)
+      const suppliersData = [
+        ...(results[12].data || []).map(s => ({ ...s, supplier_type: 'mp' })),
+        ...(results[13].data || []).map(s => ({ ...s, supplier_type: 'mercadoria' }))
+      ];
 
       if (configsData) setStockAgingConfigs(configsData);
       if (stockItemsData) setStockConfigItems(stockItemsData);
@@ -415,8 +464,12 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const addStockConfigItem = async (item: Omit<StockConfigItem, 'id'>) => {
     if (!supabase) return;
     try {
+      let table = 'stock_config_items_mp';
+      if (item.type.startsWith('pa_')) table = 'stock_config_items_pa';
+      else if (item.type.startsWith('mercadoria_')) table = 'stock_config_items_mercadoria';
+
       const { error } = await supabase
-        .from('stock_config_items')
+        .from(table)
         .insert([{
           id: Math.random().toString(36).substr(2, 9),
           name: item.name,
@@ -432,8 +485,12 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const updateStockConfigItem = async (item: StockConfigItem) => {
     if (!supabase) return;
     try {
+      let table = 'stock_config_items_mp';
+      if (item.type.startsWith('pa_')) table = 'stock_config_items_pa';
+      else if (item.type.startsWith('mercadoria_')) table = 'stock_config_items_mercadoria';
+
       const { error } = await supabase
-        .from('stock_config_items')
+        .from(table)
         .update({
           name: item.name,
           type: item.type
@@ -449,8 +506,16 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const deleteStockConfigItem = async (id: string) => {
     if (!supabase) return;
     try {
+      // Try to find which table it belongs to
+      const item = stockConfigItems.find(i => i.id === id);
+      if (!item) return;
+
+      let table = 'stock_config_items_mp';
+      if (item.type.startsWith('pa_')) table = 'stock_config_items_pa';
+      else if (item.type.startsWith('mercadoria_')) table = 'stock_config_items_mercadoria';
+
       const { error } = await supabase
-        .from('stock_config_items')
+        .from(table)
         .delete()
         .eq('id', id);
       if (error) throw error;
@@ -463,13 +528,17 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const updateInventoryItem = async (item: InventoryItem) => {
     if (!supabase) return;
     try {
+      let table = 'inventory_mp';
+      if (item.type === 'pa') table = 'inventory_pa';
+      else if (item.type === 'processo') table = 'inventory_processo';
+      else if (item.type === 'mercadoria') table = 'inventory_mercadoria';
+
       const { error } = await supabase
-        .from('inventory')
+        .from(table)
         .update({
           code: item.code,
           name: item.name,
           description: item.description,
-          type: item.type,
           category: item.category,
           stock_category: item.stockCategory,
           brand: item.brand,
@@ -520,13 +589,17 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const addInventoryItem = async (item: InventoryItem) => {
     if (!supabase) return;
     try {
+      let table = 'inventory_mp';
+      if (item.type === 'pa') table = 'inventory_pa';
+      else if (item.type === 'processo') table = 'inventory_processo';
+      else if (item.type === 'mercadoria') table = 'inventory_mercadoria';
+
       const { error } = await supabase
-        .from('inventory')
+        .from(table)
         .insert([{
           code: item.code,
           name: item.name,
           description: item.description,
-          type: item.type,
           category: item.category,
           stock_category: item.stockCategory,
           brand: item.brand,
@@ -575,8 +648,16 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const deleteInventoryItem = async (id: string) => {
     if (!supabase) return;
     try {
+      const item = inventory.find(i => i.id === id);
+      if (!item) return;
+
+      let table = 'inventory_mp';
+      if (item.type === 'pa') table = 'inventory_pa';
+      else if (item.type === 'processo') table = 'inventory_processo';
+      else if (item.type === 'mercadoria') table = 'inventory_mercadoria';
+
       const { error } = await supabase
-        .from('inventory')
+        .from(table)
         .delete()
         .eq('id', id);
       if (error) throw error;
@@ -589,14 +670,37 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const finalizeProcess = async (id: string) => {
     if (!supabase) return;
     try {
-      const { error } = await supabase
-        .from('inventory')
-        .update({
-          type: 'pa',
-          updated_at: new Date().toISOString()
-        })
+      // Finalizing process means moving from inventory_processo to inventory_pa
+      const item = inventory.find(i => i.id === id && i.type === 'processo');
+      if (!item) return;
+
+      // 1. Add to inventory_pa
+      const { error: insertError } = await supabase
+        .from('inventory_pa')
+        .insert([{
+          code: item.code,
+          name: item.name,
+          description: item.description,
+          category: item.category,
+          stock_category: item.stockCategory,
+          quantity: item.quantity,
+          unit: item.unit,
+          location: item.location,
+          value: item.value,
+          estimated_cost: item.estimatedCost,
+          status: 'active'
+        }]);
+
+      if (insertError) throw insertError;
+
+      // 2. Remove from inventory_processo
+      const { error: deleteError } = await supabase
+        .from('inventory_processo')
+        .delete()
         .eq('id', id);
-      if (error) throw error;
+
+      if (deleteError) throw deleteError;
+
       await fetchData();
     } catch (error) {
       console.error('Error finalizing process:', error);
@@ -672,8 +776,16 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const addStockMovement = async (movement: Partial<StockMovement>) => {
     if (!supabase) return;
     try {
+      const item = inventory.find(i => i.id === movement.inventory_id);
+      if (!item) return;
+
+      let table = 'stock_movements_mp';
+      if (item.type === 'pa') table = 'stock_movements_pa';
+      else if (item.type === 'processo') table = 'stock_movements_processo';
+      else if (item.type === 'mercadoria') table = 'stock_movements_mercadoria';
+
       const { error } = await supabase
-        .from('stock_movements')
+        .from(table)
         .insert([{
           inventory_id: movement.inventory_id || null,
           type: movement.type,
@@ -692,7 +804,6 @@ export const ProductionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (error) throw error;
 
       // Update inventory quantity
-      const item = inventory.find(i => i.id === movement.inventory_id);
       if (item) {
         const newQuantity = movement.type === 'entry' 
           ? item.quantity + (movement.quantity || 0) 

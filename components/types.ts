@@ -47,6 +47,7 @@ export enum ModuleId {
   PRODUCAO_DASHBOARD = 'producao_dashboard',
   PRODUCAO_ORDENS = 'producao_ordens',
   PRODUCAO_ESTOQUE = 'producao_estoque',
+  ESTOQUE_MERCADORIAS = 'estoque_mercadorias',
   PRODUCAO_MAQUINAS = 'producao_maquinas',
   PRODUCAO_QUALIDADE = 'producao_qualidade',
   PRODUCAO_MANUTENCAO = 'producao_manutencao',
@@ -400,7 +401,7 @@ export interface InventoryItem {
   code: string;
   name: string;
   description: string;
-  type: 'mp' | 'pa' | 'processo';
+  type: 'mp' | 'pa' | 'processo' | 'mercadoria';
   category: string; // MDF, Ferragem, Armário, etc.
   stockCategory: 'pronta_entrega' | 'sob_medida';
   brand?: string;

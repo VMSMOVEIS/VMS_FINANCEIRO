@@ -21,7 +21,8 @@ import {
   AlertTriangle,
   Clock,
   BarChart3,
-  Truck
+  Truck,
+  ShoppingCart
 } from 'lucide-react';
 import { useProduction } from '../src/context/ProductionContext';
 import { InventoryItem, Supplier } from '../types';
@@ -74,6 +75,17 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
   const [activeTab, setActiveTab] = useState<'sob_medida' | 'pronta_entrega'>('sob_medida');
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('kanban');
   const [activeMainTab, setActiveMainTab] = useState<'cadastro' | 'entrada' | 'dashboard' | 'fornecedores'>('cadastro');
+
+  // New effect to handle sub-tabs for Mercadorias para Revenda
+  React.useEffect(() => {
+    if (activeSubItem?.startsWith('mercadoria_')) {
+      const tab = activeSubItem.split('_')[1];
+      if (tab === 'cadastro') setActiveMainTab('cadastro');
+      else if (tab === 'movimentacoes') setActiveMainTab('entrada');
+      else if (tab === 'fornecedores') setActiveMainTab('fornecedores');
+      else if (tab === 'dashboard') setActiveMainTab('dashboard');
+    }
+  }, [activeSubItem]);
 
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
@@ -162,6 +174,7 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
       const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || item.id.toLowerCase().includes(searchTerm.toLowerCase());
       
       if (activeSubItem === 'estoque_mp') return matchesSearch && item.type === 'mp';
+      if (activeSubItem?.startsWith('mercadoria_')) return matchesSearch && item.type === 'mercadoria';
       if (activeSubItem === 'estoque_pa') {
         return matchesSearch && item.type === 'pa' && item.stockCategory === activeTab;
       }
@@ -219,6 +232,11 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
       case 'estoque_mp': return 'Estoque de Matéria-Prima';
       case 'estoque_pa': return 'Estoque de Produtos Acabados (PA)';
       case 'estoque_processo': return 'Estoque de Produtos em Processo';
+      case 'mercadoria_cadastro':
+      case 'mercadoria_movimentacoes':
+      case 'mercadoria_fornecedores':
+      case 'mercadoria_dashboard':
+        return 'Mercadorias para Revenda';
       case 'vendas_estoque_pa': return 'Estoque de Vendas (Produtos Acabados)';
       case 'vendas_estoque_kits': return 'Estoque de Vendas (Kits)';
       case 'compras_estoque_mp': return 'Estoque de Compras (Matéria-Prima)';
@@ -277,11 +295,14 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
     } else {
       setEditingItem(null);
       // Auto-set type based on activeSubItem
-      let defaultType: 'mp' | 'pa' | 'processo' = 'mp';
+      let defaultType: 'mp' | 'pa' | 'processo' | 'mercadoria' = 'mp';
       let defaultStockCategory: 'pronta_entrega' | 'sob_medida' = 'pronta_entrega';
       
       if (activeSubItem === 'estoque_mp' || activeSubItem === 'compras_estoque_mp') {
         defaultType = 'mp';
+        defaultStockCategory = 'pronta_entrega';
+      } else if (activeSubItem?.startsWith('mercadoria_')) {
+        defaultType = 'mercadoria';
         defaultStockCategory = 'pronta_entrega';
       } else if (activeSubItem === 'estoque_pa' || activeSubItem === 'vendas_estoque_pa') {
         defaultType = 'pa';
@@ -482,6 +503,7 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
   }, [inventory, stockMovements]);
 
   const isMP = activeSubItem === 'estoque_mp' || activeSubItem === 'compras_estoque_mp';
+  const isMercadoria = activeSubItem?.startsWith('mercadoria_');
 
   return (
     <div className="p-6 lg:p-8">
@@ -494,32 +516,40 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
           <p className="text-gray-500 text-sm mt-1">Controle de saldos, localizações e envelhecimento de produtos</p>
         </div>
         <div className="flex gap-3">
-          <button 
-            onClick={() => setIsEntryModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 transition-colors shadow-sm"
-          >
-            <ArrowDownCircle size={18} /> Dar Entrada
-          </button>
-          <button 
-            onClick={() => handleOpenModal()}
-            className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 transition-colors shadow-sm"
-          >
-            <Plus size={18} /> {isMP ? 'Novo Cadastro' : 'Novo Produto'}
-          </button>
+          {/* Button visibility logic */}
+          {((isMP && activeMainTab === 'cadastro') || isMercadoria || (!isMP && !isMercadoria && activeSubItem !== 'estoque_processo')) && (
+            <>
+              <button 
+                onClick={() => setIsEntryModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 transition-colors shadow-sm"
+              >
+                <ArrowDownCircle size={18} /> Dar Entrada
+              </button>
+              <button 
+                onClick={() => handleOpenModal()}
+                className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 transition-colors shadow-sm"
+              >
+                <Plus size={18} /> {isMP ? 'Novo Cadastro' : isMercadoria ? 'Nova Mercadoria' : 'Novo Produto'}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       {/* Main Tabs */}
       <div className="flex gap-4 mb-6 border-b border-gray-200">
-        <button
-          onClick={() => setActiveMainTab('cadastro')}
-          className={`pb-4 px-2 text-sm font-bold transition-all relative ${
-            activeMainTab === 'cadastro' ? 'text-orange-600' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Cadastro & Listagem
-          {activeMainTab === 'cadastro' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-600 rounded-t-full" />}
-        </button>
+        {/* Only show relevant tabs based on stock type */}
+        {(activeSubItem !== 'estoque_processo') && (
+          <button
+            onClick={() => setActiveMainTab('cadastro')}
+            className={`pb-4 px-2 text-sm font-bold transition-all relative ${
+              activeMainTab === 'cadastro' ? 'text-orange-600' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Cadastro & Listagem
+            {activeMainTab === 'cadastro' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-600 rounded-t-full" />}
+          </button>
+        )}
         <button
           onClick={() => setActiveMainTab('entrada')}
           className={`pb-4 px-2 text-sm font-bold transition-all relative ${
@@ -529,24 +559,29 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
           Almoxarifado (Movimentações)
           {activeMainTab === 'entrada' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-600 rounded-t-full" />}
         </button>
-        <button
-          onClick={() => setActiveMainTab('dashboard')}
-          className={`pb-4 px-2 text-sm font-bold transition-all relative ${
-            activeMainTab === 'dashboard' ? 'text-orange-600' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Dashboard & BI
-          {activeMainTab === 'dashboard' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-600 rounded-t-full" />}
-        </button>
-        <button
-          onClick={() => setActiveMainTab('fornecedores')}
-          className={`pb-4 px-2 text-sm font-bold transition-all relative ${
-            activeMainTab === 'fornecedores' ? 'text-orange-600' : 'text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Fornecedores
-          {activeMainTab === 'fornecedores' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-600 rounded-t-full" />}
-        </button>
+        {/* Dashboard and Fornecedores visibility */}
+        {(isMP || isMercadoria) && (
+          <>
+            <button
+              onClick={() => setActiveMainTab('dashboard')}
+              className={`pb-4 px-2 text-sm font-bold transition-all relative ${
+                activeMainTab === 'dashboard' ? 'text-orange-600' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Dashboard & BI
+              {activeMainTab === 'dashboard' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-600 rounded-t-full" />}
+            </button>
+            <button
+              onClick={() => setActiveMainTab('fornecedores')}
+              className={`pb-4 px-2 text-sm font-bold transition-all relative ${
+                activeMainTab === 'fornecedores' ? 'text-orange-600' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Fornecedores
+              {activeMainTab === 'fornecedores' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-600 rounded-t-full" />}
+            </button>
+          </>
+        )}
       </div>
 
       {activeMainTab === 'dashboard' ? (
@@ -991,25 +1026,25 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Código</th>
-                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">{isMP ? 'Material' : 'Produto'}</th>
+                  <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">{isMP ? 'Material' : isMercadoria ? 'Mercadoria' : 'Produto'}</th>
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Categoria</th>
-                  {isMP && (
+                  {(isMP || isMercadoria) && (
                     <>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Marca</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Modelo</th>
                     </>
                   )}
-                  {!isMP && (
+                  {!isMP && !isMercadoria && (
                     <>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Marca</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                     </>
                   )}
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Saldo</th>
-                  {isMP && (
+                  {(isMP || isMercadoria) && (
                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">T. Produção</th>
                   )}
-                  {!isMP && (
+                  {!isMP && !isMercadoria && (
                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Preço de Venda</th>
                   )}
                   <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Ações</th>
@@ -1031,7 +1066,7 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600 shrink-0">
-                            {item.type === 'mp' ? <Layers size={20} /> : item.type === 'pa' ? <Box size={20} /> : <History size={20} />}
+                            {item.type === 'mp' ? <Layers size={20} /> : item.type === 'pa' ? <Box size={20} /> : item.type === 'mercadoria' ? <ShoppingCart size={20} /> : <History size={20} />}
                           </div>
                           <div>
                             <p className="text-sm font-bold text-gray-900">{item.name}</p>
@@ -1044,13 +1079,13 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
                           {item.category || '-'}
                         </span>
                       </td>
-                      {isMP && (
+                      {(isMP || isMercadoria) && (
                         <>
                           <td className="px-6 py-4 text-sm text-gray-600">{item.brand || '-'}</td>
                           <td className="px-6 py-4 text-sm text-gray-600">{item.model || '-'}</td>
                         </>
                       )}
-                      {!isMP && (
+                      {!isMP && !isMercadoria && (
                         <>
                           <td className="px-6 py-4 text-sm text-gray-600">{item.brand || '-'}</td>
                           <td className="px-6 py-4">
@@ -1072,12 +1107,12 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
                             </div>
                           )}
                         </td>
-                      {isMP && (
+                      {(isMP || isMercadoria) && (
                         <td className="px-6 py-4">
                           <span className="text-sm text-gray-600">{item.productionTimePerUnit || 0} min/{item.unit}</span>
                         </td>
                       )}
-                      {!isMP && (
+                      {!isMP && !isMercadoria && (
                         <td className="px-6 py-4">
                           <span className="text-sm font-bold text-gray-900">
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
@@ -1172,7 +1207,7 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
                           value={formData.name}
                           onChange={(e) => setFormData({...formData, name: e.target.value})}
                           className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm" 
-                          placeholder={isMP ? "Ex: Chapa MDF 18mm Carvalho" : "Ex: Mesa de Jantar 6 Lugares"} 
+                          placeholder={isMP ? "Ex: Chapa MDF 18mm Carvalho" : isMercadoria ? "Ex: Furadeira Bosch" : "Ex: Mesa de Jantar 6 Lugares"} 
                         />
                       </div>
                       <div>
@@ -1182,7 +1217,7 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
                           value={formData.code}
                           onChange={(e) => setFormData({...formData, code: e.target.value})}
                           className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none text-sm" 
-                          placeholder="Ex: MP001" 
+                          placeholder={isMP ? "Ex: MP001" : isMercadoria ? "Ex: MER001" : "Ex: PA001"} 
                         />
                       </div>
                       <div>
@@ -1191,7 +1226,7 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
                           <button 
                             type="button"
                             onClick={() => {
-                              setQuickAddType(isMP ? 'mp_category' : 'pa_category');
+                              setQuickAddType(isMP ? 'mp_category' : isMercadoria ? 'mercadoria_category' : 'pa_category');
                               setIsQuickAddOpen(true);
                             }}
                             className="text-orange-600 hover:text-orange-700 p-1"
@@ -1206,14 +1241,14 @@ export const InventoryManagement: React.FC<ProductionInventoryProps> = ({ active
                         >
                           <option value="">Selecione...</option>
                           {stockConfigItems
-                            .filter(i => i.type === (isMP ? 'mp_category' : 'pa_category'))
+                            .filter(i => i.type === (isMP ? 'mp_category' : isMercadoria ? 'mercadoria_category' : 'pa_category'))
                             .map(i => (
                               <option key={i.id} value={i.name}>{i.name}</option>
                             ))
                           }
                         </select>
                       </div>
-                      {!isMP && (
+                      {!isMP && !isMercadoria && (
                         <div>
                           <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Destino</label>
                           <select 
