@@ -328,42 +328,16 @@ export const TransactionModal: React.FC = () => {
 
     // Special logic for Purchase (Compra) as requested by user
     if (formData.transactionTypeId === 'compra') {
-      const payment = formData.payments?.[0];
-      const isADefinir = payment?.method === 'A Definir';
-      
       // Ensure we find an ASSET account for Matéria Prima (usually starts with 1)
       const estoqueAcc = accountPlans.find(acc => acc.name === formData.category && acc.level === 'analitica' && acc.code.startsWith('1')) || 
                          accountPlans.find(acc => (acc.code === '1.1.03.10' || acc.code === '1.1.03') && acc.level === 'analitica') || 
                          accountPlans.find(acc => (acc.name.toLowerCase().includes('matéria prima') || acc.name.toLowerCase().includes('insumos') || acc.name.toLowerCase().includes('estoque')) && acc.level === 'analitica' && acc.code.startsWith('1'));
       
-      let paymentAcc: AccountPlan | undefined;
-      let taxAcc: AccountPlan | undefined;
-      let paymentDesc = '';
-      let taxDesc = 'Imposto a Recuperar (Ativo)';
+      const taxAcc = accountPlans.find(acc => (acc.code === '1.1.04.01' || acc.name.toLowerCase().includes('imposto a recuperar')) && acc.level === 'analitica');
 
-      if (isADefinir) {
-        paymentAcc = accountPlans.find(acc => (acc.code === '2.1.01.01' || acc.name.toLowerCase().includes('fornecedores')) && acc.level === 'analitica');
-        paymentDesc = 'Contas a Pagar (Fornecedores)';
-      } else {
-        // Try to find bank account first
-        const account = accounts.find(a => a.id === payment?.bankId);
-        if (account && account.accountPlanId) {
-          paymentAcc = accountPlans.find(ap => ap.id === account.accountPlanId && ap.level === 'analitica');
-        }
-        
-        if (!paymentAcc) {
-          if (payment?.method === 'Dinheiro' || payment?.method === 'Espécie') {
-            paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.01' || acc.name.toLowerCase().includes('caixa')) && acc.level === 'analitica');
-          } else {
-            paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.02' || acc.name.toLowerCase().includes('banco')) && acc.level === 'analitica');
-          }
-        }
-        paymentDesc = `Pagamento (${payment?.method || 'Caixa/Banco'})`;
-      }
-
-      taxAcc = accountPlans.find(acc => (acc.code === '1.1.04.01' || acc.name.toLowerCase().includes('imposto a recuperar')) && acc.level === 'analitica');
-
-      // Scenario A & B: D: Materia Prima e Insumos (Ativo)
+      // --- Entry 1: Purchase Recognition (D: Inventory, D: Taxes, C: Payments) ---
+      
+      // Debit: Inventory
       newSplits.push({
         accountPlanId: estoqueAcc?.id || '',
         accountPlanName: estoqueAcc?.name || '',
@@ -374,29 +348,50 @@ export const TransactionModal: React.FC = () => {
         entryId: '1'
       });
 
-      // Scenario A & B: C: Banco/Caixa or Fornecedores
+      // Debit: Taxes (Recoverable)
       newSplits.push({
-        accountPlanId: paymentAcc?.id || '',
-        accountPlanName: paymentAcc?.name || '',
-        accountPlanCode: paymentAcc?.code || '',
-        value: netValue,
-        type: 'credit',
-        description: paymentDesc,
+        accountPlanId: taxAcc?.id || '',
+        accountPlanName: taxAcc?.name || '',
+        accountPlanCode: taxAcc?.code || '',
+        value: 0, // User can fill if there are recoverable taxes
+        type: 'debit',
+        description: 'Impostos a Recuperar (Ativo)',
         entryId: '1'
       });
 
-      // Scenario A: D: Impostos a recuperar (Ativo)
-      if (!isADefinir) {
+      // Credits: Payments
+      (formData.payments || []).forEach(payment => {
+        let paymentAcc: AccountPlan | undefined;
+        let paymentDesc = '';
+
+        if (payment.method === 'A Definir') {
+          paymentAcc = accountPlans.find(acc => (acc.code === '2.1.01.01' || acc.name.toLowerCase().includes('fornecedores')) && acc.level === 'analitica');
+          paymentDesc = 'Contas a Pagar (Fornecedores)';
+        } else {
+          const account = accounts.find(a => a.id === payment.bankId);
+          if (account && account.accountPlanId) {
+            paymentAcc = accountPlans.find(ap => ap.id === account.accountPlanId && ap.level === 'analitica');
+          }
+          if (!paymentAcc) {
+            if (payment.method === 'Dinheiro' || payment.method === 'Espécie') {
+              paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.01' || acc.name.toLowerCase().includes('caixa')) && acc.level === 'analitica');
+            } else {
+              paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.02' || acc.name.toLowerCase().includes('banco')) && acc.level === 'analitica');
+            }
+          }
+          paymentDesc = `Pagamento (${payment.method || 'Caixa/Banco'})`;
+        }
+
         newSplits.push({
-          accountPlanId: taxAcc?.id || '',
-          accountPlanName: taxAcc?.name || '',
-          accountPlanCode: taxAcc?.code || '',
-          value: 0, // User can fill if there are recoverable taxes
-          type: 'debit',
-          description: 'Impostos a Recuperar (Ativo)',
+          accountPlanId: paymentAcc?.id || '',
+          accountPlanName: paymentAcc?.name || '',
+          accountPlanCode: paymentAcc?.code || '',
+          value: payment.value,
+          type: 'credit',
+          description: paymentDesc,
           entryId: '1'
         });
-      }
+      });
 
       setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
       return;
@@ -404,48 +399,56 @@ export const TransactionModal: React.FC = () => {
 
     // Special logic for Sale (Venda) as requested by user
     if (formData.transactionTypeId === 'venda') {
-      const payment = formData.payments?.[0];
-      const isADefinir = payment?.method === 'A Definir';
-      
-      let paymentAcc: AccountPlan | undefined;
-      let paymentDesc = '';
-
-      if (isADefinir) {
-        paymentAcc = accountPlans.find(acc => (acc.code === '1.1.02.01' || acc.name.toLowerCase().includes('clientes')) && acc.level === 'analitica');
-        paymentDesc = 'Contas a Receber (Clientes)';
-      } else {
-        const account = accounts.find(a => a.id === payment?.bankId);
-        if (account && account.accountPlanId) {
-          paymentAcc = accountPlans.find(ap => ap.id === account.accountPlanId && ap.level === 'analitica');
-        }
-        if (!paymentAcc) {
-          if (payment?.method === 'Dinheiro' || payment?.method === 'Espécie') {
-            paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.01' || acc.name.toLowerCase().includes('caixa')) && acc.level === 'analitica');
-          } else {
-            paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.02' || acc.name.toLowerCase().includes('banco')) && acc.level === 'analitica');
-          }
-        }
-        paymentDesc = `Recebimento (${payment?.method || 'Caixa/Banco'})`;
-      }
-
-      // Revenue account (Credit)
+      // 1. Revenue account (Credit)
       const receitaAcc = accountPlans.find(acc => (acc.name.toLowerCase().includes('venda de produto') || acc.name.toLowerCase().includes('receita de venda')) && acc.level === 'analitica' && (acc.type === 'receita' || acc.code.startsWith('3')));
-      // Liability account (Credit)
-      const impostoPassivoAcc = accountPlans.find(acc => (acc.name.toLowerCase().includes('impostos a recolher') || acc.name.toLowerCase().includes('icms a recolher')) && acc.level === 'analitica' && (acc.type === 'passivo' || acc.code.startsWith('2')));
-      // Cost account (Debit) - User referred to this as "D: Venda de produto"
-      const custoAcc = accountPlans.find(acc => (acc.name.toLowerCase().includes('venda de produto') || acc.name.toLowerCase().includes('custo') || acc.name.toLowerCase().includes('cmv')) && acc.level === 'analitica' && (acc.type === 'despesa' || acc.code.startsWith('4') || acc.code.startsWith('5')));
-      // Inventory account (Credit) - Asset
-      const estoqueAcc = accountPlans.find(acc => (acc.name.toLowerCase().includes('matéria prima') || acc.name.toLowerCase().includes('insumos') || acc.name.toLowerCase().includes('estoque')) && acc.level === 'analitica' && acc.code.startsWith('1'));
+      
+      // 2. Liability accounts (Credit)
+      const icmsAcc = accountPlans.find(acc => acc.name.toLowerCase().includes('icms a recolher') && acc.level === 'analitica');
+      const issAcc = accountPlans.find(acc => acc.name.toLowerCase().includes('iss a recolher') && acc.level === 'analitica');
+      const impostoPassivoAcc = icmsAcc || accountPlans.find(acc => (acc.name.toLowerCase().includes('impostos a recolher')) && acc.level === 'analitica');
+      
+      // 3. Cost account (Debit)
+      const custoAcc = accountPlans.find(acc => (acc.name.toLowerCase().includes('cpv') || acc.name.toLowerCase().includes('custo do produto vendido')) && acc.level === 'analitica');
+      
+      // 4. Inventory account (Credit) - Asset
+      const estoqueAcc = accountPlans.find(acc => (acc.name.toLowerCase().includes('produtos acabados')) && acc.level === 'analitica' && acc.code.startsWith('1')) ||
+                         accountPlans.find(acc => (acc.name.toLowerCase().includes('estoque')) && acc.level === 'analitica' && acc.code.startsWith('1'));
 
-      // Lançamento A/B: Emissão da Nota Fiscal
-      newSplits.push({
-        accountPlanId: paymentAcc?.id || '',
-        accountPlanName: paymentAcc?.name || '',
-        accountPlanCode: paymentAcc?.code || '',
-        value: netValue,
-        type: 'debit',
-        description: paymentDesc,
-        entryId: '1'
+      // 5. Revenue deduction account (Debit)
+      const deducaoAcc = accountPlans.find(acc => (acc.name.toLowerCase().includes('dedução de vendas') || acc.name.toLowerCase().includes('impostos sobre vendas')) && acc.level === 'analitica');
+
+      // --- Entry 1: Sale Recognition (Multiple Debits from payments, Single Credit to Revenue) ---
+      (formData.payments || []).forEach(payment => {
+        let paymentAcc: AccountPlan | undefined;
+        let paymentDesc = '';
+
+        if (payment.method === 'A Definir') {
+          paymentAcc = accountPlans.find(acc => (acc.code === '1.1.02.01' || acc.name.toLowerCase().includes('clientes')) && acc.level === 'analitica');
+          paymentDesc = 'Contas a Receber (Clientes)';
+        } else {
+          const account = accounts.find(a => a.id === payment.bankId);
+          if (account && account.accountPlanId) {
+            paymentAcc = accountPlans.find(ap => ap.id === account.accountPlanId && ap.level === 'analitica');
+          }
+          if (!paymentAcc) {
+            if (payment.method === 'Dinheiro' || payment.method === 'Espécie') {
+              paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.01' || acc.name.toLowerCase().includes('caixa')) && acc.level === 'analitica');
+            } else {
+              paymentAcc = accountPlans.find(acc => (acc.code === '1.1.01.02' || acc.name.toLowerCase().includes('banco')) && acc.level === 'analitica');
+            }
+          }
+          paymentDesc = `Recebimento (${payment.method || 'Caixa/Banco'})`;
+        }
+
+        newSplits.push({
+          accountPlanId: paymentAcc?.id || '',
+          accountPlanName: paymentAcc?.name || '',
+          accountPlanCode: paymentAcc?.code || '',
+          value: payment.value,
+          type: 'debit',
+          description: paymentDesc,
+          entryId: '1'
+        });
       });
 
       newSplits.push({
@@ -454,11 +457,44 @@ export const TransactionModal: React.FC = () => {
         accountPlanCode: receitaAcc?.code || '',
         value: netValue,
         type: 'credit',
-        description: 'Receita de Venda de Produtos',
+        description: 'Venda de Produto',
         entryId: '1'
       });
 
-      // Lançamento C: Baixa no Estoque
+      // --- Entry 2: Taxes (D: Dedução, C: ICMS, C: ISS) ---
+      newSplits.push({
+        accountPlanId: deducaoAcc?.id || '',
+        accountPlanName: deducaoAcc?.name || '',
+        accountPlanCode: deducaoAcc?.code || '',
+        value: 0,
+        type: 'debit',
+        description: 'Dedução de Vendas (Impostos)',
+        entryId: '2'
+      });
+
+      newSplits.push({
+        accountPlanId: icmsAcc?.id || impostoPassivoAcc?.id || '',
+        accountPlanName: icmsAcc?.name || impostoPassivoAcc?.name || '',
+        accountPlanCode: icmsAcc?.code || impostoPassivoAcc?.code || '',
+        value: 0,
+        type: 'credit',
+        description: 'ICMS a Recolher',
+        entryId: '2'
+      });
+
+      if (issAcc) {
+        newSplits.push({
+          accountPlanId: issAcc.id,
+          accountPlanName: issAcc.name,
+          accountPlanCode: issAcc.code,
+          value: 0,
+          type: 'credit',
+          description: 'ISS a Recolher',
+          entryId: '2'
+        });
+      }
+
+      // --- Entry 3: Inventory Reduction (D: CPV, C: Produtos Acabados) ---
       newSplits.push({
         accountPlanId: custoAcc?.id || '',
         accountPlanName: custoAcc?.name || '',
@@ -466,7 +502,7 @@ export const TransactionModal: React.FC = () => {
         value: 0,
         type: 'debit',
         description: 'Custo do Produto Vendido (CPV)',
-        entryId: '2'
+        entryId: '3'
       });
 
       newSplits.push({
@@ -475,31 +511,70 @@ export const TransactionModal: React.FC = () => {
         accountPlanCode: estoqueAcc?.code || '',
         value: 0,
         type: 'credit',
-        description: 'Baixa de Matéria Prima e Insumos (Ativo)',
-        entryId: '2'
-      });
-
-      // Lançamento D: Impostos (Optional separate entry)
-      newSplits.push({
-        accountPlanId: impostoPassivoAcc?.id || '',
-        accountPlanName: impostoPassivoAcc?.name || '',
-        accountPlanCode: impostoPassivoAcc?.code || '',
-        value: 0,
-        type: 'credit',
-        description: 'Impostos a Recolher (Venda)',
+        description: 'Baixa de Produtos Acabados (Ativo)',
         entryId: '3'
       });
 
-      // To balance Entry 3, we usually debit a revenue deduction account
-      const deducaoAcc = accountPlans.find(acc => acc.name.toLowerCase().includes('impostos sobre vendas') && acc.level === 'analitica');
+      setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
+      return;
+    }
+
+    if (formData.transactionTypeId === 'pagamento' || formData.transactionTypeId === 'recebimento') {
+      const isRecebimento = formData.transactionTypeId === 'recebimento';
+      const payment = formData.payments?.[0];
+      
+      // 1. Account for the debt/credit (Clientes or Fornecedores)
+      let debtAcc: AccountPlan | undefined;
+      let debtDesc = '';
+      let debtType: 'debit' | 'credit';
+
+      if (isRecebimento) {
+        debtAcc = accountPlans.find(acc => (acc.code === '1.1.02.01' || acc.name.toLowerCase().includes('clientes')) && acc.level === 'analitica');
+        debtDesc = 'Baixa de Clientes (Contas a Receber)';
+        debtType = 'credit';
+      } else {
+        debtAcc = accountPlans.find(acc => (acc.code === '2.1.01.01' || acc.name.toLowerCase().includes('fornecedores')) && acc.level === 'analitica');
+        debtDesc = 'Baixa de Fornecedores (Contas a Pagar)';
+        debtType = 'debit';
+      }
+
+      // 2. Account for the money (Banco or Caixa)
+      let moneyAcc: AccountPlan | undefined;
+      let moneyDesc = '';
+      let moneyType: 'debit' | 'credit' = isRecebimento ? 'debit' : 'credit';
+
+      const account = accounts.find(a => a.id === payment?.bankId);
+      if (account && account.accountPlanId) {
+        moneyAcc = accountPlans.find(ap => ap.id === account.accountPlanId && ap.level === 'analitica');
+      }
+      
+      if (!moneyAcc) {
+        if (payment?.method === 'Dinheiro' || payment?.method === 'Espécie') {
+          moneyAcc = accountPlans.find(acc => (acc.code === '1.1.01.01' || acc.name.toLowerCase().includes('caixa')) && acc.level === 'analitica');
+        } else {
+          moneyAcc = accountPlans.find(acc => (acc.code === '1.1.01.02' || acc.name.toLowerCase().includes('banco')) && acc.level === 'analitica');
+        }
+      }
+      moneyDesc = `${isRecebimento ? 'Recebimento' : 'Pagamento'} (${payment?.method || 'Caixa/Banco'})`;
+
       newSplits.push({
-        accountPlanId: deducaoAcc?.id || '',
-        accountPlanName: deducaoAcc?.name || '',
-        accountPlanCode: deducaoAcc?.code || '',
-        value: 0,
-        type: 'debit',
-        description: 'Dedução de Receita (Impostos)',
-        entryId: '3'
+        accountPlanId: moneyAcc?.id || '',
+        accountPlanName: moneyAcc?.name || '',
+        accountPlanCode: moneyAcc?.code || '',
+        value: netValue,
+        type: moneyType,
+        description: moneyDesc,
+        entryId: '1'
+      });
+
+      newSplits.push({
+        accountPlanId: debtAcc?.id || '',
+        accountPlanName: debtAcc?.name || '',
+        accountPlanCode: debtAcc?.code || '',
+        value: netValue,
+        type: debtType,
+        description: debtDesc,
+        entryId: '1'
       });
 
       setFormData(prev => ({ ...prev, multiAccounts: newSplits }));
@@ -519,16 +594,6 @@ export const TransactionModal: React.FC = () => {
         mainDescription = 'Adiantamento Recebido (Selecione conta analítica)';
       } else if (formData.transactionTypeId === 'adiantamento_fornecedor') {
         mainDescription = 'Adiantamento Pago (Selecione conta analítica)';
-      } else if (formData.transactionTypeId === 'pagamento') {
-        // Paying a debt: Debit Fornecedores
-        mainAccount = accountPlans.find(acc => (acc.code === '2.1.01.01' || acc.name.toLowerCase().includes('fornecedores')) && acc.level === 'analitica');
-        mainDescription = 'Baixa de Fornecedores';
-        mainType = 'debit';
-      } else if (formData.transactionTypeId === 'recebimento') {
-        // Receiving a credit: Credit Clientes
-        mainAccount = accountPlans.find(acc => (acc.code === '1.1.02.01' || acc.name.toLowerCase().includes('clientes')) && acc.level === 'analitica');
-        mainDescription = 'Baixa de Clientes';
-        mainType = 'credit';
       } else if (formData.transactionTypeId === 'venda') {
         mainDescription = 'Receita de Venda (Selecione conta analítica)';
       } else if (formData.transactionTypeId === 'compra') {
