@@ -65,7 +65,9 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           source: l.source,
           probability: l.probability,
           expectedCloseDate: l.expected_close_date,
-          orderDescription: l.order_description
+          orderDescription: l.order_description,
+          environment: l.environment,
+          responsibleName: l.responsible_name
         })));
       }
 
@@ -440,7 +442,9 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           number: lead.number,
           neighborhood: lead.neighborhood,
           city: lead.city,
-          state: lead.state
+          state: lead.state,
+          environment: lead.environment,
+          responsible_name: lead.responsibleName
         }])
         .select()
         .single();
@@ -510,7 +514,9 @@ export const SalesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           number: lead.number,
           neighborhood: lead.neighborhood,
           city: lead.city,
-          state: lead.state
+          state: lead.state,
+          environment: lead.environment,
+          responsible_name: lead.responsibleName
         })
         .eq('id', lead.id);
       

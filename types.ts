@@ -45,12 +45,26 @@ export enum ModuleId {
   
   // Produção Modules
   PRODUCAO_DASHBOARD = 'producao_dashboard',
+  PRODUCAO_PCP = 'producao_pcp',
   PRODUCAO_ORDENS = 'producao_ordens',
+  PRODUCAO_CRONOGRAMA = 'producao_cronograma',
+  PRODUCAO_CORTE = 'producao_corte',
+  PRODUCAO_BORDEAMENTO = 'producao_bordeamento',
+  PRODUCAO_USINAGEM = 'producao_usinagem',
+  PRODUCAO_MONTAGEM = 'producao_montagem',
+  PRODUCAO_ACABAMENTO = 'producao_acabamento',
+  PRODUCAO_INSTALACAO = 'producao_instalacao',
+  PRODUCAO_INSTALACAO_BR = 'producao_instalacao_br',
+  PRODUCAO_APONTAMENTOS = 'producao_apontamentos',
+  PRODUCAO_QUALIDADE = 'producao_qualidade',
+  PRODUCAO_RETRABALHO = 'producao_retrabalho',
+  PRODUCAO_MANUTENCAO = 'producao_manutencao',
+  PRODUCAO_KPI = 'producao_kpis',
+  PRODUCAO_INDICADORES = 'producao_indicadores',
+  PRODUCAO_RELATORIOS = 'producao_relatorios',
   PRODUCAO_ESTOQUE = 'producao_estoque',
   ESTOQUE_MERCADORIAS = 'estoque_mercadorias',
   PRODUCAO_MAQUINAS = 'producao_maquinas',
-  PRODUCAO_QUALIDADE = 'producao_qualidade',
-  PRODUCAO_MANUTENCAO = 'producao_manutencao',
   PRODUCAO_CONFIG = 'producao_config',
   
   // Vendas Modules
@@ -62,10 +76,18 @@ export enum ModuleId {
   VENDAS_ORCAMENTOS = 'vendas_orçamentos',
   VENDAS_PROPOSTAS = 'vendas_propostas',
   VENDAS_CLIENTES = 'vendas_clientes',
+  VENDAS_VISITAS = 'vendas_visitas',
+  VENDAS_PROJETOS = 'vendas_projetos',
+  VENDAS_NEGOCIACAO = 'vendas_negociacao',
+  VENDAS_CONTRATOS = 'vendas_contratos',
+  VENDAS_APROVACOES = 'vendas_aprovacoes',
+  VENDAS_FOLLOW_UP = 'vendas_follow_up',
+  VENDAS_POS_VENDA = 'vendas_pos_venda',
   VENDAS_CATALOGO = 'vendas_catalogo',
   VENDAS_METAS = 'vendas_metas',
   VENDAS_ESTOQUE = 'vendas_estoque',
   VENDAS_CONFIG = 'vendas_config',
+  ENTREGAS_INSTALACAO = 'entregas_instalacao',
 
   // Compras Modules
   COMPRAS_DASHBOARD = 'compras_dashboard',
@@ -291,13 +313,14 @@ export interface JobRole {
 export enum LeadStatus {
   NEW = 'new',
   QUALIFICATION = 'qualification',
-  QUOTE = 'quote',
+  VISIT_SCHEDULED = 'visit_scheduled',
+  VISIT_DONE = 'visit_done',
+  PROJECT = 'project',
+  PROPOSAL = 'proposal',
   NEGOTIATION = 'negotiation',
-  ORDER_CONFIRMED = 'order_confirmed',
-  PRODUCTION = 'production',
-  DELIVERY = 'delivery',
   WON = 'won',
-  POST_SALE = 'post_sale',
+  ORDER = 'order',
+  MEETING = 'meeting',
   LOST = 'lost'
 }
 
@@ -334,6 +357,8 @@ export interface Quote {
   otherExpenses?: number;
   commission?: number;
   shipping?: number;
+  installments?: number;
+  taxes?: number;
   laborMinutes?: number;
   laborCost?: number;
   indirectCosts?: number;
@@ -466,6 +491,38 @@ export interface Lead {
   neighborhood?: string;
   city?: string;
   state?: string;
+  zipCode?: string;
+  complement?: string;
+  country?: string;
+  responsibleId?: string;
+  responsibleName?: string;
+  environment?: string; // e.g., "Cozinha Planejada"
+  activities?: LeadActivity[];
+  
+  // New fields from UI image
+  leadType?: string;
+  cpfCnpj?: string;
+  rgIe?: string;
+  birthDate?: string;
+  maritalStatus?: string;
+  altPhone?: string;
+  altEmail?: string;
+  whatsapp?: string;
+  instagram?: string;
+  mainInterest?: string;
+  budgetRange?: string;
+  purchasePotential?: string;
+  urgency?: string;
+  tags?: string[];
+}
+
+export interface LeadActivity {
+  id: string;
+  leadId: string;
+  type: 'call' | 'email' | 'meeting' | 'note';
+  description: string;
+  date: string;
+  userName: string;
 }
 
 export interface Customer {
@@ -478,7 +535,7 @@ export interface Customer {
   contactName?: string;
   email: string;
   phone: string;
-  status: 'active' | 'inactive' | 'finalizar_cadastro';
+  status: 'active' | 'inactive' | 'finalizar_cadastro' | 'premium' | 'recorrente';
   address?: string;
   street?: string;
   number?: string;
@@ -486,6 +543,8 @@ export interface Customer {
   city?: string;
   state?: string;
   zipCode?: string;
+  birthday?: string;
+  observations?: string;
   createdAt: string;
   lead_id?: string;
 }

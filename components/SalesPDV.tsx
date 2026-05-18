@@ -23,6 +23,7 @@ export const SalesPDV: React.FC = () => {
   const { sales, addSale, paymentMethods, isLoading } = useSales();
   const { inventory } = useProduction();
   const [cart, setCart] = useState<{ product: Product; quantity: number }[]>([]);
+  const [isCartVisible, setIsCartVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [selectedSalespersonId, setSelectedSalespersonId] = useState<string>('');
@@ -69,6 +70,7 @@ export const SalesPDV: React.FC = () => {
   };
 
   const total = cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
+  const cartItemCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   const selectedPaymentMethod = useMemo(() => 
     paymentMethods.find(pm => pm.id === selectedPaymentMethodId),
@@ -177,32 +179,51 @@ export const SalesPDV: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-gray-50 overflow-hidden relative">
       {/* PDV Tabs */}
-      <div className="bg-white border-b border-gray-200 px-6 flex items-center gap-6 h-14 shrink-0">
-        <button 
-          onClick={() => setActiveTab('sale')}
-          className={`flex items-center gap-2 h-full px-2 border-b-2 transition-all text-sm font-bold ${activeTab === 'sale' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-        >
-          <ShoppingCart size={18} />
-          Nova Venda
-        </button>
-        <button 
-          onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-2 h-full px-2 border-b-2 transition-all text-sm font-bold ${activeTab === 'history' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
-        >
-          <History size={18} />
-          Histórico de Vendas
-        </button>
+      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 flex items-center justify-between h-14 shrink-0">
+        <div className="flex items-center gap-4 sm:gap-6 h-full">
+          <button 
+            onClick={() => setActiveTab('sale')}
+            className={`flex items-center gap-2 h-full px-2 border-b-2 transition-all text-sm font-bold ${activeTab === 'sale' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+          >
+            <ShoppingCart size={18} />
+            <span className="hidden sm:inline">Nova Venda</span>
+            <span className="sm:hidden">Nova Venda</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('history')}
+            className={`flex items-center gap-2 h-full px-2 border-b-2 transition-all text-sm font-bold ${activeTab === 'history' ? 'border-emerald-600 text-emerald-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}
+          >
+            <History size={18} />
+            <span className="hidden sm:inline">Histórico de Vendas</span>
+            <span className="sm:hidden">Histórico</span>
+          </button>
+        </div>
+
+        {activeTab === 'sale' && (
+          <button 
+            onClick={() => setIsCartVisible(!isCartVisible)}
+            className="lg:hidden relative p-2 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100"
+          >
+            <ShoppingCart size={20} />
+            {cartItemCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-600 text-[10px] text-white flex items-center justify-center rounded-full font-black border-2 border-white">
+                {cartItemCount}
+              </span>
+            )}
+          </button>
+        )}
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         {activeTab === 'sale' ? (
           <>
             {/* Products Selection */}
-            <div className="flex-1 flex flex-col p-6 overflow-hidden">
-              <div className="mb-6">
+            <div className="flex-1 flex flex-col p-4 sm:p-6 overflow-hidden">
+              <div className="mb-4 sm:mb-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    PDV - Venda Rápida
+                  <h1 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
+                    <span className="hidden sm:inline">PDV - Venda Rápida</span>
+                    <span className="sm:hidden">Nova Venda</span>
                     {isLoading && <History className="animate-spin text-blue-500" size={20} />}
                   </h1>
                 </div>
@@ -210,47 +231,36 @@ export const SalesPDV: React.FC = () => {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                   <input
                     type="text"
-                    placeholder="Buscar produto por nome, código ou categoria..."
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+                    placeholder="Filtrar produtos..."
+                    className="w-full pl-10 pr-4 py-2 sm:py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all text-sm"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto pb-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 overflow-y-auto pb-6">
                 {filteredProducts.map(product => (
                   <button
                     key={product.id}
                     onClick={() => addToCart(product)}
-                    className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all text-left group"
+                    className="bg-white p-3 sm:p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all text-left group"
                   >
-                    <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center text-gray-400 group-hover:bg-emerald-50 group-hover:text-emerald-500 transition-colors overflow-hidden">
+                    <div className="aspect-square bg-gray-100 rounded-lg mb-2 sm:mb-3 flex items-center justify-center text-gray-400 group-hover:bg-emerald-50 group-hover:text-emerald-500 transition-colors overflow-hidden">
                       {product.image ? (
                         <img src={product.image} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
                         <Package size={32} />
                       )}
                     </div>
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="font-semibold text-gray-800 truncate flex-1" title={product.name}>{product.name}</h3>
-                      <span className="text-[10px] font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-500 ml-2">
-                        {product.code}
-                      </span>
+                    <div className="flex justify-between items-start mb-1 h-8 sm:h-auto overflow-hidden">
+                      <h3 className="text-xs sm:text-sm font-semibold text-gray-800 line-clamp-2" title={product.name}>{product.name}</h3>
                     </div>
-                    <p className="text-xs text-gray-500 mb-2">{product.category}</p>
-                    <div className="flex justify-between items-center">
-                      <div className="flex flex-col">
-                        <span className="text-emerald-600 font-bold">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
-                        </span>
-                        {product.estimatedCost && (
-                          <span className="text-[9px] text-gray-400 italic">
-                            Custo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.estimatedCost)}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] bg-gray-100 px-2 py-1 rounded text-gray-600">
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-auto gap-1">
+                      <span className="text-emerald-600 font-bold text-xs sm:text-sm">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(product.price)}
+                      </span>
+                      <span className="text-[10px] bg-gray-50 px-1.5 py-0.5 rounded text-gray-500 text-center">
                         Estoque: {product.stock}
                       </span>
                     </div>
@@ -259,17 +269,26 @@ export const SalesPDV: React.FC = () => {
               </div>
             </div>
 
-            {/* Cart and Checkout */}
-            <div className="w-96 bg-white border-l border-gray-200 flex flex-col shadow-xl overflow-hidden">
-              <div className="p-6 border-b border-gray-100 shrink-0">
-                <div className="flex items-center gap-2 text-gray-800 mb-1">
+            {/* Cart and Checkout - Fixed Overlay on Mobile, Sidebar on Desktop */}
+            <div className={`
+              ${isCartVisible ? 'fixed inset-0 z-40' : 'hidden lg:flex'} 
+              lg:relative lg:inset-auto lg:w-96 bg-white border-l border-gray-200 flex-col shadow-xl overflow-hidden animate-in slide-in-from-right duration-300
+            `}>
+              <div className="p-4 sm:p-6 border-b border-gray-100 shrink-0 flex justify-between items-center bg-gray-50/50">
+                <div className="flex items-center gap-2 text-gray-800">
                   <ShoppingCart size={20} className="text-emerald-600" />
-                  <h2 className="text-lg font-bold">Carrinho de Vendas</h2>
+                  <h2 className="text-lg font-bold">Carrinho</h2>
+                  <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">{cartItemCount}</span>
                 </div>
-                <p className="text-xs text-gray-500">Adicione itens para iniciar a venda</p>
+                <button 
+                  onClick={() => setIsCartVisible(false)}
+                  className="lg:hidden p-2 hover:bg-gray-200 rounded-full transition-colors"
+                >
+                  <X size={20} />
+                </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0 bg-white">
                 {cart.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-gray-400 opacity-60">
                     <ShoppingCart size={48} className="mb-2" />
@@ -280,20 +299,19 @@ export const SalesPDV: React.FC = () => {
                     <div key={item.product.id} className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg group">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-gray-800 truncate" title={item.product.name}>{item.product.name}</p>
-                          <span className="text-[10px] text-gray-400 font-mono">{item.product.code}</span>
+                          <p className="text-xs sm:text-sm font-medium text-gray-800 truncate" title={item.product.name}>{item.product.name}</p>
                         </div>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-[10px] sm:text-xs text-gray-500">
                           {item.quantity}x {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.product.price)}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-gray-900">
+                        <span className="text-xs sm:text-sm font-bold text-gray-900">
                           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.product.price * item.quantity)}
                         </span>
                         <button 
                           onClick={() => removeFromCart(item.product.id)}
-                          className="text-gray-400 hover:text-red-500 transition-colors"
+                          className="text-gray-400 hover:text-red-500 transition-colors p-1"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -303,7 +321,7 @@ export const SalesPDV: React.FC = () => {
                 )}
               </div>
 
-              <div className="p-6 bg-gray-50 border-t border-gray-200 space-y-4 overflow-y-auto max-h-[60%] shrink-0">
+              <div className="p-4 sm:p-6 bg-gray-50 border-t border-gray-200 space-y-4 overflow-y-auto max-h-[70%] shrink-0">
                 {/* Salesperson Selection */}
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-500 uppercase flex items-center gap-1">
@@ -314,7 +332,7 @@ export const SalesPDV: React.FC = () => {
                     onChange={(e) => setSelectedSalespersonId(e.target.value)}
                     className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
                   >
-                    <option value="">Selecione o Vendedor</option>
+                    <option value="">Selecione...</option>
                     {salespeople.map(s => (
                       <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
@@ -324,7 +342,7 @@ export const SalesPDV: React.FC = () => {
                 {/* CPF Input */}
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-gray-500 uppercase flex items-center gap-1">
-                    <User size={12} /> CPF do Cliente (Opcional)
+                    <User size={12} /> CPF Cliente (Opt.)
                   </label>
                   <input
                     type="text"
@@ -335,136 +353,86 @@ export const SalesPDV: React.FC = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between text-gray-600">
-                    <span>Subtotal</span>
-                    <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>Desconto ({selectedPaymentMethod?.discount || 0}%)</span>
-                    <span className="text-red-500">
-                      - {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(discountAmount)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-gray-200">
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-gray-600 font-bold border-t border-gray-200 pt-2">
                     <span>Total</span>
-                    <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalTotal)}</span>
+                    <span className="text-emerald-700">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(finalTotal)}</span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 pb-2">
                   {paymentMethods.filter(pm => pm.active).map(pm => (
                     <button
                       key={pm.id}
                       onClick={() => setSelectedPaymentMethodId(pm.id)}
                       className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all ${
-                        selectedPaymentMethodId === pm.id ? 'bg-emerald-50 border-emerald-500 text-emerald-600' : 'bg-white border-gray-200 text-gray-500 hover:border-emerald-200'
+                        selectedPaymentMethodId === pm.id ? 'bg-emerald-50 border-emerald-500 text-emerald-600 shadow-sm' : 'bg-white border-gray-200 text-gray-400 hover:border-emerald-100'
                       }`}
                     >
-                      {pm.name.toLowerCase().includes('pix') ? <QrCode size={20} /> : 
-                       pm.name.toLowerCase().includes('cartão') || pm.name.toLowerCase().includes('credito') || pm.name.toLowerCase().includes('debito') ? <CreditCard size={20} /> : 
-                       <Banknote size={20} />}
-                      <span className="text-[10px] font-bold">{pm.name}</span>
-                      {pm.discount > 0 && (
-                        <span className="text-[8px] bg-emerald-100 text-emerald-700 px-1 rounded">
-                          -{pm.discount}%
-                        </span>
-                      )}
+                      <span className="text-[9px] font-bold whitespace-nowrap overflow-hidden text-ellipsis w-full text-center tracking-tight">{pm.name}</span>
                     </button>
                   ))}
                 </div>
 
-                {selectedPaymentMethod?.name === 'Parcelado' && (
-                  <div className="grid grid-cols-2 gap-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-emerald-700 uppercase">Valor Pago (Entrada)</label>
-                      <input
-                        type="number"
-                        className="w-full bg-white border border-emerald-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
-                        value={paidAmount}
-                        onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-emerald-700 uppercase">Data do Vencimento</label>
-                      <input
-                        type="date"
-                        className="w-full bg-white border border-emerald-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
-                        value={dueDate}
-                        onChange={(e) => setDueDate(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                )}
-
                 <button
                   onClick={handleFinalizeSale}
                   disabled={cart.length === 0 || !selectedPaymentMethodId || !selectedSalespersonId}
-                  className="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-700 disabled:bg-gray-300 disabled:shadow-none transition-all flex items-center justify-center gap-2"
+                  className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-100 hover:bg-emerald-700 disabled:bg-gray-300 transition-all flex items-center justify-center gap-2"
                 >
                   Finalizar Venda
-                  <Plus size={20} />
                 </button>
               </div>
             </div>
           </>
         ) : (
-          <div className="flex-1 p-8 overflow-y-auto">
+          <div className="flex-1 p-4 sm:p-8 overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
                 <History className="text-emerald-600" />
-                Histórico de Vendas PDV
+                Histórico PDV
               </h2>
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Venda</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Data</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Operador</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Cliente</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Total</th>
-                    <th className="px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {sales.filter(s => s.origin === 'pdv').map(sale => (
-                    <tr key={sale.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-bold text-gray-900">{sale.id}</span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {new Date(sale.date).toLocaleString('pt-BR')}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {sale.operator}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {sale.customer}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-bold text-gray-900">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(sale.value)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button className="p-2 text-gray-400 hover:text-emerald-600 transition-colors">
-                          <Printer size={18} />
-                        </button>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left min-w-[600px]">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-100">
+                      <th className="px-4 sm:px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Venda</th>
+                      <th className="px-4 sm:px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Operador</th>
+                      <th className="px-4 sm:px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Cliente</th>
+                      <th className="px-4 sm:px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider">Total</th>
+                      <th className="px-4 sm:px-6 py-4 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Ações</th>
                     </tr>
-                  ))}
-                  {sales.filter(s => s.origin === 'pdv').length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
-                        Nenhuma venda realizada no PDV ainda.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {sales.filter(s => s.origin === 'pdv').map(sale => (
+                      <tr key={sale.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 sm:px-6 py-4">
+                          <span className="text-sm font-bold text-gray-900">{sale.id}</span>
+                          <p className="text-[10px] text-gray-400 font-medium">{new Date(sale.date).toLocaleString('pt-BR')}</p>
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 text-sm text-gray-600">
+                          {sale.operator}
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 text-sm text-gray-600">
+                          {sale.customer}
+                        </td>
+                        <td className="px-4 sm:px-6 py-4">
+                          <span className="text-sm font-bold text-gray-900">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(sale.value)}
+                          </span>
+                        </td>
+                        <td className="px-4 sm:px-6 py-4 text-right">
+                          <button className="p-2 text-gray-400 hover:text-emerald-600 transition-colors">
+                            <Printer size={18} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

@@ -1,19 +1,19 @@
 import { 
-  Zap,
+  Workflow,
   FileSpreadsheet,
   LayoutDashboard, 
-  ArrowDownCircle, 
-  ArrowUpCircle, 
-  TrendingUp,
-  Landmark, 
+  ArrowDownLeft, 
+  ArrowUpRight, 
+  Activity,
+  Building2, 
   Calendar,
   CalendarClock,
   DollarSign,
   PieChart, 
   Scale, 
   FileBarChart, 
-  Settings,
-  PlusCircle,
+  Sliders,
+  PlusSquare,
   ListTree,
   History,
   BookOpen,
@@ -32,8 +32,10 @@ import {
   ShoppingCart,
   UserCheck,
   FileText,
-  Target,
-  BarChart3
+  Goal,
+  BarChart3,
+  Truck,
+  ShoppingBag
 } from 'lucide-react';
 import { MenuItem, ModuleId } from './types';
 
@@ -47,7 +49,7 @@ export const MENU_ITEMS: MenuItem[] = [
   {
     id: ModuleId.LANCAMENTOS,
     label: 'Lançamentos',
-    icon: PlusCircle,
+    icon: PlusSquare,
   },
   {
     id: ModuleId.HISTORICO_OPERACIONAL,
@@ -61,7 +63,7 @@ export const MENU_ITEMS: MenuItem[] = [
   {
     id: ModuleId.FINANCEIRO_ADIANTAMENTOS,
     label: 'Adiantamentos',
-    icon: Landmark,
+    icon: Building2,
     subItems: [
       { id: 'adiant_clientes', label: 'Adiant. de Clientes' },
       { id: 'adiant_fornecedores', label: 'Adiant. de Fornecedores' },
@@ -70,12 +72,12 @@ export const MENU_ITEMS: MenuItem[] = [
   {
     id: ModuleId.FLUXO_CAIXA,
     label: 'Fluxo de Caixa',
-    icon: TrendingUp,
+    icon: Activity,
   },
   {
     id: ModuleId.CONTAS_RECEBER,
     label: 'Contas a Receber',
-    icon: ArrowUpCircle,
+    icon: ArrowUpRight,
     subItems: [
       { id: 'cr_geral', label: 'Visão Geral' },
       { id: 'cr_boletos', label: 'Boletos & Cobrança' },
@@ -87,7 +89,7 @@ export const MENU_ITEMS: MenuItem[] = [
   {
     id: ModuleId.CONTAS_PAGAR,
     label: 'Contas a Pagar',
-    icon: ArrowDownCircle,
+    icon: ArrowDownLeft,
     subItems: [
       { id: 'cp_geral', label: 'Visão Geral' },
       { id: 'cp_fornecedores', label: 'Fornecedores' },
@@ -99,7 +101,7 @@ export const MENU_ITEMS: MenuItem[] = [
   {
     id: ModuleId.TESOURARIA,
     label: 'Tesouraria',
-    icon: Landmark,
+    icon: Building2,
   },
   {
     id: ModuleId.CONTABILIDADE,
@@ -148,12 +150,12 @@ export const MENU_ITEMS: MenuItem[] = [
   {
     id: ModuleId.PLAN_FINANCEIRO,
     label: 'Planejamento Financeiro',
-    icon: Target,
+    icon: Goal,
   },
   {
     id: ModuleId.CONFIGURACOES,
     label: 'Configurações',
-    icon: Settings,
+    icon: Sliders,
   }
 ];
 
@@ -220,7 +222,7 @@ export const RH_MENU_ITEMS: MenuItem[] = [
   {
     id: ModuleId.PLAN_RH,
     label: 'Planejamento de RH',
-    icon: Target,
+    icon: Goal,
   },
   {
     id: ModuleId.RH_CONFIG,
@@ -232,150 +234,146 @@ export const RH_MENU_ITEMS: MenuItem[] = [
 export const PRODUCAO_MENU_ITEMS: MenuItem[] = [
   {
     id: ModuleId.PRODUCAO_DASHBOARD,
-    label: 'Dashboard Produção',
+    label: '1. Dashboard Produção',
     icon: LayoutDashboard,
   },
   {
-    id: ModuleId.PRODUCAO_ORDENS,
-    label: 'PCP - Planejamento e Controle',
+    id: ModuleId.PRODUCAO_PCP,
+    label: '2. PCP',
     icon: ClipboardList,
-    subItems: [
-      { id: 'pcp_ordens', label: 'Ordens de Produção' },
-      { id: 'pcp_ficha', label: 'Ficha Técnica' },
-      { id: 'pcp_consumo', label: 'Consumo de MP' },
-      { id: 'pcp_etapas', label: 'Etapas de Produção' },
-      { id: 'pcp_custos', label: 'Custos de Fabricação' },
-      { id: 'pcp_planejamento', label: 'Planejamento' },
-    ]
   },
   {
-    id: ModuleId.PRODUCAO_ESTOQUE,
-    label: 'Estoques',
-    icon: Package,
-    subItems: [
-      { id: 'estoque_mp', label: 'Matéria-Prima' },
-      { id: 'estoque_pa', label: 'Produtos Acabados (PA)' },
-      { id: 'estoque_processo', label: 'Produtos em Processo' },
-    ]
+    id: ModuleId.PRODUCAO_ORDENS,
+    label: '3. Ordens Produção',
+    icon: FileText,
   },
   {
-    id: ModuleId.ESTOQUE_MERCADORIAS,
-    label: 'Mercadorias para Revenda',
-    icon: ShoppingCart,
-    subItems: [
-      { id: 'mercadoria_cadastro', label: 'Cadastro' },
-      { id: 'mercadoria_movimentacoes', label: 'Movimentações' },
-      { id: 'mercadoria_fornecedores', label: 'Fornecedores' },
-      { id: 'mercadoria_dashboard', label: 'Dashboard' },
-    ]
+    id: ModuleId.PRODUCAO_CRONOGRAMA,
+    label: '4. Cronograma',
+    icon: Calendar,
   },
   {
-    id: ModuleId.PRODUCAO_MAQUINAS,
-    label: 'Máquinas & Equipamentos',
-    icon: Factory,
+    id: ModuleId.PRODUCAO_CORTE,
+    label: '5. Corte',
+    icon: Scale,
   },
   {
-    id: ModuleId.PRODUCAO_QUALIDADE,
-    label: 'Controle de Qualidade',
-    icon: CheckCircle2,
+    id: ModuleId.PRODUCAO_USINAGEM,
+    label: '6. Usinagem',
+    icon: Settings2,
   },
   {
-    id: ModuleId.PRODUCAO_MANUTENCAO,
-    label: 'Manutenção',
+    id: ModuleId.PRODUCAO_MONTAGEM,
+    label: '7. Montagem',
     icon: Wrench,
   },
   {
-    id: ModuleId.PLAN_PRODUCAO,
-    label: 'Planejamento de Produção',
-    icon: Target,
+    id: ModuleId.PRODUCAO_ACABAMENTO,
+    label: '8. Acabamento',
+    icon: Heart,
+  },
+  {
+    id: ModuleId.PRODUCAO_INSTALACAO,
+    label: '9. Instalação',
+    icon: Truck,
+  },
+  {
+    id: ModuleId.PRODUCAO_APONTAMENTOS,
+    label: '10. Apontamentos',
+    icon: Clock,
+  },
+  {
+    id: ModuleId.PRODUCAO_QUALIDADE,
+    label: '11. Controle Qualidade',
+    icon: CheckCircle2,
+  },
+  {
+    id: ModuleId.PRODUCAO_RETRABALHO,
+    label: '12. Retrabalho',
+    icon: History,
+  },
+  {
+    id: ModuleId.PRODUCAO_MANUTENCAO,
+    label: '13. Manutenção',
+    icon: Wrench,
+  },
+  {
+    id: ModuleId.PRODUCAO_KPI,
+    label: '14. Indicadores/KPIs',
+    icon: BarChart3,
+  },
+  {
+    id: ModuleId.PRODUCAO_RELATORIOS,
+    label: '15. Relatórios',
+    icon: FileBarChart,
   },
   {
     id: ModuleId.PRODUCAO_CONFIG,
     label: 'Configurações Produção',
-    icon: Settings2,
+    icon: Sliders,
   }
 ];
 
 export const VENDAS_MENU_ITEMS: MenuItem[] = [
   {
     id: ModuleId.VENDAS_DASHBOARD,
-    label: 'Dashboard Vendas',
+    label: 'Dashboard',
     icon: LayoutDashboard,
   },
   {
-    id: ModuleId.VENDAS_PDV,
-    label: 'PDV (Balcão)',
-    icon: Zap,
-  },
-  {
-    id: ModuleId.VENDAS_CRM,
-    label: 'CRM / Funil',
-    icon: Target,
-    subItems: [
-      { id: 'crm_funil', label: 'Funil de Vendas' },
-      { id: 'crm_oportunidades', label: 'Oportunidades' },
-      { id: 'crm_atividades', label: 'Atividades & Tarefas' },
-      { id: 'crm_dashboard', label: 'Dashboard CRM' },
-    ]
-  },
-  {
     id: ModuleId.VENDAS_LEADS,
-    label: 'Gestão de Leads',
-    icon: Users,
-    subItems: [
-      { id: 'leads_novos', label: 'Novos Leads' },
-      { id: 'leads_qualificados', label: 'Leads Qualificados' },
-      { id: 'leads_importar', label: 'Importar Leads' },
-    ]
-  },
-  {
-    id: ModuleId.VENDAS_PEDIDOS,
-    label: 'Pedidos de Venda',
-    icon: ShoppingCart,
-    subItems: [
-      { id: 'pedidos_lista', label: 'Todos os Pedidos' },
-      { id: 'pedidos_faturar', label: 'Aguardando Faturamento' },
-      { id: 'pedidos_entregues', label: 'Entregues' },
-    ]
-  },
-  {
-    id: ModuleId.VENDAS_ORCAMENTOS,
-    label: 'Orçamentos',
-    icon: FileSpreadsheet,
+    label: 'CRM / Oportunidades',
+    icon: Goal,
   },
   {
     id: ModuleId.VENDAS_CLIENTES,
-    label: 'Gestão de Clientes',
-    icon: UserCheck,
+    label: 'Clientes',
+    icon: Users,
   },
   {
-    id: ModuleId.VENDAS_CATALOGO,
-    label: 'Catálogo & Preços',
-    icon: BookOpen,
+    id: ModuleId.VENDAS_VISITAS,
+    label: 'Visitas Técnicas',
+    icon: Calendar,
   },
   {
-    id: ModuleId.VENDAS_ESTOQUE,
-    label: 'Estoques (Vendas)',
-    icon: Package,
-    subItems: [
-      { id: 'vendas_estoque_pa', label: 'Produtos Acabados' },
-      { id: 'vendas_estoque_kits', label: 'Kits de Venda' },
-    ]
+    id: ModuleId.VENDAS_PROJETOS,
+    label: 'Projetos',
+    icon: ClipboardList,
   },
   {
-    id: ModuleId.VENDAS_METAS,
-    label: 'Metas & Performance',
+    id: ModuleId.VENDAS_ORCAMENTOS,
+    label: 'Propostas / Orçamentos',
+    icon: FileSpreadsheet,
+  },
+  {
+    id: ModuleId.VENDAS_NEGOCIACAO,
+    label: 'Negociação',
     icon: BarChart3,
   },
   {
-    id: ModuleId.PLAN_VENDAS,
-    label: 'Planejamento de Vendas',
-    icon: Target,
+    id: ModuleId.VENDAS_CONTRATOS,
+    label: 'Contratos',
+    icon: FileText,
+  },
+  {
+    id: ModuleId.VENDAS_APROVACOES,
+    label: 'Aprovações',
+    icon: CheckCircle2,
+  },
+  {
+    id: ModuleId.VENDAS_FOLLOW_UP,
+    label: 'Follow-up',
+    icon: Clock,
+  },
+  {
+    id: ModuleId.VENDAS_POS_VENDA,
+    label: 'Pós-Venda',
+    icon: Heart,
   },
   {
     id: ModuleId.VENDAS_CONFIG,
-    label: 'Configurações Vendas',
-    icon: Settings2,
+    label: 'Configurações',
+    icon: Sliders,
   }
 ];
 
@@ -426,7 +424,7 @@ export const COMPRAS_MENU_ITEMS: MenuItem[] = [
   {
     id: ModuleId.PLAN_COMPRAS,
     label: 'Planejamento de Compras',
-    icon: Target,
+    icon: Goal,
   },
   {
     id: ModuleId.COMPRAS_CONFIG,
@@ -474,7 +472,7 @@ export const PROJETOS_MENU_ITEMS: MenuItem[] = [
   {
     id: ModuleId.PLAN_PROJETOS,
     label: 'Planejamento de Projetos',
-    icon: Target,
+    icon: Goal,
   },
   {
     id: ModuleId.PROJETOS_CONFIG,

@@ -248,6 +248,8 @@ export const SalesQuotes: React.FC = () => {
     commission: 0,
     otherExpenses: 0,
     shipping: 0,
+    installments: 1,
+    taxes: 0,
     laborMinutes: 0,
     laborCost: 0,
     indirectCosts: 0,
@@ -380,11 +382,13 @@ export const SalesQuotes: React.FC = () => {
     const cost = calculateTotalCost();
     const margin = formData.profitMargin || 0;
     const discount = formData.discount || 0;
+    const taxes = formData.taxes || 0;
     
     if (cost === 0) return 0;
     
     const priceWithMargin = cost / (1 - (margin / 100));
-    const finalPrice = priceWithMargin * (1 - (discount / 100));
+    const priceWithTaxes = priceWithMargin * (1 + (taxes / 100));
+    const finalPrice = priceWithTaxes * (1 - (discount / 100));
     return finalPrice;
   };
 
@@ -1221,7 +1225,7 @@ export const SalesQuotes: React.FC = () => {
               </div>
 
               {/* Pricing */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Margem de Lucro (%)</label>
                   <input 
@@ -1229,6 +1233,15 @@ export const SalesQuotes: React.FC = () => {
                     className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none"
                     value={formData.profitMargin}
                     onChange={(e) => setFormData({ ...formData, profitMargin: parseFloat(e.target.value) || 0 })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Impostos (%)</label>
+                  <input 
+                    type="number"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    value={formData.taxes}
+                    onChange={(e) => setFormData({ ...formData, taxes: parseFloat(e.target.value) || 0 })}
                   />
                 </div>
                 <div>
@@ -1245,6 +1258,37 @@ export const SalesQuotes: React.FC = () => {
                   <p className="text-2xl font-black text-emerald-600">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateFinalPrice())}
                   </p>
+                </div>
+              </div>
+
+              {/* Payment info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Parcelamento (Vezes)</label>
+                  <div className="flex items-center gap-3">
+                    <input 
+                      type="range"
+                      min="1"
+                      max="24"
+                      className="flex-1 accent-emerald-600"
+                      value={formData.installments || 1}
+                      onChange={(e) => setFormData({ ...formData, installments: parseInt(e.target.value) })}
+                    />
+                    <span className="w-12 text-center font-bold text-gray-700 bg-gray-100 py-1 rounded-lg">
+                      {formData.installments || 1}x
+                    </span>
+                  </div>
+                  {formData.installments && formData.installments > 1 && (
+                    <p className="text-[10px] text-gray-500 mt-2 italic font-medium">
+                      Valor estimado de cada parcela: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculateFinalPrice() / formData.installments)}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col justify-end">
+                   <p className="text-[10px] text-gray-400 font-bold uppercase mb-2">Resumo de Pagamento</p>
+                   <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs text-gray-600">
+                     O orçamento será enviado com opção de pagamento em até {formData.installments || 1}x sem juros informados.
+                   </div>
                 </div>
               </div>
             </div>

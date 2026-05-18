@@ -11,7 +11,13 @@ import {
   ArrowDownRight,
   LayoutDashboard,
   Calendar,
-  Zap
+  Zap,
+  Goal,
+  Activity,
+  BarChart3,
+  PieChart as PieChartIcon,
+  Truck,
+  History as LucideHistory
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -31,229 +37,269 @@ import {
 } from 'recharts';
 
 const ProductionDashboard: React.FC = () => {
-  const stats = [
-    { label: 'Eficiência Geral (OEE)', value: '84.2%', change: '+2.1%', trend: 'up', icon: Zap, color: 'bg-amber-50 text-amber-600' },
-    { label: 'Produção Total (Mês)', value: '12.450', change: '+15%', trend: 'up', icon: Package, color: 'bg-blue-50 text-blue-600' },
-    { label: 'Taxa de Refugo', value: '1.8%', change: '-0.4%', trend: 'down', icon: AlertTriangle, color: 'bg-rose-50 text-rose-600' },
-    { label: 'Ordens em Aberto', value: '42', change: '+5', trend: 'up', icon: ClipboardList, color: 'bg-emerald-50 text-emerald-600' },
+  const mainStats = [
+    { label: 'Produção hoje', value: 'R$ 2.850', color: 'text-emerald-600', subValue: '+12% vs ontem', icon: Zap },
+    { label: 'Meta diária', value: 'R$ 1.820', color: 'text-blue-600', subValue: 'Base: R$ 1.500', icon: Goal },
+    { label: 'Eficiência', value: '92%', color: 'text-orange-600', subValue: 'Meta: 85%', icon: Activity },
+    { label: 'Retrabalho', value: '3%', color: 'text-rose-600', subValue: 'Limite: 5%', icon: LucideHistory },
+    { label: 'OPs andamento', value: '14', color: 'text-purple-600', subValue: ' Capacidade: 20', icon: Package },
   ];
 
-  const productionData = [
-    { day: 'Seg', target: 450, actual: 420 },
-    { day: 'Ter', target: 450, actual: 460 },
-    { day: 'Qua', target: 450, actual: 440 },
-    { day: 'Qui', target: 450, actual: 480 },
-    { day: 'Sex', target: 450, actual: 430 },
-    { day: 'Sáb', target: 200, actual: 210 },
+  const dailyKpis = [
+    { label: 'produção dia', value: 'R$ 2.850', trend: 'up' },
+    { label: 'produção mês', value: 'R$ 58.420', trend: 'up' },
+    { label: 'meta diária', value: 'R$ 1.820', trend: 'neutral' },
+    { label: 'meta mensal', value: 'R$ 45.000', trend: 'up' },
+    { label: 'eficiência', value: '92%', trend: 'up' },
+    { label: 'atrasos', value: '2', trend: 'down' },
+    { label: 'retrabalho', value: '3%', trend: 'up' },
+    { label: 'instalações agendadas', value: '6', trend: 'neutral' },
+    { label: 'projetos andamento', value: '21', trend: 'up' },
   ];
 
-  const machineStatusData = [
-    { name: 'Operando', value: 12, color: '#10b981' },
-    { name: 'Manutenção', value: 2, color: '#f59e0b' },
-    { name: 'Parada', value: 1, color: '#ef4444' },
-    { name: 'Ociosa', value: 3, color: '#94a3b8' },
+  const dailyVolumeLine = [
+    { day: 'Seg', value: 1200 },
+    { day: 'Ter', value: 1800 },
+    { day: 'Qua', value: 1400 },
+    { day: 'Qui', value: 2100 },
+    { day: 'Sex', value: 1900 },
+    { day: 'Sab', value: 2400 },
+    { day: 'Dom', value: 2850 },
   ];
 
-  const recentOrders = [
-    { id: 'OP-2026-001', product: 'Eixo de Transmissão X1', quantity: 500, progress: 85, status: 'in-progress', deadline: '2026-03-20' },
-    { id: 'OP-2026-002', product: 'Engrenagem Cônica Z2', quantity: 1200, progress: 40, status: 'in-progress', deadline: '2026-03-25' },
-    { id: 'OP-2026-003', product: 'Suporte Metálico S3', quantity: 3000, progress: 100, status: 'completed', deadline: '2026-03-15' },
-    { id: 'OP-2026-004', product: 'Pino de Fixação P4', quantity: 5000, progress: 10, status: 'pending', deadline: '2026-04-05' },
+  const monthlyVolumeBar = [
+    { month: 'Jan', value: 42000 },
+    { month: 'Fev', value: 38500 },
+    { month: 'Mar', value: 45000 },
+    { month: 'Abr', value: 52000 },
+    { month: 'Mai', value: 58420 },
+    { month: 'Jun', value: 65200 },
+  ];
+
+  const opStatusPie = [
+    { name: 'Corte', value: 4, color: '#f97316' },
+    { name: 'Usinagem', value: 3, color: '#0ea5e9' },
+    { name: 'Montagem', value: 5, color: '#8b5cf6' },
+    { name: 'Acabamento', value: 2, color: '#10b981' },
+    { name: 'Bordeamento', value: 2, color: '#6366f1' },
+  ];
+
+  const bottlenecks = [
+    { area: 'Corte', hours: 45 },
+    { area: 'Bordeamento', hours: 32 },
+    { area: 'Usinagem', hours: 12 },
+    { area: 'Montagem', hours: 28 },
+    { area: 'Acabamento', hours: 8 },
   ];
 
   return (
-    <div className="p-6 lg:p-8 max-w-[1600px] mx-auto space-y-8">
+    <div className="p-6 lg:p-8 max-w-[1600px] mx-auto space-y-8 bg-gray-50/30">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2">
             <LayoutDashboard className="text-orange-600" size={28} />
-            Dashboard Produção
+            DASHBOARD PRODUÇÃO
           </h1>
-          <p className="text-gray-500 text-sm mt-1">Monitoramento em tempo real da linha de produção</p>
+          <p className="text-gray-500 text-sm mt-1 uppercase font-bold tracking-widest text-[10px]">A tela mais importante da fábrica • Visão 360º</p>
         </div>
         
         <div className="flex items-center gap-3">
-          <div className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 flex items-center gap-2 shadow-sm">
+          <div className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-black text-gray-600 flex items-center gap-2 shadow-sm uppercase tracking-widest">
             <Calendar size={16} />
-            18 de Março, 2026
+            {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
           </div>
-          <button className="px-4 py-2 bg-orange-600 text-white rounded-lg text-sm font-bold hover:bg-orange-700 transition-colors shadow-sm">
-            Nova Ordem de Produção
+          <button className="px-4 py-2 bg-orange-600 text-white rounded-xl text-xs font-black hover:bg-orange-700 transition-all shadow-lg shadow-orange-200 flex items-center gap-2 uppercase tracking-widest">
+            <Zap size={16} /> Atualizar Real-time
           </button>
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, idx) => (
-          <div key={idx} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between mb-4">
-              <div className={`p-3 rounded-xl ${stat.color}`}>
-                {stat.icon && <stat.icon size={24} />}
-              </div>
-              <div className={`flex items-center gap-1 text-xs font-bold ${
-                stat.trend === 'up' ? 'text-emerald-600' : stat.trend === 'down' ? 'text-rose-600' : 'text-gray-400'
-              }`}>
-                {stat.trend === 'up' ? <ArrowUpRight size={14} /> : stat.trend === 'down' ? <ArrowDownRight size={14} /> : null}
-                {stat.change}
-              </div>
-            </div>
-            <h3 className="text-gray-500 text-sm font-medium">{stat.label}</h3>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
-          </div>
-        ))}
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Lado Esquerdo: KPIs e Termômetro */}
+        <div className="lg:col-span-1 space-y-6">
+           {/* Section 1: KPIs Principais */}
+           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+             <h3 className="text-xs font-black text-gray-400 uppercase mb-6 tracking-widest flex items-center justify-between">
+               KPIs Principais
+               <TrendingUp size={14} className="text-emerald-500" />
+             </h3>
+             <div className="space-y-4">
+               {dailyKpis.map((kpi, i) => (
+                 <div key={i} className="flex justify-between items-center group">
+                   <div className="flex items-center gap-2">
+                     <div className={`w-1 h-4 rounded-full ${kpi.trend === 'up' ? 'bg-emerald-500' : kpi.trend === 'down' ? 'bg-rose-500' : 'bg-gray-300'}`}></div>
+                     <span className="text-[11px] font-bold text-gray-500 uppercase tracking-tight group-hover:text-gray-900 transition-colors">✅ {kpi.label}</span>
+                   </div>
+                   <span className="text-sm font-black text-gray-900 tracking-tight">{kpi.value}</span>
+                 </div>
+               ))}
+             </div>
+           </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Production Volume Chart */}
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2">
-              <TrendingUp className="text-orange-600" size={20} />
-              Volume de Produção Diário
-            </h3>
-            <div className="flex gap-4">
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <div className="w-3 h-3 rounded-full bg-orange-200"></div>
-                Meta
-              </div>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <div className="w-3 h-3 rounded-full bg-orange-600"></div>
-                Realizado
-              </div>
-            </div>
-          </div>
-          
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={productionData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="day" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: '#94a3b8', fontSize: 12 }} 
-                  dy={10}
-                />
-                <YAxis 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: '#94a3b8', fontSize: 12 }} 
-                  dx={-10}
-                />
-                <Tooltip 
-                  cursor={{ fill: '#f8fafc' }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                />
-                <Bar dataKey="target" fill="#fed7aa" radius={[4, 4, 0, 0]} barSize={30} />
-                <Bar dataKey="actual" fill="#ea580c" radius={[4, 4, 0, 0]} barSize={30} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+           {/* Section 2: Termômetro Meta */}
+           <div className="bg-slate-900 p-8 rounded-3xl text-white shadow-xl relative overflow-hidden">
+             <div className="absolute -top-10 -right-10 opacity-10">
+               <Goal size={180} />
+             </div>
+             <h3 className="text-xs font-black text-orange-400 uppercase mb-6 tracking-widest relative z-10">TERMÔMETRO META</h3>
+             <div className="relative z-10">
+                <div className="flex justify-between items-end mb-3">
+                   <span className="text-4xl font-black">78%</span>
+                   <span className="text-[10px] font-black text-gray-400 uppercase">R$ 35k / R$ 45k</span>
+                </div>
+                {/* Visual Bar Requested */}
+                <div className="h-4 bg-white/10 rounded-full overflow-hidden flex">
+                  <div className="bg-orange-500 h-full rounded-full flex items-center justify-end px-1" style={{ width: '78%' }}>
+                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                  </div>
+                </div>
+                <p className="text-[10px] font-bold text-gray-400 mt-4 leading-relaxed uppercase tracking-widest">▓▓▓▓▓▓▓▓▓▓░░░░░</p>
+             </div>
+           </div>
         </div>
 
-        {/* Machine Status Distribution */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <h3 className="font-bold text-gray-900 mb-8 flex items-center gap-2">
-            <Factory className="text-orange-600" size={20} />
-            Status do Maquinário
-          </h3>
-          
-          <div className="h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={machineStatusData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {machineStatusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="mt-6 grid grid-cols-2 gap-4">
-            {machineStatusData.map((status, idx) => (
-              <div key={idx} className="flex items-center gap-2 text-sm">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: status.color }}></div>
-                <span className="text-gray-600 truncate">{status.name}</span>
-                <span className="font-bold text-gray-900 ml-auto">{status.value}</span>
+        {/* Lado Direito: Cards Principais e Gráficos */}
+        <div className="lg:col-span-3 space-y-8">
+          {/* Cards Principais */}
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {mainStats.map((stat, idx) => (
+              <div key={idx} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 group hover:border-orange-200 transition-all">
+                <div className="flex justify-between items-start mb-3">
+                   <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{stat.label}</p>
+                   <stat.icon size={14} className="text-gray-200 group-hover:text-orange-600 transition-colors" />
+                </div>
+                <p className={`text-xl font-black ${stat.color} tracking-tight`}>{stat.value}</p>
+                <p className="text-[8px] font-bold text-gray-400 mt-1 uppercase tracking-tighter">{stat.subValue}</p>
               </div>
             ))}
           </div>
+
+          {/* Gráficos */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Produção Diária (Linha) */}
+            <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm h-72">
+              <h3 className="text-xs font-black text-gray-400 uppercase mb-8 tracking-widest">Produção Diária (R$)</h3>
+              <ResponsiveContainer width="100%" height="80%">
+                <LineChart data={dailyVolumeLine}>
+                  <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="value" stroke="#ea580c" strokeWidth={4} dot={{ r: 4, fill: '#ea580c' }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Produção Mensal (Barras) */}
+            <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm h-72">
+              <h3 className="text-xs font-black text-gray-400 uppercase mb-8 tracking-widest">Produção Mensal (R$)</h3>
+              <ResponsiveContainer width="100%" height="80%">
+                <BarChart data={monthlyVolumeBar}>
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                  <Bar dataKey="value" fill="#0f172a" radius={[10, 10, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Status OPs (Pizza) */}
+            <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm h-auto sm:h-72">
+              <h3 className="text-xs font-black text-gray-400 uppercase mb-8 tracking-widest">Status OPs</h3>
+              <div className="flex flex-col sm:flex-row items-center gap-6">
+                <div className="h-48 w-full sm:w-1/2">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={opStatusPie} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
+                        {opStatusPie.map((entry, index) => <Cell key={index} fill={entry.color} />)}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="w-full sm:min-w-32 space-y-2">
+                   {opStatusPie.map(e => (
+                     <div key={e.name} className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: e.color }}></div>
+                        <span className="text-[10px] font-black text-gray-900 uppercase">{e.name}</span>
+                        <span className="text-[10px] font-bold text-gray-400 ml-auto">{e.value}</span>
+                     </div>
+                   ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Gargalos Produção (Colunas) */}
+            <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm h-72">
+              <h3 className="text-xs font-black text-gray-400 uppercase mb-8 tracking-widest">Gargalos Produção (Horas)</h3>
+              <ResponsiveContainer width="100%" height="80%">
+                <BarChart data={bottlenecks}>
+                  <XAxis dataKey="area" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 'bold' }} />
+                  <Bar dataKey="hours" fill="#ef4444" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Production Orders Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-50 flex items-center justify-between">
-          <h3 className="font-bold text-gray-900 flex items-center gap-2">
-            <ClipboardList className="text-orange-600" size={20} />
-            Ordens de Produção Ativas
-          </h3>
-          <button className="text-sm font-semibold text-orange-600 hover:text-orange-700">Ver Todas</button>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-gray-50 text-[10px] uppercase tracking-widest text-gray-400 font-bold">
-                <th className="px-6 py-4">ID Ordem</th>
-                <th className="px-6 py-4">Produto</th>
-                <th className="px-6 py-4">Quantidade</th>
-                <th className="px-6 py-4">Progresso</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Prazo</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {recentOrders.map(order => (
-                <tr key={order.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-6 py-4 text-sm font-bold text-gray-900">{order.id}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{order.product}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 font-medium">{order.quantity.toLocaleString('pt-BR')} un</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full rounded-full ${order.status === 'completed' ? 'bg-emerald-500' : 'bg-orange-500'}`}
-                          style={{ width: `${order.progress}%` }}
-                        ></div>
+      {/* Seção Extra: Instalações e Projetos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+          {/* Instalações */}
+          <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
+             <div className="flex justify-between items-center mb-8">
+                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Instalações Agendadas</h3>
+                <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded uppercase">Próximas 24h</span>
+             </div>
+             <div className="space-y-4">
+                {[
+                  { id: '1', client: 'Eduardo G. - Loft Pinheiros', time: '14:30', status: 'confirmado' },
+                  { id: '2', client: 'Marina L. - Res. Ipanema', time: '09:00', status: 'em deslocamento' },
+                  { id: '3', client: 'Escritório Hub Tech', time: '11:15', status: 'confirmado' },
+                  { id: '4', client: 'Casa de Campo Atibaia', time: '08:00', status: 'agendado' },
+                  { id: '5', client: 'Studio 45 - Brooklin', time: '16:45', status: 'confirmado' },
+                ].map(inst => (
+                  <div key={inst.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl group hover:bg-white hover:shadow-md transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-400 group-hover:text-orange-600 transition-colors">
+                        <Truck size={18} />
                       </div>
-                      <span className="text-xs font-bold text-gray-500">{order.progress}%</span>
+                      <div>
+                        <p className="text-xs font-black text-gray-900 uppercase">{inst.client}</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">{inst.time}</p>
+                      </div>
                     </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${
-                      order.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 
-                      order.status === 'in-progress' ? 'bg-blue-100 text-blue-700' : 
-                      'bg-amber-100 text-amber-700'
-                    }`}>
-                      {order.status === 'completed' ? 'Finalizado' : 
-                       order.status === 'in-progress' ? 'Em Produção' : 
-                       'Pendente'}
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${inst.status === 'confirmado' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'}`}>
+                      {inst.status}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{new Date(order.deadline).toLocaleDateString('pt-BR')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                ))}
+             </div>
+          </div>
+
+          {/* Projetos em Andamento */}
+          <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
+            <h3 className="text-xs font-black text-gray-400 uppercase mb-8 tracking-widest">Projetos em Andamento</h3>
+            <div className="space-y-6">
+                {[
+                  { name: 'Cozinha Gourmet Luxo', progress: 85, color: '#f97316' },
+                  { name: 'Suíte Master Ripado', progress: 42, color: '#0ea5e9' },
+                  { name: 'Living Integrado', progress: 12, color: '#8b5cf6' },
+                  { name: 'Adega Climatizada', progress: 68, color: '#10b981' },
+                  { name: 'Closet Walk-in', progress: 25, color: '#f43f5e' },
+                ].map((p, i) => (
+                  <div key={i} className="group cursor-default">
+                    <div className="flex justify-between items-center mb-2">
+                       <span className="text-[11px] font-black text-gray-700 uppercase tracking-tight group-hover:text-orange-600 transition-colors">{p.name}</span>
+                       <span className="text-[10px] font-black text-gray-400">{p.progress}%</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-50 rounded-full overflow-hidden">
+                       <div className="h-full rounded-full transition-all duration-700" style={{ width: `${p.progress}%`, backgroundColor: p.color }}></div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
       </div>
     </div>
   );
 };
 
 export default ProductionDashboard;
-
-import { ClipboardList } from 'lucide-react';

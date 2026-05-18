@@ -40,6 +40,18 @@ import ProductionDashboard from '../components/ProductionDashboard';
 import ProductionMachines from '../components/ProductionMachines';
 import ProductionQuality from '../components/ProductionQuality';
 import ProductionMaintenance from '../components/ProductionMaintenance';
+import { ProductionPCP } from '../components/ProductionPCP';
+import { 
+  ProductionCutting, 
+  ProductionMachining, 
+  ProductionAssembly, 
+  ProductionFinishing, 
+  ProductionEdging,
+  ProductionInstallation,
+  ProductionSchedule 
+} from '../components/ProductionSectors';
+import { ProductionTimeTracking, ProductionRework } from '../components/ProductionOperations';
+import { ProductionKPIs, ProductionReports } from '../components/ProductionAnalyticReports';
 import { SalesCRM } from '../components/SalesCRM';
 import SalesDashboard from '../components/SalesDashboard';
 import SalesOrders from '../components/SalesOrders';
@@ -63,9 +75,16 @@ import ProjectTimeline from '../components/ProjectTimeline';
 import ProjectDocs from '../components/ProjectDocs';
 import ProjectTrainings from '../components/ProjectTrainings';
 import ProjectSettings from '../components/ProjectSettings';
+import { VendasVisitas } from '../components/VendasVisitas';
+import { VendasProjetos } from '../components/VendasProjetos';
+import { VendasContratos } from '../components/VendasContratos';
+import { VendasAprovacoes } from '../components/VendasAprovacoes';
+import { VendasFollowUp } from '../components/VendasFollowUp';
+import { VendasPosVenda } from '../components/VendasPosVenda';
+import { VendasNegociacao } from '../components/VendasNegociacao';
 import { useTransactions } from '@/src/context/TransactionContext';
 import { TaskProvider } from '@/src/context/TaskContext';
-import { DollarSign, LayoutDashboard, Briefcase, Factory, Package, ClipboardList, Wrench, CheckCircle2, ShoppingCart, Target, FileText, UserCheck, BarChart3, GraduationCap } from 'lucide-react';
+import { DollarSign, LayoutDashboard, Briefcase, Factory, Package, ClipboardList, Wrench, CheckCircle2, ShoppingCart, Target, FileText, UserCheck, BarChart3, GraduationCap, Truck } from 'lucide-react';
 
 const App: React.FC = () => {
   const { userProfile, companyProfile, isLoading, refreshData, transactions, notificationSettings } = useTransactions();
@@ -90,9 +109,27 @@ const App: React.FC = () => {
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
 
-  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [expandedSectors, setExpandedSectors] = useState<Set<SectorId>>(new Set([activeSector]));
+
+  const [isSidebarOpen, setSidebarOpen] = useState(window.innerWidth > 1024);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [isNotificationsOpen, setNotificationsOpen] = useState(false);
   const [isPublicCatalog, setIsPublicCatalog] = useState(false);
+
+  // Resize listener to handle mobile state
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) {
+        setSidebarOpen(false);
+      } else {
+        setSidebarOpen(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Save state to localStorage
   useEffect(() => {
@@ -129,10 +166,11 @@ const App: React.FC = () => {
       if (sector) setActiveSector(sector);
       if (module) setActiveModule(module);
       if (subItem !== undefined) setActiveSubItem(subItem);
+      if (isMobile) setSidebarOpen(false);
     };
     window.addEventListener('vms-navigate', handleNavigate);
     return () => window.removeEventListener('vms-navigate', handleNavigate);
-  }, []);
+  }, [isMobile]);
 
   // Close notifications when clicking outside
   useEffect(() => {
@@ -276,30 +314,44 @@ const App: React.FC = () => {
       // Produção Modules
       case ModuleId.PRODUCAO_DASHBOARD:
         return <ProductionDashboard />;
+      case ModuleId.PRODUCAO_PCP:
+        return <ProductionPCP />;
       case ModuleId.PRODUCAO_ORDENS:
-        return <ProductionOrders activeSubItem={activeSubItem} />;
-      case ModuleId.PRODUCAO_ESTOQUE:
-        return <InventoryManagement activeSubItem={activeSubItem} />;
-      case ModuleId.ESTOQUE_MERCADORIAS:
-        return <InventoryManagement activeSubItem={activeSubItem} />;
-      case ModuleId.VENDAS_ESTOQUE:
-        return <InventoryManagement activeSubItem={activeSubItem} />;
-      case ModuleId.COMPRAS_ESTOQUE:
-        return <InventoryManagement activeSubItem={activeSubItem} />;
+        return <ProductionOrders />;
+      case ModuleId.PRODUCAO_CRONOGRAMA:
+        return <ProductionSchedule />;
+      case ModuleId.PRODUCAO_CORTE:
+        return <ProductionCutting />;
+      case ModuleId.PRODUCAO_BORDEAMENTO:
+        return <ProductionEdging />;
+      case ModuleId.PRODUCAO_USINAGEM:
+        return <ProductionMachining />;
+      case ModuleId.PRODUCAO_MONTAGEM:
+        return <ProductionAssembly />;
+      case ModuleId.PRODUCAO_ACABAMENTO:
+        return <ProductionFinishing />;
+      case ModuleId.PRODUCAO_INSTALACAO:
+        return <ProductionInstallation />;
+      case ModuleId.PRODUCAO_APONTAMENTOS:
+        return <ProductionTimeTracking />;
       case ModuleId.PRODUCAO_QUALIDADE:
         return <ProductionQuality />;
+      case ModuleId.PRODUCAO_RETRABALHO:
+        return <ProductionRework />;
       case ModuleId.PRODUCAO_MANUTENCAO:
         return <ProductionMaintenance />;
-      case ModuleId.PRODUCAO_MAQUINAS:
-        return <ProductionMachines />;
+      case ModuleId.PRODUCAO_KPI:
+        return <ProductionKPIs />;
+      case ModuleId.PRODUCAO_RELATORIOS:
+        return <ProductionReports />;
+        
+      case ModuleId.PRODUCAO_ESTOQUE:
 
       // Vendas Modules
       case ModuleId.VENDAS_DASHBOARD:
         return <SalesDashboard />;
       case ModuleId.VENDAS_PDV:
         return <SalesPDV />;
-      case ModuleId.VENDAS_CRM:
-        return <SalesCRM />;
       case ModuleId.VENDAS_LEADS:
         return <LeadsManagement />;
       case ModuleId.VENDAS_PEDIDOS:
@@ -308,12 +360,37 @@ const App: React.FC = () => {
         return <SalesQuotes />;
       case ModuleId.VENDAS_CLIENTES:
         return <SalesCustomers />;
+      case ModuleId.VENDAS_VISITAS:
+        return <VendasVisitas />;
+      case ModuleId.VENDAS_PROJETOS:
+        return <VendasProjetos />;
+      case ModuleId.VENDAS_CONTRATOS:
+        return <VendasContratos />;
+      case ModuleId.VENDAS_APROVACOES:
+        return <VendasAprovacoes />;
+      case ModuleId.VENDAS_FOLLOW_UP:
+        return <VendasFollowUp />;
+      case ModuleId.VENDAS_POS_VENDA:
+        return <VendasPosVenda />;
+      case ModuleId.VENDAS_NEGOCIACAO:
+        return <VendasNegociacao />;
       case ModuleId.VENDAS_CATALOGO:
         return <SalesCatalog />;
       case ModuleId.VENDAS_CONFIG:
         return <SalesSettings />;
       case ModuleId.PRODUCAO_CONFIG:
         return <ProductionSettings />;
+      
+      case ModuleId.ENTREGAS_INSTALACAO:
+        return (
+          <div className="p-12 flex flex-col items-center justify-center h-full text-center">
+            <div className="bg-blue-100 p-8 rounded-full mb-6">
+              <Truck size={64} className="text-blue-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">Entregas & Instalação</h2>
+            <p className="text-gray-500 max-w-md">Gerenciamento de logística e montagem em campo.</p>
+          </div>
+        );
       
       // Compras Modules
       case ModuleId.COMPRAS_DASHBOARD:
@@ -406,10 +483,22 @@ const App: React.FC = () => {
               </div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">Módulo em Desenvolvimento</h2>
               <p className="text-gray-500 max-w-md">
-                  O módulo de <strong>{currentMenuItems.find(m => m.id === activeModule)?.label}</strong> está sendo preparado para o sistema VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : activeSector === SectorId.VENDAS ? 'Vendas' : activeSector === SectorId.PROJETOS ? 'Projetos' : 'Compras'}.
+                  O módulo de <strong>{currentMenuItems.find(m => m.id === activeModule)?.label}</strong> está sendo preparado para o sistema VMS {getSectorLabel(activeSector)}.
               </p>
           </div>
         );
+    }
+  };
+
+  const getSectorLabel = (id: SectorId) => {
+    switch (id) {
+      case SectorId.FINANCEIRO: return 'Financeiro';
+      case SectorId.RH: return 'RH';
+      case SectorId.PRODUCAO: return 'Produção';
+      case SectorId.VENDAS: return 'Vendas';
+      case SectorId.COMPRAS: return 'Compras';
+      case SectorId.PROJETOS: return 'Projetos';
+      default: return '';
     }
   };
 
@@ -449,188 +538,149 @@ const App: React.FC = () => {
     <TaskProvider>
       <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
         
-        {/* Sector Sidebar (Far Left) */}
-        <div className="w-16 bg-[#111827] flex flex-col items-center py-6 gap-6 z-30 border-r border-white/5">
+        {/* Backdrop for mobile */}
+        {isMobile && isSidebarOpen && (
           <div 
-            onClick={() => {
-              setActiveSector(SectorId.FINANCEIRO);
-              setActiveModule(ModuleId.DASHBOARD);
-              setActiveSubItem(null);
-            }}
-            className={`
-              w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all
-              ${activeSector === SectorId.FINANCEIRO ? 'bg-blue-600 text-white shadow-lg scale-110' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}
-            `}
-            title="Setor Financeiro"
-          >
-            <DollarSign size={20} />
-          </div>
-
-          <div 
-            onClick={() => {
-              setActiveSector(SectorId.VENDAS);
-              setActiveModule(ModuleId.VENDAS_DASHBOARD);
-              setActiveSubItem(null);
-            }}
-            className={`
-              w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all duration-300
-              ${activeSector === SectorId.VENDAS ? 'bg-emerald-600 text-white shadow-lg scale-110' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}
-            `}
-            title="Setor Vendas"
-          >
-            <ShoppingCart size={20} />
-          </div>
-
-          <div 
-            onClick={() => {
-              setActiveSector(SectorId.RH);
-              setActiveModule(ModuleId.RH_DASHBOARD);
-              setActiveSubItem(null);
-            }}
-            className={`
-              w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all
-              ${activeSector === SectorId.RH ? 'bg-pink-600 text-white shadow-lg scale-110' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}
-            `}
-            title="Setor RH"
-          >
-            <Users size={20} />
-          </div>
-
-          <div 
-            onClick={() => {
-              setActiveSector(SectorId.PRODUCAO);
-              setActiveModule(ModuleId.PRODUCAO_DASHBOARD);
-              setActiveSubItem(null);
-            }}
-            className={`
-              w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all duration-300
-              ${activeSector === SectorId.PRODUCAO ? 'bg-orange-600 text-white shadow-lg scale-110' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}
-            `}
-            title="Setor Produção"
-          >
-            <Factory size={20} />
-          </div>
-
-          <div 
-            onClick={() => {
-              setActiveSector(SectorId.COMPRAS);
-              setActiveModule(ModuleId.COMPRAS_DASHBOARD);
-              setActiveSubItem(null);
-            }}
-            className={`
-              w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all duration-300
-              ${activeSector === SectorId.COMPRAS ? 'bg-indigo-600 text-white shadow-lg scale-110' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}
-            `}
-            title="Setor Compras"
-          >
-            <ShoppingCart size={20} />
-          </div>
-
-          <div 
-            onClick={() => {
-              setActiveSector(SectorId.PROJETOS);
-              setActiveModule(ModuleId.PROJETOS_DASHBOARD);
-              setActiveSubItem(null);
-            }}
-            className={`
-              w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer transition-all duration-300
-              ${activeSector === SectorId.PROJETOS ? 'bg-indigo-600 text-white shadow-lg scale-110' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'}
-            `}
-            title="Setor Projetos"
-          >
-            <ClipboardList size={20} />
-          </div>
-        </div>
-
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 transition-opacity duration-300"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+        
         {/* Sidebar */}
         <aside 
           className={`
-            flex flex-col text-white transition-all duration-300 z-20 shadow-2xl
-            ${isSidebarOpen ? 'w-72' : 'w-0 -ml-72'} 
-            lg:w-72 lg:ml-0
+            flex flex-col text-white transition-all duration-300 shadow-2xl overflow-hidden
+            ${isMobile ? 'fixed inset-y-0 left-0 z-50' : 'relative z-20'}
+            ${isSidebarOpen ? 'w-64 opacity-100' : 'w-0 opacity-0'} 
             border-r
           `}
-          style={{ backgroundColor: sectorColor, borderColor: sectorBorder }}
+          style={{ backgroundColor: '#0f172a', borderColor: '#1e3a8a' }}
         >
           {/* Logo Area */}
-          <div className="h-16 flex items-center px-6 border-b border-white/10 shadow-md" style={{ backgroundColor: sectorAccent }}>
-            <div className="font-bold text-2xl tracking-tighter flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-lg bg-gradient-to-br ${activeSector === SectorId.FINANCEIRO ? 'from-blue-400 to-indigo-600' : activeSector === SectorId.RH ? 'from-pink-400 to-rose-600' : activeSector === SectorId.PRODUCAO ? 'from-orange-400 to-amber-600' : activeSector === SectorId.VENDAS ? 'from-emerald-400 to-teal-600' : activeSector === SectorId.PROJETOS ? 'from-indigo-400 to-violet-600' : 'from-indigo-400 to-violet-600'}`}>
-                {activeSector === SectorId.FINANCEIRO ? <Store size={18} className="text-white" /> : activeSector === SectorId.RH ? <Users size={18} className="text-white" /> : activeSector === SectorId.PRODUCAO ? <Factory size={18} className="text-white" /> : activeSector === SectorId.PROJETOS ? <ClipboardList size={18} className="text-white" /> : <ShoppingCart size={18} className="text-white" />}
+          <div className="h-16 flex items-center px-4 border-b border-white/10 shadow-md flex-shrink-0" style={{ backgroundColor: '#1e40af' }}>
+            <div className="font-black text-base tracking-tighter flex items-center gap-2 truncate">
+              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                <Store size={18} className="text-white" />
               </div>
-              <span className="font-bold tracking-tight">VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : activeSector === SectorId.VENDAS ? 'Vendas' : activeSector === SectorId.COMPRAS ? 'Compras' : activeSector === SectorId.PROJETOS ? 'Projetos' : 'Vendas'}</span>
+              <span className="font-black tracking-tight uppercase tracking-widest text-[10px]">VMS MÓVEIS ERP</span>
             </div>
           </div>
 
           {/* User Info Compact */}
-          <div className="px-6 py-6 border-b border-white/10" style={{ backgroundColor: sectorBorder }}>
-            <p className="text-xs text-emerald-200 uppercase tracking-wider mb-1 opacity-70">Organização</p>
-            <p className="font-semibold text-sm truncate text-white">{companyProfile.name}</p>
+          <div className="px-6 py-4 border-b border-white/10" style={{ backgroundColor: '#1e3a8a' }}>
+            <p className="text-[10px] text-blue-200 uppercase tracking-widest mb-0.5 opacity-70 font-black">Organização</p>
+            <p className="font-black text-xs truncate text-white uppercase">{companyProfile.name}</p>
           </div>
 
           {/* Navigation Scroll Area */}
-          <div className="flex-1 overflow-y-auto sidebar-scroll py-4">
-            <div className="space-y-1">
-              {currentMenuItems.map((item) => (
-                <div key={item.id} className="mb-1 select-none">
+          <div className="flex-1 overflow-y-auto sidebar-scroll py-2">
+            {[
+              { id: SectorId.FINANCEIRO, label: 'Financeiro', icon: DollarSign, items: MENU_ITEMS, color: 'from-blue-400 to-indigo-600' },
+              { id: SectorId.VENDAS, label: 'Vendas', icon: ShoppingCart, items: VENDAS_MENU_ITEMS, color: 'from-emerald-400 to-teal-600' },
+              { id: SectorId.RH, label: 'RH', icon: Users, items: RH_MENU_ITEMS, color: 'from-pink-400 to-rose-600' },
+              { id: SectorId.PRODUCAO, label: 'Produção', icon: Factory, items: PRODUCAO_MENU_ITEMS, color: 'from-orange-400 to-amber-600' },
+              { id: SectorId.COMPRAS, label: 'Compras', icon: ShoppingCart, items: COMPRAS_MENU_ITEMS, color: 'from-indigo-400 to-violet-600' },
+              { id: SectorId.PROJETOS, label: 'Projetos', icon: ClipboardList, items: PROJETOS_MENU_ITEMS, color: 'from-purple-400 to-indigo-600' },
+            ].map((sector) => {
+              const isExpanded = expandedSectors.has(sector.id);
+              const isActiveSector = activeSector === sector.id;
+
+              return (
+                <div key={sector.id} className="mb-1">
                   <div
-                    onClick={() => handleMainItemClick(item)}
+                    onClick={() => {
+                      const next = new Set(expandedSectors);
+                      if (next.has(sector.id)) next.delete(sector.id);
+                      else next.add(sector.id);
+                      setExpandedSectors(next);
+                    }}
                     className={`
-                      relative flex items-center px-4 py-3 cursor-pointer transition-all duration-200
-                      ${activeModule === item.id ? 'bg-white/10 text-white font-medium' : 'text-gray-300 hover:bg-white/5 hover:text-white'}
+                      flex items-center justify-between px-4 py-3 cursor-pointer transition-all duration-200
+                      ${isActiveSector ? 'bg-white/5 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'}
                     `}
                   >
-                    {activeModule === item.id && (
-                      <div 
-                        className="absolute left-0 top-0 bottom-0 w-1" 
-                        style={{ backgroundColor: sectorIndicator, boxShadow: `0 0 10px ${sectorShadow}` }}
-                      ></div>
-                    )}
-
-                    <div className="flex items-center flex-1 gap-3">
-                       <item.icon size={20} className={activeModule === item.id ? sectorIconColor : 'text-gray-400'} />
-                       <span className="text-sm tracking-wide">{item.label}</span>
-                    </div>
-                    
-                    {item.subItems && item.subItems.length > 0 && (
-                      <div className="text-gray-400">
-                        {expandedModules.has(item.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-lg bg-gradient-to-br ${sector.color}`}>
+                        <sector.icon size={16} className="text-white" />
                       </div>
-                    )}
+                      <span className={`text-[11px] font-black uppercase tracking-widest ${isActiveSector ? 'text-white font-black' : 'text-gray-400 font-bold'}`}>
+                        {sector.label}
+                      </span>
+                    </div>
+                    {isExpanded ? <ChevronDown size={14} className="opacity-50" /> : <ChevronRight size={14} className="opacity-50" />}
                   </div>
 
-                  {item.subItems && item.subItems.length > 0 && expandedModules.has(item.id) && (
-                    <div className="relative ml-4 pl-4 border-l border-white/10 space-y-1 py-1 animate-in slide-in-from-top-2 duration-200">
-                      {item.subItems.map((sub) => {
-                        const isSubActive = activeSubItem === sub.id && activeModule === item.id;
-                        return (
+                  {isExpanded && (
+                    <div className="mt-1 space-y-0.5 ml-8 pl-4 border-l border-white/5 py-1 animate-in slide-in-from-top-2 duration-300">
+                      {sector.items.map((item) => (
+                        <div key={item.id} className="mb-0.5 select-none">
                           <div
-                            key={sub.id}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSubItemClick(item.id, sub.id);
+                            onClick={() => {
+                              setActiveSector(sector.id);
+                              handleMainItemClick(item);
                             }}
                             className={`
-                              group flex items-center gap-3 px-3 py-2 text-sm rounded-md cursor-pointer transition-colors
-                              ${isSubActive ? 'text-white bg-white/10 font-medium' : 'text-gray-400 hover:text-white hover:bg-white/5'}
+                              relative flex items-center px-4 py-2 cursor-pointer transition-all duration-200 rounded-lg mr-2
+                              ${activeModule === item.id && isActiveSector ? 'bg-indigo-600/50 text-white font-medium shadow-sm border border-indigo-400/20' : 'text-gray-400 hover:bg-white/5 hover:text-white'}
                             `}
                           >
-                            <div className={`w-1.5 h-1.5 rounded-full transition-colors ${isSubActive ? sectorIconColor.replace('text-', 'bg-') : 'bg-gray-600 group-hover:bg-emerald-400'}`}></div>
-                            <span>{sub.label}</span>
+                            <div className="flex items-center flex-1 gap-3 z-10">
+                              <item.icon size={14} className={activeModule === item.id && isActiveSector ? 'text-white' : 'text-gray-500'} />
+                              <span className={`text-[10px] uppercase font-black tracking-tighter ${activeModule === item.id && isActiveSector ? 'text-white' : 'text-gray-400'}`}>
+                                {item.label}
+                              </span>
+                            </div>
+                            
+                            {item.subItems && item.subItems.length > 0 && (
+                              <div className="text-gray-500">
+                                {expandedModules.has(item.id) ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+                              </div>
+                            )}
                           </div>
-                        );
-                      })}
+
+                          {item.subItems && item.subItems.length > 0 && expandedModules.has(item.id) && isActiveSector && (
+                            <div className="relative ml-6 pl-4 border-l border-white/5 space-y-1 py-1 mt-1">
+                              {item.subItems.map((sub) => {
+                                const isSubActive = activeSubItem === sub.id && activeModule === item.id && isActiveSector;
+                                return (
+                                  <div
+                                    key={sub.id}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveSector(sector.id);
+                                      handleSubItemClick(item.id, sub.id);
+                                    }}
+                                    className={`
+                                      group flex items-center gap-2 px-3 py-1 text-[9px] rounded-md cursor-pointer transition-colors uppercase font-bold tracking-tight
+                                      ${isSubActive ? 'text-white bg-white/10' : 'text-gray-500 hover:text-white hover:bg-white/5'}
+                                    `}
+                                  >
+                                    <div className={`w-1 h-1 rounded-full ${isSubActive ? 'bg-indigo-400' : 'bg-gray-600'}`}></div>
+                                    <span>{sub.label}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-white/10" style={{ backgroundColor: sectorColor }}>
-            <div className="text-center text-[10px] uppercase tracking-widest opacity-40" style={{ color: activeSector === SectorId.FINANCEIRO ? '#93c5fd' : activeSector === SectorId.RH ? '#f472b6' : activeSector === SectorId.PRODUCAO ? '#fbbf24' : activeSector === SectorId.PROJETOS ? '#a5b4fc' : '#6ee7b7' }}>
-              VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : activeSector === SectorId.PROJETOS ? 'Projetos' : 'Vendas'} v1.0
+          <div className="p-6 mt-auto border-t border-white/5 opacity-40">
+            <div className="flex items-center gap-3 mb-2">
+               <div className="p-1.5 bg-white/10 rounded overflow-hidden">
+                  <Store size={14} className="text-white" />
+               </div>
+               <div className="flex flex-col">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-white leading-tight">VMS ERP</span>
+                  <span className="text-[9px] font-bold text-gray-400">v2.1.0</span>
+               </div>
             </div>
           </div>
         </aside>
@@ -643,18 +693,27 @@ const App: React.FC = () => {
             <div className="flex items-center gap-4">
               <button 
                 onClick={() => setSidebarOpen(!isSidebarOpen)}
-                className="lg:hidden p-2 hover:bg-gray-100 rounded-md text-gray-600"
+                className="p-2 hover:bg-gray-100 rounded-md text-gray-600 transition-colors"
+                title={isSidebarOpen ? "Recolher Menu" : "Expandir Menu"}
               >
                 <Menu size={20} />
               </button>
               
               {/* Context Breadcrumb */}
               <div className="hidden md:flex items-center text-sm text-gray-500">
-                <span className="font-medium text-gray-900">VMS {activeSector === SectorId.FINANCEIRO ? 'Financeiro' : activeSector === SectorId.RH ? 'RH' : activeSector === SectorId.PRODUCAO ? 'Produção' : activeSector === SectorId.VENDAS ? 'Vendas' : activeSector === SectorId.COMPRAS ? 'Compras' : activeSector === SectorId.PROJETOS ? 'Projetos' : 'Vendas'}</span>
-                <ChevronRight size={14} className="mx-2" />
-                <span className="cursor-pointer hover:text-gray-700">
+                <span className="font-medium text-gray-900">VMS {getSectorLabel(activeSector)}</span>
+                <ChevronRight size={14} className="mx-2 opacity-50" />
+                <span className="cursor-pointer hover:text-gray-700 font-bold text-slate-800">
                   {currentMenuItems.find(i => i.id === activeModule)?.label}
                 </span>
+                {activeSubItem && (
+                  <>
+                    <ChevronRight size={14} className="mx-2 opacity-30" />
+                    <span className="text-[10px] uppercase font-black tracking-widest text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded cursor-default border border-emerald-100">
+                      {activeSubItem.split('_').pop()?.toUpperCase()}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
 
@@ -676,87 +735,24 @@ const App: React.FC = () => {
                 <Store size={20} className={isLoading ? 'animate-spin text-emerald-600' : ''} />
               </button>
 
-              <div className="relative" ref={notificationRef}>
-                <button 
-                  onClick={() => setNotificationsOpen(!isNotificationsOpen)}
-                  className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <Bell size={20} />
-                  {notifications.length > 0 && (
-                    <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-                  )}
-                </button>
-
-                {isNotificationsOpen && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-200">
-                    <div className="px-4 py-2 border-b border-gray-100 flex items-center justify-between">
-                      <h3 className="font-semibold text-gray-900">Notificações</h3>
-                      <span className="text-xs text-gray-500">{notifications.length} pendentes</span>
-                    </div>
-                    
-                    <div className="max-h-96 overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500">
-                          <Bell size={32} className="mx-auto mb-2 opacity-20" />
-                          <p className="text-sm">Nenhuma notificação</p>
-                        </div>
-                      ) : (
-                        <>
-                          {notifications.slice(0, 10).map((notification) => (
-                            <div 
-                              key={notification.id}
-                              onClick={() => handleNotificationClick(notification)}
-                              className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
-                            >
-                              <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-full ${notification.type === 'expense' ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                                  <Calendar size={16} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 truncate">{notification.description}</p>
-                                  <p className="text-xs text-gray-500 mt-0.5">
-                                    {notification.title} • {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(notification.value)}
-                                  </p>
-                                  <p className={`text-xs mt-1 font-medium ${notification.daysUntil < 0 ? 'text-red-600' : notification.daysUntil === 0 ? 'text-orange-600' : 'text-emerald-600'}`}>
-                                    {notification.daysUntil < 0 
-                                      ? `Venceu há ${Math.abs(notification.daysUntil)} dias`
-                                      : notification.daysUntil === 0
-                                        ? 'Vence hoje'
-                                        : `Vence em ${notification.daysUntil} dias`
-                                    }
-                                  </p>
-                                </div>
-                                <ArrowRight size={14} className="text-gray-300 mt-1" />
-                              </div>
-                            </div>
-                          ))}
-                          {notifications.length > 10 && (
-                            <button 
-                              onClick={() => {
-                                setActiveModule(ModuleId.CONTAS_PAGAR);
-                                setNotificationsOpen(false);
-                              }}
-                              className="w-full py-3 text-sm text-blue-600 font-medium hover:bg-gray-50 transition-colors"
-                            >
-                              Ver todos os títulos ({notifications.length})
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-              
               <div className="h-8 w-px bg-gray-200 mx-1"></div>
 
-              <button className="flex items-center gap-3 hover:bg-gray-50 py-1 px-2 rounded-full transition-colors">
-                <div className="text-right hidden md:block">
-                  <p className="text-sm font-medium text-gray-900">{userProfile.name}</p>
-                  <p className="text-xs text-gray-500">{userProfile.role}</p>
+              <button className="flex items-center gap-3 hover:bg-gray-50 py-1 px-4 rounded-xl transition-all border border-transparent hover:border-gray-100">
+                <div className="relative">
+                   <Bell size={24} className="text-slate-400" />
+                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-600 text-[10px] text-white flex items-center justify-center rounded-full font-black border-2 border-white">5</span>
                 </div>
-                <div className="w-9 h-9 bg-[#047857] rounded-full flex items-center justify-center text-white font-medium shadow-sm">
-                  {userProfile.avatar || userProfile.name.substring(0, 2).toUpperCase()}
+                
+                <div className="w-10 h-10 bg-slate-200 rounded-xl overflow-hidden shadow-sm border border-gray-100">
+                  <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=2070&auto=format&fit=crop" alt="Avatar" className="w-full h-full object-cover" />
+                </div>
+
+                <div className="text-right hidden md:block select-none">
+                  <p className="text-[11px] font-black text-slate-800 leading-tight">Administrador</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight flex items-center justify-end gap-1">
+                    VMS MÓVEIS
+                    <ChevronDown size={12} className="text-gray-300" />
+                  </p>
                 </div>
               </button>
             </div>

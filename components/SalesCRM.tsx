@@ -89,13 +89,10 @@ export const SalesCRM: React.FC = () => {
     switch (status) {
       case LeadStatus.NEW: return 'Novo Lead';
       case LeadStatus.QUALIFICATION: return 'Qualificação';
-      case LeadStatus.QUOTE: return 'Orçamentos';
+      case LeadStatus.MEETING: return 'Visita Agendada';
+      case LeadStatus.PROPOSAL: return 'Proposta';
       case LeadStatus.NEGOTIATION: return 'Negociação';
-      case LeadStatus.ORDER_CONFIRMED: return 'Pedido Confirmado';
-      case LeadStatus.PRODUCTION: return 'Produção';
-      case LeadStatus.DELIVERY: return 'Entrega / Instalação';
       case LeadStatus.WON: return 'Venda Concluída';
-      case LeadStatus.POST_SALE: return 'Pós - Venda';
       case LeadStatus.LOST: return 'Perdido';
       default: return status;
     }
@@ -105,13 +102,10 @@ export const SalesCRM: React.FC = () => {
     switch (status) {
       case LeadStatus.NEW: return 'bg-blue-100 text-blue-700 border-blue-200';
       case LeadStatus.QUALIFICATION: return 'bg-indigo-100 text-indigo-700 border-indigo-200';
-      case LeadStatus.QUOTE: return 'bg-amber-100 text-amber-700 border-amber-200';
+      case LeadStatus.MEETING: return 'bg-amber-100 text-amber-700 border-amber-200';
       case LeadStatus.NEGOTIATION: return 'bg-purple-100 text-purple-700 border-purple-200';
-      case LeadStatus.ORDER_CONFIRMED: return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-      case LeadStatus.PRODUCTION: return 'bg-orange-100 text-orange-700 border-orange-200';
-      case LeadStatus.DELIVERY: return 'bg-cyan-100 text-cyan-700 border-cyan-200';
+      case LeadStatus.PROPOSAL: return 'bg-orange-100 text-orange-700 border-orange-200';
       case LeadStatus.WON: return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-      case LeadStatus.POST_SALE: return 'bg-pink-100 text-pink-700 border-pink-200';
       case LeadStatus.LOST: return 'bg-red-100 text-red-700 border-red-200';
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
     }
@@ -120,13 +114,11 @@ export const SalesCRM: React.FC = () => {
   const kanbanColumns = [
     { id: LeadStatus.NEW, label: 'Novos Leads', color: 'border-blue-500' },
     { id: LeadStatus.QUALIFICATION, label: 'Qualificação', color: 'border-indigo-500' },
-    { id: LeadStatus.QUOTE, label: 'Orçamentos', color: 'border-amber-500' },
+    { id: LeadStatus.MEETING, label: 'Visita Agendada', color: 'border-amber-500' },
+    { id: LeadStatus.PROPOSAL, label: 'Proposta', color: 'border-orange-500' },
     { id: LeadStatus.NEGOTIATION, label: 'Negociação', color: 'border-purple-500' },
-    { id: LeadStatus.ORDER_CONFIRMED, label: 'Pedido Confirmado', color: 'border-emerald-500' },
-    { id: LeadStatus.PRODUCTION, label: 'Produção', color: 'border-orange-500' },
-    { id: LeadStatus.DELIVERY, label: 'Entrega / Instalação', color: 'border-cyan-500' },
     { id: LeadStatus.WON, label: 'Venda Concluída', color: 'border-emerald-600' },
-    { id: LeadStatus.POST_SALE, label: 'Pós - Venda', color: 'border-pink-500' }
+    { id: LeadStatus.LOST, label: 'Perdido', color: 'border-red-500' }
   ];
 
   // Analytics Data
@@ -312,49 +304,38 @@ export const SalesCRM: React.FC = () => {
                 lastContact: l.lastContact,
                 type: 'lead'
               }));
-            } else if (column.id === LeadStatus.QUOTE) {
-              columnItems = quotes.filter(q => q.status === 'draft' || q.status === 'waiting_approval').map(q => ({
-                id: q.id,
-                title: q.client,
-                subtitle: q.items?.[0]?.name || 'Item de Orçamento',
-                value: q.value,
-                probability: 50,
-                date: q.expiryDate,
-                lastContact: q.date,
-                type: 'quote'
+            } else if (column.id === LeadStatus.MEETING) {
+              columnItems = filteredLeads.filter(l => l.status === LeadStatus.MEETING).map(l => ({
+                id: l.id,
+                title: l.company,
+                subtitle: l.contactName,
+                value: l.value,
+                probability: l.probability,
+                date: l.expectedCloseDate,
+                lastContact: l.lastContact,
+                type: 'lead'
               }));
             } else if (column.id === LeadStatus.NEGOTIATION) {
-              columnItems = quotes.filter(q => q.status === 'sent').map(q => ({
-                id: q.id,
-                title: q.client,
-                subtitle: q.items?.[0]?.name || 'Item de Orçamento',
-                value: q.value,
+              columnItems = filteredLeads.filter(l => l.status === LeadStatus.NEGOTIATION).map(l => ({
+                id: l.id,
+                title: l.company,
+                subtitle: l.contactName,
+                value: l.value,
                 probability: 70,
-                date: q.expiryDate,
-                lastContact: q.date,
-                type: 'quote'
+                date: l.expectedCloseDate,
+                lastContact: l.lastContact,
+                type: 'lead'
               }));
-            } else if (column.id === LeadStatus.ORDER_CONFIRMED) {
-              columnItems = quotes.filter(q => q.status === 'approved').map(q => ({
-                id: q.id,
-                title: q.client,
-                subtitle: q.items?.[0]?.name || 'Item de Orçamento',
-                value: q.value,
+            } else if (column.id === LeadStatus.PROPOSAL) {
+              columnItems = filteredLeads.filter(l => l.status === LeadStatus.PROPOSAL).map(l => ({
+                id: l.id,
+                title: l.company,
+                subtitle: l.contactName,
+                value: l.value,
                 probability: 90,
-                date: q.expiryDate,
-                lastContact: q.date,
-                type: 'quote'
-              }));
-            } else if (column.id === LeadStatus.PRODUCTION) {
-              columnItems = productionOrders.filter(po => po.status === 'in_production').map(po => ({
-                id: po.id,
-                title: po.client,
-                subtitle: po.productName,
-                value: 0, // Production orders don't have value directly in the interface
-                probability: po.progress,
-                date: po.deadline,
-                lastContact: po.deadline,
-                type: 'production'
+                date: l.expectedCloseDate,
+                lastContact: l.lastContact,
+                type: 'lead'
               }));
             } else if (column.id === LeadStatus.WON) {
               columnItems = sales.filter(s => s.status === 'completed').map(s => ({
@@ -366,17 +347,6 @@ export const SalesCRM: React.FC = () => {
                 date: s.date,
                 lastContact: s.date,
                 type: 'sale'
-              }));
-            } else if (column.id === LeadStatus.POST_SALE) {
-              columnItems = filteredLeads.filter(l => l.status === LeadStatus.POST_SALE).map(l => ({
-                id: l.id,
-                title: l.company,
-                subtitle: l.contactName,
-                value: l.value,
-                probability: 100,
-                date: l.expectedCloseDate,
-                lastContact: l.lastContact,
-                type: 'lead'
               }));
             }
 
