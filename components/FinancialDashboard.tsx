@@ -9,9 +9,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   LineChart, Line, Legend, AreaChart, Area, PieChart, Pie, Cell 
 } from 'recharts';
-import { useTransactions } from '@/src/context/TransactionContext';
-import { useSales } from '@/src/context/SalesContext';
-import { usePurchasing } from '@/src/context/PurchasingContext';
+import { useTransactions } from '../src/context/TransactionContext';
+import { useSales } from '../src/context/SalesContext';
+import { usePurchasing } from '../src/context/PurchasingContext';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 

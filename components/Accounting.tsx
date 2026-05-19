@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { FileText, Book, Scale, Calculator, Calendar, Edit2, Trash2, PieChart, TrendingUp, FileBarChart, List, AlignLeft, ListTree, AlertTriangle } from 'lucide-react';
-import { useTransactions } from '@/src/context/TransactionContext';
-import { useSales } from '@/src/context/SalesContext';
-import { usePurchasing } from '@/src/context/PurchasingContext';
+import { useTransactions } from '../src/context/TransactionContext';
+import { useSales } from '../src/context/SalesContext';
+import { usePurchasing } from '../src/context/PurchasingContext';
 import { ChartOfAccounts } from './ChartOfAccounts';
 
 interface AccountingProps {

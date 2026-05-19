@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Download, Edit, Trash2, FileText, Check } from 'lucide-react';
-import { useTransactions } from '@/src/context/TransactionContext';
+import { useTransactions } from '../src/context/TransactionContext';
 
 export const AccountsReceivable: React.FC = () => {
   const { transactions, deleteTransaction, openModal } = useTransactions();

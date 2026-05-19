@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, ArrowUpCircle, ArrowDownCircle, X, Landmark, ShieldCheck, BarChart3, Wallet, ListTree } from 'lucide-react';
 import { AccountPlan } from '../services/financialData';
-import { useTransactions } from '@/src/context/TransactionContext';
+import { useTransactions } from '../src/context/TransactionContext';
 
 interface ChartOfAccountsProps {
   onSelect?: (account: AccountPlan) => void;

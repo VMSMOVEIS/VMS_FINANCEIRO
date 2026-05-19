@@ -1,11 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { TransactionProvider } from '@/src/context/TransactionContext';
-import { EmployeeProvider } from '@/src/context/EmployeeContext';
-import { SalesProvider } from '@/src/context/SalesContext';
-import { ProductionProvider } from '@/src/context/ProductionContext';
-import { PurchasingProvider } from '@/src/context/PurchasingContext';
+import { TransactionProvider } from './context/TransactionContext';
+import { EmployeeProvider } from './context/EmployeeContext';
+import { SalesProvider } from './context/SalesContext';
+import { ProductionProvider } from './context/ProductionContext';
+import { PurchasingProvider } from './context/PurchasingContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

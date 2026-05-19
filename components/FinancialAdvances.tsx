@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Search, Filter, Landmark, CheckCircle2, AlertCircle, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
-import { useTransactions } from '@/src/context/TransactionContext';
+import { useTransactions } from '../src/context/TransactionContext';
 
 interface FinancialAdvancesProps {
   initialFilter?: 'all' | 'customer' | 'supplier';

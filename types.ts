@@ -6,7 +6,8 @@ export enum SectorId {
   PRODUCAO = 'producao',
   VENDAS = 'vendas',
   COMPRAS = 'compras',
-  PROJETOS = 'projetos'
+  PROJETOS = 'projetos',
+  ESTOQUES = 'estoques'
 }
 
 export enum ModuleId {
@@ -113,7 +114,19 @@ export enum ModuleId {
   PLAN_PRODUCAO = 'plan_producao',
   PLAN_VENDAS = 'plan_vendas',
   PLAN_COMPRAS = 'plan_compras',
-  PLAN_PROJETOS = 'plan_projetos'
+  PLAN_PROJETOS = 'plan_projetos',
+
+  // Estoques Modules
+  ESTOQUES_VISAO_GERAL = 'estoques_visao_geral',
+  ESTOQUES_MATERIA_PRIMA = 'estoques_materia_prima',
+  ESTOQUES_WIP = 'estoques_wip',
+  ESTOQUES_PRODUTOS_ACABADOS = 'estoques_produtos_acabados',
+  ESTOQUES_RETALHOS = 'estoques_retalhos',
+  ESTOQUES_MOVIMENTACOES = 'estoques_movimentacoes',
+  ESTOQUES_RESERVAS = 'estoques_reservas',
+  ESTOQUES_INVENTARIO = 'estoques_inventario',
+  ESTOQUES_RELATORIOS = 'estoques_relatorios',
+  ESTOQUES_CONFIG = 'estoques_config'
 }
 
 export interface SubMenuItem {

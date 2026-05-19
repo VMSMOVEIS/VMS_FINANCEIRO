@@ -35,7 +35,11 @@ import {
   Goal,
   BarChart3,
   Truck,
-  ShoppingBag
+  ShoppingBag,
+  Box,
+  Layers,
+  RefreshCw,
+  BookmarkCheck
 } from 'lucide-react';
 import { MenuItem, ModuleId } from './types';
 
@@ -478,5 +482,58 @@ export const PROJETOS_MENU_ITEMS: MenuItem[] = [
     id: ModuleId.PROJETOS_CONFIG,
     label: 'Configurações',
     icon: Settings2,
+  }
+];
+
+export const ESTOQUES_MENU_ITEMS: MenuItem[] = [
+  {
+    id: ModuleId.ESTOQUES_VISAO_GERAL,
+    label: 'Visão Geral',
+    icon: LayoutDashboard,
+  },
+  {
+    id: ModuleId.ESTOQUES_MATERIA_PRIMA,
+    label: 'Matéria-Prima',
+    icon: Box,
+  },
+  {
+    id: ModuleId.ESTOQUES_WIP,
+    label: 'Em Processo (WIP)',
+    icon: Factory,
+  },
+  {
+    id: ModuleId.ESTOQUES_PRODUTOS_ACABADOS,
+    label: 'Produtos Acabados',
+    icon: Package,
+  },
+  {
+    id: ModuleId.ESTOQUES_RETALHOS,
+    label: 'Retalhos',
+    icon: Layers,
+  },
+  {
+    id: ModuleId.ESTOQUES_MOVIMENTACOES,
+    label: 'Movimentações',
+    icon: RefreshCw,
+  },
+  {
+    id: ModuleId.ESTOQUES_RESERVAS,
+    label: 'Reservas',
+    icon: BookmarkCheck,
+  },
+  {
+    id: ModuleId.ESTOQUES_INVENTARIO,
+    label: 'Inventário',
+    icon: ClipboardList,
+  },
+  {
+    id: ModuleId.ESTOQUES_RELATORIOS,
+    label: 'Relatórios',
+    icon: BarChart3,
+  },
+  {
+    id: ModuleId.ESTOQUES_CONFIG,
+    label: 'Configurações',
+    icon: Sliders,
   }
 ];

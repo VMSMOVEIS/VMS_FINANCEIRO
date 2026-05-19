@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Calendar, FileText, DollarSign, Briefcase, Wallet, Hash, User, Plus, Minus, AlertCircle, Search, Tag } from 'lucide-react';
 import { getAccountPlans, getTransactionTypes, AccountPlan, TransactionType } from '../services/financialData';
-import { useTransactions } from '@/src/context/TransactionContext';
+import { useTransactions } from '../src/context/TransactionContext';
 import { Transaction, Payment, TransactionSplit } from '../types';
 import { SearchTransactionModal } from './SearchTransactionModal';
 import { ChartOfAccounts } from './ChartOfAccounts';
